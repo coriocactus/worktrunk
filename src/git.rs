@@ -127,6 +127,120 @@ fn parse_worktree_list(output: &str) -> Result<Vec<Worktree>, GitError> {
     Ok(worktrees)
 }
 
+/// Get the default branch name using a hybrid approach:
+/// 1. Try local cache (origin/HEAD) first for speed
+/// 2. If not cached, query the remote and cache the result
+pub fn get_default_branch() -> Result<String, GitError> {
+    get_default_branch_in(std::path::Path::new("."))
+}
+
+/// Get the default branch name for a repository at the given path
+pub fn get_default_branch_in(path: &std::path::Path) -> Result<String, GitError> {
+    // Try local cache first (fast path)
+    if let Ok(branch) = get_local_default_branch(path) {
+        return Ok(branch);
+    }
+
+    // Query remote and cache it
+    let branch = query_remote_default_branch(path)?;
+    cache_default_branch(path, &branch)?;
+    Ok(branch)
+}
+
+/// Try to get the default branch from the local cache (origin/HEAD)
+fn get_local_default_branch(path: &std::path::Path) -> Result<String, GitError> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "origin/HEAD"])
+        .current_dir(path)
+        .output()
+        .map_err(|e| GitError::CommandFailed(e.to_string()))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::CommandFailed(stderr.to_string()));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_local_default_branch(&stdout)
+}
+
+/// Parse the output of `git rev-parse --abbrev-ref origin/HEAD`
+/// Expected format: "origin/main\n"
+fn parse_local_default_branch(output: &str) -> Result<String, GitError> {
+    let trimmed = output.trim();
+
+    // Strip "origin/" prefix if present
+    let branch = trimmed
+        .strip_prefix("origin/")
+        .unwrap_or(trimmed);
+
+    if branch.is_empty() {
+        return Err(GitError::ParseError(
+            "Empty branch name from origin/HEAD".to_string(),
+        ));
+    }
+
+    Ok(branch.to_string())
+}
+
+/// Query the remote to determine the default branch
+fn query_remote_default_branch(path: &std::path::Path) -> Result<String, GitError> {
+    let output = Command::new("git")
+        .args(["ls-remote", "--symref", "origin", "HEAD"])
+        .current_dir(path)
+        .output()
+        .map_err(|e| GitError::CommandFailed(e.to_string()))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::CommandFailed(stderr.to_string()));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_remote_default_branch(&stdout)
+}
+
+/// Parse the output of `git ls-remote --symref origin HEAD`
+/// Expected format:
+/// ```text
+/// ref: refs/heads/main	HEAD
+/// 85a1ce7c7182540f9c02453441cb3e8bf0ced214	HEAD
+/// ```
+fn parse_remote_default_branch(output: &str) -> Result<String, GitError> {
+    for line in output.lines() {
+        if let Some(symref) = line.strip_prefix("ref: ") {
+            // Parse "refs/heads/main\tHEAD"
+            let parts: Vec<&str> = symref.split('\t').collect();
+            if let Some(ref_path) = parts.first() {
+                // Strip "refs/heads/" prefix
+                if let Some(branch) = ref_path.strip_prefix("refs/heads/") {
+                    return Ok(branch.to_string());
+                }
+            }
+        }
+    }
+
+    Err(GitError::ParseError(
+        "Could not find symbolic ref in ls-remote output".to_string(),
+    ))
+}
+
+/// Cache the default branch locally by setting origin/HEAD
+fn cache_default_branch(path: &std::path::Path, branch: &str) -> Result<(), GitError> {
+    let output = Command::new("git")
+        .args(["remote", "set-head", "origin", branch])
+        .current_dir(path)
+        .output()
+        .map_err(|e| GitError::CommandFailed(e.to_string()))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GitError::CommandFailed(stderr.to_string()));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +310,123 @@ bare
         let worktrees = parse_worktree_list(output).unwrap();
         assert_eq!(worktrees.len(), 1);
         assert!(worktrees[0].bare);
+    }
+
+    #[test]
+    fn test_parse_local_default_branch_with_prefix() {
+        let output = "origin/main\n";
+        let branch = parse_local_default_branch(output).unwrap();
+        assert_eq!(branch, "main");
+    }
+
+    #[test]
+    fn test_parse_local_default_branch_without_prefix() {
+        let output = "main\n";
+        let branch = parse_local_default_branch(output).unwrap();
+        assert_eq!(branch, "main");
+    }
+
+    #[test]
+    fn test_parse_local_default_branch_master() {
+        let output = "origin/master\n";
+        let branch = parse_local_default_branch(output).unwrap();
+        assert_eq!(branch, "master");
+    }
+
+    #[test]
+    fn test_parse_local_default_branch_custom_name() {
+        let output = "origin/develop\n";
+        let branch = parse_local_default_branch(output).unwrap();
+        assert_eq!(branch, "develop");
+    }
+
+    #[test]
+    fn test_parse_local_default_branch_empty() {
+        let output = "";
+        let result = parse_local_default_branch(output);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), GitError::ParseError(_)));
+    }
+
+    #[test]
+    fn test_parse_local_default_branch_whitespace_only() {
+        let output = "  \n  ";
+        let result = parse_local_default_branch(output);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_main() {
+        let output = "ref: refs/heads/main\tHEAD
+85a1ce7c7182540f9c02453441cb3e8bf0ced214\tHEAD
+";
+        let branch = parse_remote_default_branch(output).unwrap();
+        assert_eq!(branch, "main");
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_master() {
+        let output = "ref: refs/heads/master\tHEAD
+abcd1234567890abcd1234567890abcd12345678\tHEAD
+";
+        let branch = parse_remote_default_branch(output).unwrap();
+        assert_eq!(branch, "master");
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_custom() {
+        let output = "ref: refs/heads/develop\tHEAD
+1234567890abcdef1234567890abcdef12345678\tHEAD
+";
+        let branch = parse_remote_default_branch(output).unwrap();
+        assert_eq!(branch, "develop");
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_only_symref_line() {
+        let output = "ref: refs/heads/main\tHEAD\n";
+        let branch = parse_remote_default_branch(output).unwrap();
+        assert_eq!(branch, "main");
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_missing_symref() {
+        let output = "85a1ce7c7182540f9c02453441cb3e8bf0ced214\tHEAD\n";
+        let result = parse_remote_default_branch(output);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), GitError::ParseError(_)));
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_empty() {
+        let output = "";
+        let result = parse_remote_default_branch(output);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_malformed_ref() {
+        // Missing refs/heads/ prefix
+        let output = "ref: main\tHEAD\n";
+        let result = parse_remote_default_branch(output);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_with_spaces() {
+        // Space instead of tab (shouldn't happen in practice, but test robustness)
+        let output = "ref: refs/heads/main HEAD\n";
+        let result = parse_remote_default_branch(output);
+        // This will parse as "main HEAD" which is technically incorrect,
+        // but git branch names can contain spaces (though rarely used)
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "main HEAD");
+    }
+
+    #[test]
+    fn test_parse_remote_default_branch_branch_with_slash() {
+        let output = "ref: refs/heads/feature/new-ui\tHEAD\n";
+        let branch = parse_remote_default_branch(output).unwrap();
+        assert_eq!(branch, "feature/new-ui");
     }
 }

@@ -31,6 +31,7 @@ pub struct TestRepo {
     temp_dir: TempDir, // Must keep to ensure cleanup on drop
     root: PathBuf,
     pub worktrees: HashMap<String, PathBuf>,
+    remote: Option<PathBuf>, // Path to bare remote repo if created
 }
 
 impl TestRepo {
@@ -49,6 +50,7 @@ impl TestRepo {
             temp_dir,
             root,
             worktrees: HashMap::new(),
+            remote: None,
         };
 
         // Initialize git repo with isolated environment
@@ -253,5 +255,84 @@ impl TestRepo {
             .current_dir(&self.root)
             .output()
             .expect("Failed to lock worktree");
+    }
+
+    /// Create a bare remote repository and set it as origin
+    ///
+    /// This creates a bare git repository in the temp directory and configures
+    /// it as the 'origin' remote. The remote will have the same default branch
+    /// as the local repository (main).
+    pub fn setup_remote(&mut self, default_branch: &str) {
+        // Create bare remote repository
+        let remote_path = self.temp_dir.path().join("remote.git");
+        std::fs::create_dir(&remote_path).expect("Failed to create remote directory");
+
+        let mut cmd = Command::new("git");
+        self.configure_git_cmd(&mut cmd);
+        cmd.args(["init", "--bare", "--initial-branch", default_branch])
+            .current_dir(&remote_path)
+            .output()
+            .expect("Failed to init bare remote");
+
+        // Canonicalize remote path
+        let remote_path = remote_path
+            .canonicalize()
+            .expect("Failed to canonicalize remote path");
+
+        // Add as remote
+        let mut cmd = Command::new("git");
+        self.configure_git_cmd(&mut cmd);
+        cmd.args(["remote", "add", "origin", remote_path.to_str().unwrap()])
+            .current_dir(&self.root)
+            .output()
+            .expect("Failed to add remote");
+
+        // Push current branch to remote
+        let mut cmd = Command::new("git");
+        self.configure_git_cmd(&mut cmd);
+        cmd.args(["push", "-u", "origin", default_branch])
+            .current_dir(&self.root)
+            .output()
+            .expect("Failed to push to remote");
+
+        // Set origin/HEAD to point to the default branch
+        let mut cmd = Command::new("git");
+        self.configure_git_cmd(&mut cmd);
+        cmd.args(["remote", "set-head", "origin", default_branch])
+            .current_dir(&self.root)
+            .output()
+            .expect("Failed to set origin/HEAD");
+
+        self.remote = Some(remote_path);
+    }
+
+    /// Clear the local origin/HEAD reference
+    ///
+    /// This forces git to not have a cached default branch, useful for testing
+    /// the fallback path that queries the remote.
+    pub fn clear_origin_head(&self) {
+        let mut cmd = Command::new("git");
+        self.configure_git_cmd(&mut cmd);
+        cmd.args(["remote", "set-head", "origin", "--delete"])
+            .current_dir(&self.root)
+            .output()
+            .expect("Failed to clear origin/HEAD");
+    }
+
+    /// Get the path to the remote repository if one was set up
+    pub fn remote_path(&self) -> Option<&Path> {
+        self.remote.as_deref()
+    }
+
+    /// Check if origin/HEAD is set
+    pub fn has_origin_head(&self) -> bool {
+        let mut cmd = Command::new("git");
+        self.configure_git_cmd(&mut cmd);
+        let output = cmd
+            .args(["rev-parse", "--abbrev-ref", "origin/HEAD"])
+            .current_dir(&self.root)
+            .output()
+            .expect("Failed to check origin/HEAD");
+        output.status.success()
     }
 }
