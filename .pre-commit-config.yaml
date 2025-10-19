@@ -1,0 +1,45 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+        exclude: '.*\.snap$'
+      - id: check-yaml
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+        # rustfmt handles rust files, and in snapshots we expect trailing spaces.
+        exclude: '.*\.(rs|snap)$'
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.37.2
+    hooks:
+      - id: typos
+        # https://github.com/crate-ci/typos/issues/347
+        pass_filenames: false
+  - repo: https://github.com/r0x0d/pre-commit-rust
+    rev: v1.0.1
+    hooks:
+      - id: fmt
+  - repo: https://github.com/r0x0d/pre-commit-rust
+    rev: v1.0.1
+    hooks:
+      - id: clippy
+        stages: [manual]
+  - repo: https://github.com/tcort/markdown-link-check
+    rev: v3.14.1
+    hooks:
+      - id: markdown-link-check
+        name: markdown-link-check
+        types: [markdown]
+  - repo: local
+    hooks:
+      - id: no-dbg
+        name: no-dbg
+        description: We shouldn't merge code with `dbg!` in
+        language: pygrep
+        types: ["rust"]
+        entry: "dbg!"
+
+ci:
+  # Currently network access isn't supported in the CI product.
+  skip: [fmt, markdown-link-check]
+  autoupdate_commit_msg: "chore: pre-commit autoupdate"

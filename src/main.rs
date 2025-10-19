@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
+use std::process;
 use worktrunk::git::{GitError, list_worktrees};
 use worktrunk::shell;
-use std::process;
 
 #[derive(Parser)]
 #[command(name = "wt")]

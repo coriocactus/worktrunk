@@ -45,8 +45,7 @@ fn test_get_default_branch_caches_result() {
     assert!(!repo.has_origin_head());
 
     // First call queries remote and caches
-    worktrunk::git::get_default_branch_in(repo.root_path())
-        .expect("Failed to get default branch");
+    worktrunk::git::get_default_branch_in(repo.root_path()).expect("Failed to get default branch");
     assert!(repo.has_origin_head());
 
     // Second call uses cache (fast path)

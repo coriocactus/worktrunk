@@ -170,9 +170,7 @@ fn parse_local_default_branch(output: &str) -> Result<String, GitError> {
     let trimmed = output.trim();
 
     // Strip "origin/" prefix if present
-    let branch = trimmed
-        .strip_prefix("origin/")
-        .unwrap_or(trimmed);
+    let branch = trimmed.strip_prefix("origin/").unwrap_or(trimmed);
 
     if branch.is_empty() {
         return Err(GitError::ParseError(
