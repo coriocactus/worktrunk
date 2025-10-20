@@ -1,3 +1,4 @@
+pub mod completion;
 pub mod default_branch;
 pub mod directives;
 pub mod e2e_shell;

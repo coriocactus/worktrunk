@@ -51,3 +51,15 @@ else
     PROMPT_COMMAND="${PROMPT_COMMAND}; _wt_prompt_hook"
 fi
 {% endif %}
+
+# Dynamic completion function
+_{{ cmd_prefix }}_complete() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+
+    # Call wt complete with current command line
+    local completions=$(command wt complete "${COMP_WORDS[@]}" 2>/dev/null)
+    COMPREPLY=($(compgen -W "$completions" -- "$cur"))
+}
+
+# Register dynamic completion
+complete -F _{{ cmd_prefix }}_complete {{ cmd_prefix }}

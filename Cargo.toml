@@ -17,6 +17,7 @@ anstream = "0.6"
 anstyle = "1.0"
 askama = { version = "0.14", default-features = false, features = ["derive", "std"] }
 clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
 config = "0.15"
 directories = "6.0"
 serde = { version = "1.0", features = ["derive"] }

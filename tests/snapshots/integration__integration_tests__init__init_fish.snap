@@ -55,4 +55,17 @@ end
 
 
 
+# Dynamic completion function
+function __wt_complete
+    # Call wt complete with current command line
+    set -l cmd (commandline -opc)
+    command wt complete $cmd 2>/dev/null
+end
+
+# Register dynamic completions
+complete -c wt -n '__fish_seen_subcommand_from switch' -f -a '(__wt_complete)' -d 'Branch'
+complete -c wt -n '__fish_seen_subcommand_from push' -f -a '(__wt_complete)' -d 'Target branch'
+complete -c wt -n '__fish_seen_subcommand_from merge' -f -a '(__wt_complete)' -d 'Target branch'
+complete -c wt -l base -f -a '(__wt_complete)' -d 'Base branch'
+
 ----- stderr -----

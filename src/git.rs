@@ -516,6 +516,44 @@ fn parse_numstat(output: &str) -> Result<(usize, usize), GitError> {
     Ok((total_added, total_deleted))
 }
 
+/// Get all branch names (local and remote)
+pub fn get_all_branches() -> Result<Vec<String>, GitError> {
+    get_all_branches_in(std::path::Path::new("."))
+}
+
+/// Get all branch names in a specific directory
+pub fn get_all_branches_in(path: &std::path::Path) -> Result<Vec<String>, GitError> {
+    let stdout = run_git_command(
+        &["branch", "--all", "--format=%(refname:short)"],
+        Some(path),
+    )?;
+    Ok(stdout
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect())
+}
+
+/// Get branches that don't have worktrees (available for switch)
+/// Note: This function operates on the current directory (assumes you're in a git repo)
+pub fn get_available_branches() -> Result<Vec<String>, GitError> {
+    // Get all branches from current directory
+    let all_branches = get_all_branches()?;
+
+    // Get worktrees (always operates on current git repository)
+    let worktrees = list_worktrees()?;
+
+    // Collect branches that have worktrees
+    let branches_with_worktrees: std::collections::HashSet<String> =
+        worktrees.into_iter().filter_map(|wt| wt.branch).collect();
+
+    // Filter out branches with worktrees
+    Ok(all_branches
+        .into_iter()
+        .filter(|branch| !branches_with_worktrees.contains(branch))
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

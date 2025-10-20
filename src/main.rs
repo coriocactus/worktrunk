@@ -1,12 +1,14 @@
 use anstyle::{AnsiColor, Color, Style};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap_complete::{Shell as CompletionShell, generate};
+use std::io;
 use std::process;
 use worktrunk::git::{
-    GitError, branch_exists, count_commits, get_ahead_behind_in, get_branch_diff_stats_in,
-    get_changed_files, get_commit_timestamp_in, get_current_branch, get_current_branch_in,
-    get_default_branch, get_git_common_dir, get_working_tree_diff_stats_in, get_worktree_root,
-    has_merge_commits, is_ancestor, is_dirty, is_dirty_in, is_in_worktree, list_worktrees,
-    worktree_for_branch,
+    GitError, branch_exists, count_commits, get_ahead_behind_in, get_all_branches,
+    get_available_branches, get_branch_diff_stats_in, get_changed_files, get_commit_timestamp_in,
+    get_current_branch, get_current_branch_in, get_default_branch, get_git_common_dir,
+    get_working_tree_diff_stats_in, get_worktree_root, has_merge_commits, is_ancestor, is_dirty,
+    is_dirty_in, is_in_worktree, list_worktrees, worktree_for_branch,
 };
 use worktrunk::shell;
 
@@ -88,6 +90,28 @@ enum Commands {
         /// Hook type
         hook_type: String,
     },
+
+    /// Generate shell completion script
+    Completion {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+
+    /// Internal completion helper (hidden)
+    #[command(hide = true)]
+    Complete {
+        /// Arguments to complete
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+}
+
+#[derive(ValueEnum, Clone, Copy)]
+enum Shell {
+    Bash,
+    Fish,
+    Zsh,
 }
 
 fn main() {
@@ -111,6 +135,11 @@ fn main() {
         } => handle_push(target.as_deref(), allow_merge_commits),
         Commands::Merge { target, keep } => handle_merge(target.as_deref(), keep),
         Commands::Hook { hook_type } => handle_hook(&hook_type).map_err(GitError::CommandFailed),
+        Commands::Completion { shell } => {
+            handle_completion(shell);
+            Ok(())
+        }
+        Commands::Complete { args } => handle_complete(args),
     };
 
     if let Err(e) = result {
@@ -774,5 +803,142 @@ fn handle_hook(hook_type: &str) -> Result<(), String> {
             Ok(())
         }
         _ => Err(format!("Unknown hook type: {}", hook_type)),
+    }
+}
+
+fn handle_completion(shell: Shell) {
+    let mut cmd = Cli::command();
+    let completion_shell = match shell {
+        Shell::Bash => CompletionShell::Bash,
+        Shell::Fish => CompletionShell::Fish,
+        Shell::Zsh => CompletionShell::Zsh,
+    };
+    generate(completion_shell, &mut cmd, "wt", &mut io::stdout());
+}
+
+#[derive(Debug, PartialEq)]
+enum CompletionContext {
+    SwitchBranch,
+    PushTarget,
+    MergeTarget,
+    BaseFlag,
+    Unknown,
+}
+
+fn parse_completion_context(args: &[String]) -> CompletionContext {
+    // args format: ["wt", "switch", "partial"]
+    // or: ["wt", "switch", "--create", "new", "--base", "partial"]
+
+    if args.len() < 2 {
+        return CompletionContext::Unknown;
+    }
+
+    let subcommand = &args[1];
+
+    match subcommand.as_str() {
+        "switch" => {
+            // Check if we're completing --base flag value
+            if args.len() >= 3 {
+                for i in 2..args.len() - 1 {
+                    if args[i] == "--base" || args[i] == "-b" {
+                        // We're completing the value after --base
+                        return CompletionContext::BaseFlag;
+                    }
+                }
+            }
+            CompletionContext::SwitchBranch
+        }
+        "push" => CompletionContext::PushTarget,
+        "merge" => CompletionContext::MergeTarget,
+        _ => CompletionContext::Unknown,
+    }
+}
+
+fn handle_complete(args: Vec<String>) -> Result<(), GitError> {
+    let context = parse_completion_context(&args);
+
+    match context {
+        CompletionContext::SwitchBranch => {
+            // Complete with available branches (excluding those with worktrees)
+            let branches = get_available_branches().unwrap_or_else(|e| {
+                if std::env::var("WT_DEBUG_COMPLETION").is_ok() {
+                    eprintln!("completion error: {}", e);
+                }
+                Vec::new()
+            });
+            for branch in branches {
+                println!("{}", branch);
+            }
+        }
+        CompletionContext::PushTarget
+        | CompletionContext::MergeTarget
+        | CompletionContext::BaseFlag => {
+            // Complete with all branches
+            let branches = get_all_branches().unwrap_or_else(|e| {
+                if std::env::var("WT_DEBUG_COMPLETION").is_ok() {
+                    eprintln!("completion error: {}", e);
+                }
+                Vec::new()
+            });
+            for branch in branches {
+                println!("{}", branch);
+            }
+        }
+        CompletionContext::Unknown => {
+            // No completions
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_completion_context_switch() {
+        let args = vec!["wt".to_string(), "switch".to_string(), "feat".to_string()];
+        assert_eq!(
+            parse_completion_context(&args),
+            CompletionContext::SwitchBranch
+        );
+    }
+
+    #[test]
+    fn test_parse_completion_context_push() {
+        let args = vec!["wt".to_string(), "push".to_string(), "ma".to_string()];
+        assert_eq!(
+            parse_completion_context(&args),
+            CompletionContext::PushTarget
+        );
+    }
+
+    #[test]
+    fn test_parse_completion_context_merge() {
+        let args = vec!["wt".to_string(), "merge".to_string(), "de".to_string()];
+        assert_eq!(
+            parse_completion_context(&args),
+            CompletionContext::MergeTarget
+        );
+    }
+
+    #[test]
+    fn test_parse_completion_context_base_flag() {
+        let args = vec![
+            "wt".to_string(),
+            "switch".to_string(),
+            "--create".to_string(),
+            "new".to_string(),
+            "--base".to_string(),
+            "dev".to_string(),
+        ];
+        assert_eq!(parse_completion_context(&args), CompletionContext::BaseFlag);
+    }
+
+    #[test]
+    fn test_parse_completion_context_unknown() {
+        let args = vec!["wt".to_string()];
+        assert_eq!(parse_completion_context(&args), CompletionContext::Unknown);
     }
 }

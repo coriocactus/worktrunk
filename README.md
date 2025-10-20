@@ -17,30 +17,69 @@ cargo build --release
 # Copy target/release/wt to a directory in your PATH
 ```
 
-## Shell Integration Setup
+## Setup
 
-Worktrunk uses shell integration to automatically change directories when switching worktrees. Add one of the following to your shell config:
+Worktrunk requires a two-step setup for full functionality:
 
-### Bash
+### 1. Shell Integration (for automatic `cd`)
 
-Add to `~/.bashrc`:
+This enables `wt switch` and `wt finish` to automatically change directories.
+
+**Bash** - Add to `~/.bashrc`:
 ```bash
 eval "$(wt init bash)"
 ```
 
-### Fish
-
-Add to `~/.config/fish/config.fish`:
+**Fish** - Add to `~/.config/fish/config.fish`:
 ```fish
 wt init fish | source
 ```
 
-### Zsh
-
-Add to `~/.zshrc`:
+**Zsh** - Add to `~/.zshrc`:
 ```bash
 eval "$(wt init zsh)"
 ```
+
+### 2. Shell Completion (for TAB completion)
+
+This enables completion for commands, flags, and branch names.
+
+**Fish:**
+```fish
+wt completion fish > ~/.config/fish/completions/wt.fish
+```
+
+**Bash** - Add to `~/.bashrc` (after the init line):
+```bash
+eval "$(wt completion bash)"
+```
+
+**Zsh** - Add to `~/.zshrc` (after the init line):
+```bash
+eval "$(wt completion zsh)"
+```
+
+### Complete Setup Example (Fish)
+
+```fish
+# In ~/.config/fish/config.fish
+wt init fish | source
+
+# Run once to install completions
+wt completion fish > ~/.config/fish/completions/wt.fish
+```
+
+### What Gets Completed
+
+- **Subcommands**: `wt <TAB>` → shows `list`, `switch`, `finish`, `push`, `merge`
+- **Flags**: `wt switch --<TAB>` → shows `--create`, `--base`, `--internal`
+- **Branch names**: `wt switch <TAB>` → shows branches without worktrees
+- **Target branches**: `wt push <TAB>` → shows all branches
+
+**Notes:**
+- Zsh currently uses Bash-compatible completion syntax. Dynamic branch completion may require `bashcompinit`. For best results, use Fish or Bash.
+- Regenerate completion scripts after updating `wt`
+- Debug completion: Set `WT_DEBUG_COMPLETION=1` to see errors
 
 ## Usage
 

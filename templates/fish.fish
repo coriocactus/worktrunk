@@ -40,3 +40,16 @@ function _wt_prompt_hook --on-event fish_prompt
     command wt hook prompt 2>/dev/null; or true
 end
 {% endif %}
+
+# Dynamic completion function
+function __{{ cmd_prefix }}_complete
+    # Call wt complete with current command line
+    set -l cmd (commandline -opc)
+    command wt complete $cmd 2>/dev/null
+end
+
+# Register dynamic completions
+complete -c {{ cmd_prefix }} -n '__fish_seen_subcommand_from switch' -f -a '(__{{ cmd_prefix }}_complete)' -d 'Branch'
+complete -c {{ cmd_prefix }} -n '__fish_seen_subcommand_from push' -f -a '(__{{ cmd_prefix }}_complete)' -d 'Target branch'
+complete -c {{ cmd_prefix }} -n '__fish_seen_subcommand_from merge' -f -a '(__{{ cmd_prefix }}_complete)' -d 'Target branch'
+complete -c {{ cmd_prefix }} -l base -f -a '(__{{ cmd_prefix }}_complete)' -d 'Base branch'

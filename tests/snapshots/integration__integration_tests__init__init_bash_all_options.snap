@@ -76,4 +76,16 @@ else
 fi
 
 
+# Dynamic completion function
+_wt_complete() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+
+    # Call wt complete with current command line
+    local completions=$(command wt complete "${COMP_WORDS[@]}" 2>/dev/null)
+    COMPREPLY=($(compgen -W "$completions" -- "$cur"))
+}
+
+# Register dynamic completion
+complete -F _wt_complete wt
+
 ----- stderr -----
