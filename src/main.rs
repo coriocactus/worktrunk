@@ -1,11 +1,12 @@
 use anstyle::{AnsiColor, Color, Style};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::{Shell as CompletionShell, generate};
+use rayon::prelude::*;
 use std::io;
 use std::process;
 use worktrunk::error_format::{format_error_with_bold, format_hint, format_warning};
 use worktrunk::git::{
-    GitError, branch_exists, count_commits, get_ahead_behind_in, get_all_branches,
+    GitError, Worktree, branch_exists, count_commits, get_ahead_behind_in, get_all_branches,
     get_available_branches, get_branch_diff_stats_in, get_changed_files, get_commit_timestamp_in,
     get_current_branch, get_current_branch_in, get_default_branch, get_git_common_dir,
     get_working_tree_diff_stats_in, get_worktree_root, has_merge_commits, is_ancestor, is_dirty,
@@ -239,13 +240,9 @@ fn handle_list() -> Result<(), GitError> {
     let primary = &worktrees[0];
     let primary_branch = primary.branch.as_ref();
 
-    // Gather enhanced information for all worktrees
-    let mut infos: Vec<WorktreeInfo> = Vec::new();
-
-    for (idx, wt) in worktrees.iter().enumerate() {
+    // Helper function to process a single worktree
+    let process_worktree = |idx: usize, wt: &Worktree| -> WorktreeInfo {
         let is_primary = idx == 0;
-
-        // Get commit timestamp
         let timestamp = get_commit_timestamp_in(&wt.path, &wt.head).unwrap_or(0);
 
         // Calculate ahead/behind relative to primary branch (only if primary has a branch)
@@ -256,8 +253,6 @@ fn handle_list() -> Result<(), GitError> {
         } else {
             (0, 0)
         };
-
-        // Get working tree diff stats
         let working_tree_diff = get_working_tree_diff_stats_in(&wt.path).unwrap_or((0, 0));
 
         // Get branch diff stats (downstream of primary, only if primary has a branch)
@@ -268,8 +263,7 @@ fn handle_list() -> Result<(), GitError> {
         } else {
             (0, 0)
         };
-
-        infos.push(WorktreeInfo {
+        WorktreeInfo {
             path: wt.path.clone(),
             head: wt.head.clone(),
             branch: wt.branch.clone(),
@@ -283,8 +277,36 @@ fn handle_list() -> Result<(), GitError> {
             bare: wt.bare,
             locked: wt.locked.clone(),
             prunable: wt.prunable.clone(),
-        });
-    }
+        }
+    };
+
+    // Gather enhanced information for all worktrees in parallel
+    //
+    // Parallelization strategy: Use Rayon to process worktrees concurrently.
+    // Each worktree requires ~5 git operations (timestamp, ahead/behind, diffs).
+    //
+    // Benchmark results: See benches/list.rs for sequential vs parallel comparison.
+    //
+    // Decision: Always use parallel for simplicity and 2+ worktree performance.
+    // Rayon overhead (~1-2ms) is acceptable for single-worktree case.
+    //
+    // TODO: Could parallelize the 5 git commands within each worktree if needed,
+    // but worktree-level parallelism provides the best cost/benefit tradeoff
+    let mut infos: Vec<WorktreeInfo> = if std::env::var("WT_SEQUENTIAL").is_ok() {
+        // Sequential iteration (for benchmarking)
+        worktrees
+            .iter()
+            .enumerate()
+            .map(|(idx, wt)| process_worktree(idx, wt))
+            .collect()
+    } else {
+        // Parallel iteration (default)
+        worktrees
+            .par_iter()
+            .enumerate()
+            .map(|(idx, wt)| process_worktree(idx, wt))
+            .collect()
+    };
 
     // Sort by most recent commit (descending)
     infos.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));

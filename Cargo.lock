@@ -2004,6 +2004,7 @@ dependencies = [
  "directories",
  "insta",
  "insta-cmd",
+ "rayon",
  "rstest",
  "serde",
  "tempfile",
