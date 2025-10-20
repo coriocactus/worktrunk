@@ -84,8 +84,8 @@ pub fn handle_list() -> Result<(), GitError> {
             if let Ok(Some(upstream_branch)) = wt_repo.upstream_branch(branch) {
                 // Extract remote name from "origin/main" -> "origin"
                 let remote = upstream_branch
-                    .split('/')
-                    .next()
+                    .split_once('/')
+                    .map(|(remote, _)| remote)
                     .unwrap_or("origin")
                     .to_string();
                 let (ahead, behind) = wt_repo

@@ -446,9 +446,10 @@ fn parse_worktree_list(output: &str) -> Result<Vec<Worktree>, GitError> {
             continue;
         }
 
-        let parts: Vec<&str> = line.splitn(2, ' ').collect();
-        let key = parts[0];
-        let value = parts.get(1).copied();
+        let (key, value) = match line.split_once(' ') {
+            Some((k, v)) => (k, Some(v)),
+            None => (line, None),
+        };
 
         match key {
             "worktree" => {
@@ -475,10 +476,12 @@ fn parse_worktree_list(output: &str) -> Result<Vec<Worktree>, GitError> {
             "branch" => {
                 if let Some(ref mut wt) = current {
                     // Strip refs/heads/ prefix if present
-                    let branch = value
-                        .ok_or_else(|| GitError::ParseError("branch line missing ref".to_string()))?
+                    let branch_ref = value.ok_or_else(|| {
+                        GitError::ParseError("branch line missing ref".to_string())
+                    })?;
+                    let branch = branch_ref
                         .strip_prefix("refs/heads/")
-                        .unwrap_or(value.unwrap())
+                        .unwrap_or(branch_ref)
                         .to_string();
                     wt.branch = Some(branch);
                 }
@@ -536,8 +539,7 @@ fn parse_remote_default_branch(output: &str) -> Result<String, GitError> {
     for line in output.lines() {
         if let Some(symref) = line.strip_prefix("ref: ") {
             // Parse "refs/heads/main\tHEAD"
-            let parts: Vec<&str> = symref.split('\t').collect();
-            if let Some(ref_path) = parts.first() {
+            if let Some((ref_path, _)) = symref.split_once('\t') {
                 // Strip "refs/heads/" prefix
                 if let Some(branch) = ref_path.strip_prefix("refs/heads/") {
                     return Ok(branch.to_string());
@@ -560,20 +562,23 @@ fn parse_numstat(output: &str) -> Result<(usize, usize), GitError> {
             continue;
         }
 
-        let parts: Vec<&str> = line.split('\t').collect();
-        if parts.len() < 2 {
+        let mut parts = line.split('\t');
+        let Some(added_str) = parts.next() else {
             continue;
-        }
+        };
+        let Some(deleted_str) = parts.next() else {
+            continue;
+        };
 
         // Binary files show "-" for added/deleted
-        if parts[0] == "-" || parts[1] == "-" {
+        if added_str == "-" || deleted_str == "-" {
             continue;
         }
 
-        let added: usize = parts[0]
+        let added: usize = added_str
             .parse()
             .map_err(|e| GitError::ParseError(format!("Failed to parse added lines: {}", e)))?;
-        let deleted: usize = parts[1]
+        let deleted: usize = deleted_str
             .parse()
             .map_err(|e| GitError::ParseError(format!("Failed to parse deleted lines: {}", e)))?;
 
@@ -757,13 +762,11 @@ abcd1234567890abcd1234567890abcd12345678\tHEAD
 
     #[test]
     fn test_parse_remote_default_branch_with_spaces() {
-        // Space instead of tab (shouldn't happen in practice, but test robustness)
+        // Space instead of tab - should be rejected as malformed input
         let output = "ref: refs/heads/main HEAD\n";
         let result = parse_remote_default_branch(output);
-        // This will parse as "main HEAD" which is technically incorrect,
-        // but git branch names can contain spaces (though rarely used)
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "main HEAD");
+        // Using split_once correctly rejects malformed input with spaces instead of tabs
+        assert!(result.is_err());
     }
 
     #[test]

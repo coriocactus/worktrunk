@@ -221,8 +221,8 @@ pub fn handle_push(target: Option<&str>, allow_merge_commits: bool) -> Result<()
                 .lines()
                 .filter_map(|line| {
                     // Parse porcelain format: "XY filename"
-                    let parts: Vec<&str> = line.splitn(2, ' ').collect();
-                    parts.get(1).map(|s| s.trim().to_string())
+                    line.split_once(' ')
+                        .map(|(_, filename)| filename.trim().to_string())
                 })
                 .collect();
 
