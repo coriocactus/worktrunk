@@ -134,12 +134,10 @@ pub fn format_worktree_line(info: &WorktreeInfo, layout: &LayoutConfig) {
     let short_head = &info.head[..8.min(info.head.len())];
 
     // Determine styles: current worktree is bold magenta, primary is cyan
-    let text_style = if info.is_current {
-        Some(current_style)
-    } else if info.is_primary {
-        Some(primary_style)
-    } else {
-        None
+    let text_style = match (info.is_current, info.is_primary) {
+        (true, _) => Some(current_style),
+        (_, true) => Some(primary_style),
+        _ => None,
     };
 
     // Start building the line

@@ -213,7 +213,7 @@ impl Repository {
     /// Get commit message (subject line) for a commit.
     pub fn commit_message(&self, commit: &str) -> Result<String, GitError> {
         let stdout = self.run_command(&["show", "-s", "--format=%s", commit])?;
-        Ok(stdout.trim().to_string())
+        Ok(stdout.trim().to_owned())
     }
 
     /// Get the upstream tracking branch for the given branch.
@@ -223,11 +223,7 @@ impl Repository {
         match result {
             Ok(upstream) => {
                 let trimmed = upstream.trim();
-                if trimmed.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(trimmed.to_string()))
-                }
+                Ok((!trimmed.is_empty()).then(|| trimmed.to_string()))
             }
             Err(_) => Ok(None), // No upstream configured
         }
@@ -312,15 +308,16 @@ impl Repository {
         let stdout = self.run_command(&["branch", "--format=%(refname:short)"])?;
         Ok(stdout
             .lines()
-            .map(|s| s.trim().to_string())
+            .map(|s| s.trim())
             .filter(|s| !s.is_empty())
+            .map(str::to_owned)
             .collect())
     }
 
     /// Get the merge base between two commits.
     pub fn merge_base(&self, commit1: &str, commit2: &str) -> Result<String, GitError> {
         let output = self.run_command(&["merge-base", commit1, commit2])?;
-        Ok(output.trim().to_string())
+        Ok(output.trim().to_owned())
     }
 
     /// Get commit subjects (first line of commit message) from a range.
@@ -485,12 +482,12 @@ fn parse_worktree_list(output: &str) -> Result<Vec<Worktree>, GitError> {
             }
             "locked" => {
                 if let Some(ref mut wt) = current {
-                    wt.locked = Some(value.unwrap_or("").to_string());
+                    wt.locked = Some(value.unwrap_or_default().to_string());
                 }
             }
             "prunable" => {
                 if let Some(ref mut wt) = current {
-                    wt.prunable = Some(value.unwrap_or("").to_string());
+                    wt.prunable = Some(value.unwrap_or_default().to_string());
                 }
             }
             _ => {
