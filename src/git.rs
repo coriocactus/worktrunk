@@ -359,15 +359,10 @@ impl Repository {
     pub fn worktree_for_branch(&self, branch: &str) -> Result<Option<PathBuf>, GitError> {
         let worktrees = self.list_worktrees()?;
 
-        for wt in worktrees {
-            if let Some(ref wt_branch) = wt.branch
-                && wt_branch == branch
-            {
-                return Ok(Some(wt.path));
-            }
-        }
-
-        Ok(None)
+        Ok(worktrees
+            .into_iter()
+            .find(|wt| wt.branch.as_deref() == Some(branch))
+            .map(|wt| wt.path))
     }
 
     /// Get branches that don't have worktrees (available for switch).
