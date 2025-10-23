@@ -954,26 +954,4 @@ abcd1234567890abcd1234567890abcd12345678\tHEAD
         let branch = parse_remote_default_branch(output).unwrap();
         assert_eq!(branch, "feature/new-ui");
     }
-
-    #[test]
-    fn test_get_current_branch_parse() {
-        // Test parsing of branch --show-current output
-        // We can't test the actual command without a git repo,
-        // but we've verified the parsing logic through the implementation
-    }
-
-    #[test]
-    fn test_worktree_for_branch_not_found() {
-        // Test that worktree_for_branch returns None when no worktree exists
-        // This would require a git repo, so we'll test this in integration tests
-    }
-
-    #[test]
-    fn test_project_identifier_parsing() {
-        // Test URL parsing logic (can't test actual git commands without a repo)
-        // These would be unit tests if we extracted the URL parsing logic
-
-        // The actual parsing is done inline in project_identifier(),
-        // so we'll rely on integration tests for full coverage
-    }
 }

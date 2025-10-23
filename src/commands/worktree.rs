@@ -100,9 +100,8 @@
 //!
 //! See also: DEMO.md for detailed architecture explanation.
 
-use std::collections::HashMap;
 use std::path::PathBuf;
-use worktrunk::config::{ProjectConfig, WorktrunkConfig, expand_template};
+use worktrunk::config::{ProjectConfig, WorktrunkConfig, expand_command_template};
 use worktrunk::git::{GitError, Repository};
 use worktrunk::styling::{
     AnstyleStyle, ERROR, ERROR_EMOJI, HINT, HINT_EMOJI, WARNING, WARNING_EMOJI, eprint, eprintln,
@@ -172,9 +171,7 @@ pub fn handle_switch(
     // Check if worktree already exists for this branch
     match repo.worktree_for_branch(branch)? {
         Some(existing_path) if existing_path.exists() => {
-            // Canonicalize the path for cleaner display
-            let canonical_existing_path = existing_path.canonicalize().unwrap_or(existing_path);
-            return Ok(SwitchResult::ExistingWorktree(canonical_existing_path));
+            return Ok(SwitchResult::ExistingWorktree(existing_path));
         }
         Some(_) => {
             let error_bold = ERROR.bold();
@@ -215,23 +212,18 @@ pub fn handle_switch(
     repo.run_command(&args)
         .map_err(|e| GitError::CommandFailed(format!("Failed to create worktree: {}", e)))?;
 
-    // Canonicalize the path for cleaner display
-    let canonical_path = worktree_path
-        .canonicalize()
-        .unwrap_or_else(|_| worktree_path.clone());
-
     // Execute post-create commands (sequential, blocking)
     if !no_config_commands {
-        execute_post_create_commands(&canonical_path, &repo, config, branch, repo_name, force)?;
+        execute_post_create_commands(&worktree_path, &repo, config, branch, repo_name, force)?;
     }
 
     // Spawn post-start commands (parallel, background)
     if !no_config_commands {
-        spawn_post_start_commands(&canonical_path, &repo, config, branch, repo_name, force)?;
+        spawn_post_start_commands(&worktree_path, &repo, config, branch, repo_name, force)?;
     }
 
     Ok(SwitchResult::CreatedWorktree {
-        path: canonical_path,
+        path: worktree_path,
         created_branch: create,
     })
 }
@@ -266,13 +258,8 @@ pub fn handle_remove() -> Result<RemoveResult, GitError> {
             );
         }
 
-        // Canonicalize the path for cleaner display
-        let canonical_primary_path = primary_worktree_dir
-            .canonicalize()
-            .unwrap_or(primary_worktree_dir);
-
         Ok(RemoveResult::RemovedWorktree {
-            primary_path: canonical_primary_path,
+            primary_path: primary_worktree_dir,
         })
     } else {
         // In main repo but not on default branch: switch to default
@@ -340,47 +327,6 @@ fn check_worktree_conflicts(
     Ok(())
 }
 
-/// Replace template variables in a command string
-///
-/// Supported variables:
-/// - `{repo}` - Repository name
-/// - `{branch}` - Branch name (sanitized)
-/// - `{worktree}` - Path to the new worktree
-/// - `{repo_root}` - Path to the main repository root
-fn expand_command_template(
-    command: &str,
-    repo_name: &str,
-    branch: &str,
-    worktree_path: &std::path::Path,
-    repo_root: &std::path::Path,
-) -> String {
-    let mut extra = HashMap::new();
-    extra.insert("worktree", worktree_path.to_str().unwrap_or(""));
-    extra.insert("repo_root", repo_root.to_str().unwrap_or(""));
-
-    expand_template(command, repo_name, branch, &extra)
-}
-
-/// Helper to load project config with error handling
-fn load_project_config(repo: &Repository) -> Result<Option<ProjectConfig>, GitError> {
-    let repo_root = repo.worktree_root()?;
-    let config_path = repo_root.join(".config").join("wt.toml");
-    match ProjectConfig::load(&repo_root) {
-        Ok(cfg) => Ok(cfg),
-        Err(e) => {
-            eprintln!(
-                "{WARNING_EMOJI} {WARNING}Failed to load project config from {}{WARNING:#}",
-                config_path.display()
-            );
-            eprintln!("{HINT_EMOJI} {HINT}Error details: {e}{HINT:#}");
-            eprintln!(
-                "{HINT_EMOJI} {HINT}Skipping commands. Check TOML syntax if file exists.{HINT:#}"
-            );
-            Ok(None)
-        }
-    }
-}
-
 /// Execute post-create commands sequentially (blocking)
 fn execute_post_create_commands(
     worktree_path: &std::path::Path,
@@ -390,7 +336,10 @@ fn execute_post_create_commands(
     repo_name: &str,
     force: bool,
 ) -> Result<(), GitError> {
-    let project_config = match load_project_config(repo)? {
+    let repo_root = repo.worktree_root()?;
+    let project_config = match ProjectConfig::load(&repo_root)
+        .map_err(|e| GitError::CommandFailed(format!("Failed to load project config: {}", e)))?
+    {
         Some(cfg) => cfg,
         None => return Ok(()),
     };
@@ -416,13 +365,13 @@ fn execute_post_create_commands(
         }
 
         let expanded_command =
-            expand_command_template(&command, repo_name, branch, worktree_path, &repo_root);
+            expand_command_template(&command, repo_name, branch, worktree_path, &repo_root, None);
 
         use anstyle::{AnsiColor, Color};
         use std::io::Write;
         let cyan = AnstyleStyle::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)));
         eprintln!("🔄 {cyan}Executing (post-create):{cyan:#}");
-        eprint!("{}", format_with_gutter(&expanded_command, "")); // Gutter at column 0
+        eprint!("{}", format_with_gutter(&expanded_command));
         let _ = std::io::stderr().flush();
 
         if let Err(e) = execute_command_in_worktree(worktree_path, &expanded_command) {
@@ -450,7 +399,10 @@ fn spawn_post_start_commands(
     repo_name: &str,
     force: bool,
 ) -> Result<(), GitError> {
-    let project_config = match load_project_config(repo)? {
+    let repo_root = repo.worktree_root()?;
+    let project_config = match ProjectConfig::load(&repo_root)
+        .map_err(|e| GitError::CommandFailed(format!("Failed to load project config: {}", e)))?
+    {
         Some(cfg) => cfg,
         None => return Ok(()),
     };
@@ -476,7 +428,7 @@ fn spawn_post_start_commands(
         }
 
         let expanded_command =
-            expand_command_template(&command, repo_name, branch, worktree_path, &repo_root);
+            expand_command_template(&command, repo_name, branch, worktree_path, &repo_root, None);
 
         use anstyle::{AnsiColor, Color};
         use std::io::Write;
@@ -634,20 +586,20 @@ pub fn handle_push(
                 if commit_count == 1 { "" } else { "s" }
             )];
 
-            if let Some(files) = stats.files {
+            if stats.files > 0 {
                 summary_parts.push(format!(
                     "{} file{}",
-                    files,
-                    if files == 1 { "" } else { "s" }
+                    stats.files,
+                    if stats.files == 1 { "" } else { "s" }
                 ));
             }
-            if let Some(insertions) = stats.insertions {
+            if stats.insertions > 0 {
                 let addition = AnstyleStyle::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
-                summary_parts.push(format!("{addition}+{insertions}{addition:#}"));
+                summary_parts.push(format!("{addition}+{}{addition:#}", stats.insertions));
             }
-            if let Some(deletions) = stats.deletions {
+            if stats.deletions > 0 {
                 let deletion = AnstyleStyle::new().fg_color(Some(Color::Ansi(AnsiColor::Red)));
-                summary_parts.push(format!("{deletion}-{deletions}{deletion:#}"));
+                summary_parts.push(format!("{deletion}-{}{deletion:#}", stats.deletions));
             }
 
             println!(
@@ -664,36 +616,33 @@ pub fn handle_push(
 
 /// Parse git diff --shortstat output
 struct DiffStats {
-    files: Option<usize>,
-    insertions: Option<usize>,
-    deletions: Option<usize>,
+    files: usize,
+    insertions: usize,
+    deletions: usize,
 }
 
 fn parse_diff_shortstat(output: &str) -> DiffStats {
     let mut stats = DiffStats {
-        files: None,
-        insertions: None,
-        deletions: None,
+        files: 0,
+        insertions: 0,
+        deletions: 0,
     };
 
     // Example: " 3 files changed, 45 insertions(+), 12 deletions(-)"
-    let parts: Vec<&str> = output.split(',').collect();
+    for part in output.split(',') {
+        let tokens: Vec<&str> = part.trim().split_whitespace().collect();
+        if tokens.len() < 2 {
+            continue;
+        }
 
-    for part in parts {
-        let part = part.trim();
-
-        if part.contains("file") {
-            if let Some(num_str) = part.split_whitespace().next() {
-                stats.files = num_str.parse().ok();
+        if let Ok(n) = tokens[0].parse::<usize>() {
+            if tokens[1].starts_with("file") {
+                stats.files = n;
+            } else if tokens[1].starts_with("insertion") {
+                stats.insertions = n;
+            } else if tokens[1].starts_with("deletion") {
+                stats.deletions = n;
             }
-        } else if part.contains("insertion") {
-            if let Some(num_str) = part.split_whitespace().next() {
-                stats.insertions = num_str.parse().ok();
-            }
-        } else if part.contains("deletion")
-            && let Some(num_str) = part.split_whitespace().next()
-        {
-            stats.deletions = num_str.parse().ok();
         }
     }
 

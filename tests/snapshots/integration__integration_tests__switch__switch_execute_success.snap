@@ -23,7 +23,7 @@ success: true
 exit_code: 0
 ----- stdout -----
 ✅ [32mCreated new worktree for [1m[32mexec-test[0m[0m
-  [2mPath: [REPO].exec-test[0m
+  [2mPath: [REPO]/../test-repo.exec-test[0m
 
 test output
 

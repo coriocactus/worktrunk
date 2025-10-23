@@ -385,9 +385,9 @@ fn test_bash_e2e_multiple_switches() {
         output
     );
 
-    // Should have returned to main (wt remove should work)
+    // Should have returned to test-repo (wt remove should work)
     assert!(
-        output.contains("main"),
+        output.contains("test-repo"),
         "Expected wt remove to work, got: {}",
         output
     );

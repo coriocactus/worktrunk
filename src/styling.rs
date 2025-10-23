@@ -39,22 +39,6 @@ pub use anstyle::Style as AnstyleStyle;
 /// Error style (red) - use as `{ERROR}text{ERROR:#}`
 pub const ERROR: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Red)));
 
-// ============================================================================
-// Message Emojis
-// ============================================================================
-
-/// Progress emoji - use with cyan style: `println!("{PROGRESS_EMOJI} {cyan}message{cyan:#}");`
-pub const PROGRESS_EMOJI: &str = "🔄";
-
-/// Error emoji - use with ERROR style: `eprintln!("{ERROR_EMOJI} {ERROR}message{ERROR:#}");`
-pub const ERROR_EMOJI: &str = "❌";
-
-/// Warning emoji - use with WARNING style: `eprintln!("{WARNING_EMOJI} {WARNING}message{WARNING:#}");`
-pub const WARNING_EMOJI: &str = "🟡";
-
-/// Hint emoji - use with HINT style: `println!("{HINT_EMOJI} {HINT}message{HINT:#}");`
-pub const HINT_EMOJI: &str = "💡";
-
 /// Warning style (yellow) - use as `{WARNING}text{WARNING:#}`
 pub const WARNING: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
 
@@ -71,6 +55,28 @@ pub const ADDITION: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Gr
 
 /// Deletion style for diffs (red)
 pub const DELETION: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Red)));
+
+/// Cyan style - use as `{CYAN}text{CYAN:#}`
+pub const CYAN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)));
+
+/// Green style - use as `{GREEN}text{GREEN:#}`
+pub const GREEN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
+
+// ============================================================================
+// Message Emojis
+// ============================================================================
+
+/// Progress emoji - use with cyan style: `println!("{PROGRESS_EMOJI} {cyan}message{cyan:#}");`
+pub const PROGRESS_EMOJI: &str = "🔄";
+
+/// Error emoji - use with ERROR style: `eprintln!("{ERROR_EMOJI} {ERROR}message{ERROR:#}");`
+pub const ERROR_EMOJI: &str = "❌";
+
+/// Warning emoji - use with WARNING style: `eprintln!("{WARNING_EMOJI} {WARNING}message{WARNING:#}");`
+pub const WARNING_EMOJI: &str = "🟡";
+
+/// Hint emoji - use with HINT style: `println!("{HINT_EMOJI} {HINT}message{HINT:#}");`
+pub const HINT_EMOJI: &str = "💡";
 
 // ============================================================================
 // Styled Output Types
@@ -169,22 +175,20 @@ impl StyledLine {
 ///
 /// # Arguments
 /// * `content` - The text to format (preserves internal structure for multi-line)
-/// * `left_margin` - Should always be "" (gutter provides all visual separation)
 ///
 /// The gutter appears at column 0, followed by 1 space, then the content at column 1.
 ///
 /// # Example
 /// ```ignore
-/// // All contexts use empty left margin
-/// print!("{}", format_with_gutter(&config, ""));
-/// print!("{}", format_with_gutter(&command, ""));
+/// print!("{}", format_with_gutter(&config));
+/// print!("{}", format_with_gutter(&command));
 /// ```
-pub fn format_with_gutter(content: &str, left_margin: &str) -> String {
+pub fn format_with_gutter(content: &str) -> String {
     let gutter = Style::new().bg_color(Some(Color::Ansi(AnsiColor::Black)));
     let mut output = String::new();
 
     for line in content.lines() {
-        output.push_str(&format!("{left_margin}{gutter} {gutter:#} {line}\n"));
+        output.push_str(&format!("{gutter} {gutter:#} {line}\n"));
     }
 
     output
@@ -195,7 +199,7 @@ pub fn format_with_gutter(content: &str, left_margin: &str) -> String {
 // ============================================================================
 
 /// Formats TOML content with syntax highlighting using synoptic
-pub fn format_toml(content: &str, left_margin: &str) -> String {
+pub fn format_toml(content: &str) -> String {
     // Gutter style: subtle background for visual separation
     let gutter = Style::new().bg_color(Some(Color::Ansi(AnsiColor::Black)));
 
@@ -207,9 +211,7 @@ pub fn format_toml(content: &str, left_margin: &str) -> String {
             let dim = Style::new().dimmed();
             let mut output = String::new();
             for line in content.lines() {
-                output.push_str(&format!(
-                    "{left_margin}{gutter} {gutter:#} {dim}{line}{dim:#}\n"
-                ));
+                output.push_str(&format!("{gutter} {gutter:#} {dim}{line}{dim:#}\n"));
             }
             return output;
         }
@@ -223,8 +225,8 @@ pub fn format_toml(content: &str, left_margin: &str) -> String {
 
     // Render each line with appropriate styling
     for (y, line) in lines.iter().enumerate() {
-        // Add left margin, gutter, and spacing
-        output.push_str(&format!("{left_margin}{gutter} {gutter:#} "));
+        // Add gutter and spacing
+        output.push_str(&format!("{gutter} {gutter:#} "));
 
         // Render each token with appropriate styling
         for token in highlighter.line(y, line) {
@@ -301,7 +303,7 @@ project = "github.com/user/repo"
 command = "npm install"
 "#;
 
-        let output = format_toml(toml_content, "");
+        let output = format_toml(toml_content);
 
         // Check that output contains ANSI escape codes
         assert!(

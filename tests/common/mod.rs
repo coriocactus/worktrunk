@@ -39,7 +39,7 @@ impl TestRepo {
     pub fn new() -> Self {
         let temp_dir = TempDir::new().expect("Failed to create temp directory");
         // Create main repo as a subdirectory so worktrees can be siblings
-        let root = temp_dir.path().join("main");
+        let root = temp_dir.path().join("test-repo");
         std::fs::create_dir(&root).expect("Failed to create main repo directory");
         // Canonicalize to resolve symlinks (important on macOS where /var is symlink to /private/var)
         let root = root

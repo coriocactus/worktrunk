@@ -23,7 +23,7 @@ success: true
 exit_code: 0
 ----- stdout -----
 ✅ [32mCreated new worktree for [1m[32mmultiline-test[0m[0m
-  [2mPath: [REPO].multiline-test[0m
+  [2mPath: [REPO]/../test-repo.multiline-test[0m
 
 line1
 line2

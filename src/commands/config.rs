@@ -91,8 +91,8 @@ fn display_global_config() -> Result<(), GitError> {
         return Ok(());
     }
 
-    // Display TOML with syntax highlighting (gutter at column 0)
-    print!("{}", format_toml(&contents, ""));
+    // Display TOML with syntax highlighting
+    print!("{}", format_toml(&contents));
 
     Ok(())
 }
@@ -129,8 +129,8 @@ fn display_project_config() -> Result<(), GitError> {
         return Ok(());
     }
 
-    // Display TOML with syntax highlighting (gutter at column 0)
-    print!("{}", format_toml(&contents, ""));
+    // Display TOML with syntax highlighting
+    print!("{}", format_toml(&contents));
 
     Ok(())
 }

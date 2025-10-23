@@ -17,28 +17,14 @@ info:
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1704067200"
 ---
-success: true
-exit_code: 0
+success: false
+exit_code: 1
 ----- stdout -----
-✅ [32mCreated new worktree for [1m[32mfeature[0m[0m
-  [2mPath: [REPO].feature[0m
-
-To enable automatic cd, run: wt configure-shell
 
 ----- stderr -----
-🟡 [33mFailed to load project config from [REPO]/.config/wt.toml[0m
-💡 [2mError details: TOML parse error at line 1, column 39
+Failed to load project config: TOML parse error at line 1, column 39
   |
 1 | post-create-command = [invalid syntax
   |                                       ^
 unclosed array, expected `]`
- in .config/wt.toml[0m
-💡 [2mSkipping commands. Check TOML syntax if file exists.[0m
-🟡 [33mFailed to load project config from [REPO]/.config/wt.toml[0m
-💡 [2mError details: TOML parse error at line 1, column 39
-  |
-1 | post-create-command = [invalid syntax
-  |                                       ^
-unclosed array, expected `]`
- in .config/wt.toml[0m
-💡 [2mSkipping commands. Check TOML syntax if file exists.[0m
+ in .config/wt.toml

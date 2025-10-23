@@ -23,7 +23,7 @@ success: false
 exit_code: 1
 ----- stdout -----
 ✅ [32mCreated new worktree for [1m[32mfail-test[0m[0m
-  [2mPath: [REPO].fail-test[0m
+  [2mPath: [REPO]/../test-repo.fail-test[0m
 
 
 ----- stderr -----

@@ -1,6 +1,5 @@
 use anstyle::{AnsiColor, Color};
-use std::collections::HashMap;
-use worktrunk::config::{ProjectConfig, WorktrunkConfig, expand_template};
+use worktrunk::config::{ProjectConfig, WorktrunkConfig, expand_command_template};
 use worktrunk::git::{GitError, Repository};
 use worktrunk::styling::{AnstyleStyle, ERROR, ERROR_EMOJI, HINT, HINT_EMOJI, eprintln, println};
 
@@ -369,9 +368,9 @@ fn run_pre_merge_checks(
             &command,
             repo_name,
             current_branch,
-            target_branch,
             worktree_path,
             &repo_root,
+            Some(target_branch),
         );
 
         if !internal {
@@ -396,21 +395,4 @@ fn run_pre_merge_checks(
     }
 
     Ok(())
-}
-
-/// Expand template variables in a command, including {target}
-fn expand_command_template(
-    command: &str,
-    repo_name: &str,
-    branch: &str,
-    target_branch: &str,
-    worktree_path: &std::path::Path,
-    repo_root: &std::path::Path,
-) -> String {
-    let mut extra = HashMap::new();
-    extra.insert("worktree", worktree_path.to_str().unwrap_or(""));
-    extra.insert("repo_root", repo_root.to_str().unwrap_or(""));
-    extra.insert("target", target_branch);
-
-    expand_template(command, repo_name, branch, &extra)
 }

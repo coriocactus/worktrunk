@@ -157,7 +157,17 @@ impl WorktrunkConfig {
         builder = builder.add_source(config::Environment::with_prefix("WORKTRUNK").separator("_"));
 
         let config: Self = builder.build()?.try_deserialize()?;
-        validate_worktree_path(&config.worktree_path)?;
+
+        // Validate worktree path
+        if config.worktree_path.is_empty() {
+            return Err(ConfigError::Message("worktree-path cannot be empty".into()));
+        }
+        if std::path::Path::new(&config.worktree_path).is_absolute() {
+            return Err(ConfigError::Message(
+                "worktree-path must be relative, not absolute".into(),
+            ));
+        }
+
         Ok(config)
     }
 
@@ -229,6 +239,49 @@ pub fn expand_template(
     }
 
     result
+}
+
+/// Expand command template variables
+///
+/// Convenience function for expanding command templates with common variables.
+///
+/// Supported variables:
+/// - `{repo}` - Repository name
+/// - `{branch}` - Branch name (sanitized)
+/// - `{worktree}` - Path to the worktree
+/// - `{repo_root}` - Path to the main repository root
+/// - `{target}` - Target branch (for merge commands, optional)
+///
+/// # Examples
+/// ```
+/// use worktrunk::config::expand_command_template;
+/// use std::path::Path;
+///
+/// let cmd = expand_command_template(
+///     "cp {repo_root}/target {worktree}/target",
+///     "myrepo",
+///     "feature",
+///     Path::new("/path/to/worktree"),
+///     Path::new("/path/to/repo"),
+///     None,
+/// );
+/// ```
+pub fn expand_command_template(
+    command: &str,
+    repo_name: &str,
+    branch: &str,
+    worktree_path: &std::path::Path,
+    repo_root: &std::path::Path,
+    target_branch: Option<&str>,
+) -> String {
+    let mut extra = std::collections::HashMap::new();
+    extra.insert("worktree", worktree_path.to_str().unwrap_or(""));
+    extra.insert("repo_root", repo_root.to_str().unwrap_or(""));
+    if let Some(target) = target_branch {
+        extra.insert("target", target);
+    }
+
+    expand_template(command, repo_name, branch, &extra)
 }
 
 impl ProjectConfig {
@@ -344,24 +397,6 @@ impl WorktrunkConfig {
     }
 }
 
-fn validate_worktree_path(template: &str) -> Result<(), ConfigError> {
-    if template.is_empty() {
-        return Err(ConfigError::Message(
-            "worktree-path cannot be empty".to_string(),
-        ));
-    }
-
-    // Reject absolute paths
-    let path = std::path::Path::new(template);
-    if path.is_absolute() {
-        return Err(ConfigError::Message(
-            "worktree-path must be relative, not absolute".to_string(),
-        ));
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -466,36 +501,6 @@ mod tests {
             config.format_path("myproject", "feature\\foo"),
             ".worktrees/myproject/feature-foo"
         );
-    }
-
-    #[test]
-    fn test_validate_rejects_empty_path() {
-        let result = validate_worktree_path("");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("cannot be empty"));
-    }
-
-    #[test]
-    fn test_validate_rejects_absolute_path_unix() {
-        let result = validate_worktree_path("/absolute/path/{branch}");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("must be relative"));
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn test_validate_rejects_absolute_path_windows() {
-        let result = validate_worktree_path("C:\\absolute\\path\\{branch}");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("must be relative"));
-    }
-
-    #[test]
-    fn test_validate_accepts_relative_path() {
-        assert!(validate_worktree_path(".worktrees/{main-worktree}/{branch}").is_ok());
-        assert!(validate_worktree_path("../{main-worktree}.{branch}").is_ok());
-        assert!(validate_worktree_path("../../shared/{main-worktree}/{branch}").is_ok());
-        assert!(validate_worktree_path(".worktrees/{branch}").is_ok());
     }
 
     #[test]

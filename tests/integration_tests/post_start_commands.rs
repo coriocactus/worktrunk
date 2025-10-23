@@ -245,25 +245,25 @@ fn test_post_create_template_expansion() {
     // Pre-approve all commands in temp HOME
     let user_config_dir = temp_home.path().join(".config/worktrunk");
     fs::create_dir_all(&user_config_dir).expect("Failed to create user config dir");
-    let repo_name = "main";
+    let repo_name = "test-repo";
     fs::write(
         user_config_dir.join("config.toml"),
         r#"worktree-path = "../{main-worktree}.{branch}"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "echo 'Repo: {main-worktree}' > info.txt"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "echo 'Branch: {branch}' >> info.txt"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "echo 'Worktree: {worktree}' >> info.txt"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "echo 'Root: {repo_root}' >> info.txt"
 "#,
     )
@@ -349,7 +349,7 @@ command = "sleep 1 && echo 'Background task done' > background.txt"
     );
 
     // Verify log file was created
-    let worktree_path = repo.root_path().parent().unwrap().join("main.feature");
+    let worktree_path = repo.root_path().parent().unwrap().join("test-repo.feature");
     let git_dir = resolve_git_dir(&worktree_path);
     let log_dir = git_dir.join("wt-logs");
     assert!(log_dir.exists(), "Log directory should be created");
@@ -415,7 +415,7 @@ command = "echo 'Task 2 running' > task2.txt"
     thread::sleep(SLEEP_BACKGROUND_COMMAND);
 
     // Verify both tasks ran
-    let worktree_path = repo.root_path().parent().unwrap().join("main.feature");
+    let worktree_path = repo.root_path().parent().unwrap().join("test-repo.feature");
     assert!(worktree_path.join("task1.txt").exists());
     assert!(worktree_path.join("task2.txt").exists());
 }
@@ -468,7 +468,7 @@ command = "sleep 0.5 && echo 'Server running' > server.txt"
     );
 
     // Setup file should exist immediately (post-create is blocking)
-    let worktree_path = repo.root_path().parent().unwrap().join("main.feature");
+    let worktree_path = repo.root_path().parent().unwrap().join("test-repo.feature");
     assert!(
         worktree_path.join("setup.txt").exists(),
         "Post-create command should have completed before wt exits"
@@ -550,7 +550,7 @@ command = "echo 'stdout output' && echo 'stderr output' >&2"
     thread::sleep(SLEEP_FAST_COMMAND);
 
     // Find and read the log file
-    let worktree_path = repo.root_path().parent().unwrap().join("main.feature");
+    let worktree_path = repo.root_path().parent().unwrap().join("test-repo.feature");
     let git_dir = resolve_git_dir(&worktree_path);
     let log_dir = git_dir.join("wt-logs");
     assert!(log_dir.exists(), "Log directory should exist");
@@ -625,7 +625,7 @@ command = "echo 'unclosed quote"
     );
 
     // Verify worktree was created despite command error
-    let worktree_path = repo.root_path().parent().unwrap().join("main.feature");
+    let worktree_path = repo.root_path().parent().unwrap().join("test-repo.feature");
     assert!(
         worktree_path.exists(),
         "Worktree should be created even if post-start command fails"
@@ -686,7 +686,7 @@ command = "echo 'TASK3_OUTPUT'"
     thread::sleep(SLEEP_FAST_COMMAND);
 
     // Verify we have 3 separate log files
-    let worktree_path = repo.root_path().parent().unwrap().join("main.feature");
+    let worktree_path = repo.root_path().parent().unwrap().join("test-repo.feature");
     let git_dir = resolve_git_dir(&worktree_path);
     let log_dir = git_dir.join("wt-logs");
     let log_files: Vec<_> = fs::read_dir(&log_dir)
@@ -782,7 +782,7 @@ command = "echo 'Background task' > background.txt"
         Some(temp_home.path()),
     );
 
-    let worktree_path = repo.root_path().parent().unwrap().join("main.feature");
+    let worktree_path = repo.root_path().parent().unwrap().join("test-repo.feature");
 
     // Execute flag file should exist immediately (synchronous)
     assert!(
@@ -842,7 +842,7 @@ command = "echo 'line1\nline2\nline3' | grep line2 > filtered.txt"
     thread::sleep(SLEEP_FAST_COMMAND);
 
     // Verify the piped command worked correctly
-    let worktree_path = repo.root_path().parent().unwrap().join("main.feature");
+    let worktree_path = repo.root_path().parent().unwrap().join("test-repo.feature");
     let filtered_file = worktree_path.join("filtered.txt");
     assert!(
         filtered_file.exists(),

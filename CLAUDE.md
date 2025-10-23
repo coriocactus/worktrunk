@@ -249,7 +249,7 @@ The gutter's visual distinction is sufficient - no additional indentation requir
 
 #### Formatting Rules
 
-1. **Always use empty left margin**: `format_with_gutter(content, "")`
+1. **Gutter at column 0**: `format_with_gutter(content)`
    - Gutter appears at column 0
    - Content appears at column 1 (after the gutter + 1 space)
    - The colored background provides visual separation from surrounding text
@@ -284,22 +284,19 @@ project wants to execute:
 
 #### Implementation
 
-**Always use empty left margin:**
-
 ```rust
 use worktrunk::styling::format_with_gutter;
 
-// All contexts - no indentation needed
-print!("{}", format_with_gutter(&command, ""));
-print!("{}", format_with_gutter(&config, ""));
+// Simple usage - gutter provides all separation
+print!("{}", format_with_gutter(&command));
+print!("{}", format_with_gutter(&config));
 ```
 
 **Function signature:**
 ```rust
 /// Arguments:
 /// - content: Text to format (preserves internal structure for multi-line)
-/// - left_margin: Should always be "" (kept as parameter for API consistency)
-pub fn format_with_gutter(content: &str, left_margin: &str) -> String
+pub fn format_with_gutter(content: &str) -> String
 ```
 
 ## Testing Guidelines

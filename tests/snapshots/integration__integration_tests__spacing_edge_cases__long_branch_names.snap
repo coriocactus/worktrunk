@@ -19,7 +19,7 @@ success: true
 exit_code: 0
 ----- stdout -----
 [2mBranch                          [0m  [2mCommit  [0m  [2mPath[0m
-[1m[35mmain                            [0m  [1m[35mb834638e[0m  [1m[35m./main[0m
+[1m[35mmain                            [0m  [1m[35mb834638e[0m  [1m[35m./test-repo[0m
 another-extremely-long-name-here  [2mb834638e[0m  ./another-extremely-long-name-here
 short                             [2mb834638e[0m  ./short
 very-long-feature-branch-name     [2mb834638e[0m  ./very-long-feature-branch-name

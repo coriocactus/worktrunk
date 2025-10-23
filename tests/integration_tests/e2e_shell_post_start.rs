@@ -159,7 +159,7 @@ fn test_e2e_post_start_background_command(#[case] shell: &str) {
         r#"worktree-path = "../{main-worktree}.{branch}"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "sleep 0.5 && echo 'Background task done' > bg_marker.txt"
 "#,
     )
@@ -199,7 +199,11 @@ command = "sleep 0.5 && echo 'Background task done' > bg_marker.txt"
     thread::sleep(Duration::from_secs(2));
 
     // Verify background command actually ran
-    let worktree_path = repo.root_path().parent().unwrap().join("main.bg-feature");
+    let worktree_path = repo
+        .root_path()
+        .parent()
+        .unwrap()
+        .join("test-repo.bg-feature");
 
     // First check if log file was created (proves process was spawned)
     let git_dir = worktree_path.join(".git");
@@ -285,11 +289,11 @@ task2 = "sleep 0.5 && echo 'Task 2' > task2.txt"
         r#"worktree-path = "../{main-worktree}.{branch}"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "sleep 0.5 && echo 'Task 1' > task1.txt"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "sleep 0.5 && echo 'Task 2' > task2.txt"
 "#,
     )
@@ -371,7 +375,7 @@ fn test_bash_post_create_blocks() {
         r#"worktree-path = "../{main-worktree}.{branch}"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "echo 'Setup done' > setup.txt"
 "#,
     )
@@ -388,7 +392,7 @@ command = "echo 'Setup done' > setup.txt"
         .root_path()
         .parent()
         .unwrap()
-        .join("main.blocking-test");
+        .join("test-repo.blocking-test");
     let script = format!(
         r#"
         export PATH="{}:$PATH"
@@ -457,7 +461,7 @@ fish_bg = "sleep 0.5 && echo 'Fish background done' > fish_bg.txt"
         r#"worktree-path = "../{main-worktree}.{branch}"
 
 [[approved-commands]]
-project = "main"
+project = "test-repo"
 command = "sleep 0.5 && echo 'Fish background done' > fish_bg.txt"
 "#,
     )

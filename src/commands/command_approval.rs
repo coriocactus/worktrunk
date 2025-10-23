@@ -118,7 +118,7 @@ fn prompt_for_approval(command: &str, project_id: &str) -> std::io::Result<bool>
     eprintln!("{WARNING_EMOJI} {WARNING}Permission required to execute in worktree{WARNING:#}");
     eprintln!();
     eprintln!("{bold}{project_name}{bold:#} ({dim}{project_id}{dim:#}) wants to execute:");
-    eprint!("{}", format_with_gutter(command, "")); // Gutter at column 0, provides visual separation
+    eprint!("{}", format_with_gutter(command));
     eprintln!();
     eprint!("{HINT_EMOJI} Allow and remember? {bold}[y/N]{bold:#} ");
     io::stderr().flush()?;
