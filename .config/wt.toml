@@ -17,3 +17,10 @@ post-start-command = """
 cp -cR {repo_root}/target/. {worktree}/target/ &&
 echo '✓ CoW seeded target/'
 """
+
+# Pre-merge checks
+# These run sequentially before merging to main
+# All commands must exit with code 0 for merge to proceed
+[pre-merge-check]
+pre-commit = "pre-commit run --all-files"
+insta = "cargo insta test"
