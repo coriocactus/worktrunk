@@ -208,6 +208,10 @@ impl ListItem {
             ListItem::Branch(_) => None,
         }
     }
+
+    pub fn worktree_path(&self) -> Option<&std::path::PathBuf> {
+        self.worktree_info().map(|info| &info.worktree.path)
+    }
 }
 
 impl BranchInfo {

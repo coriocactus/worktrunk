@@ -183,10 +183,7 @@ pub fn calculate_responsive_layout(items: &[ListItem]) -> LayoutConfig {
     let terminal_width = get_terminal_width();
     let paths: Vec<&Path> = items
         .iter()
-        .filter_map(|item| match item {
-            ListItem::Worktree(info) => Some(info.worktree.path.as_path()),
-            ListItem::Branch(_) => None,
-        })
+        .filter_map(|item| item.worktree_path().map(|path| path.as_path()))
         .collect();
     let common_prefix = find_common_prefix(&paths);
 
@@ -196,14 +193,11 @@ pub fn calculate_responsive_layout(items: &[ListItem]) -> LayoutConfig {
     // Calculate actual maximum path width (after common prefix removal)
     let max_path_width = items
         .iter()
-        .filter_map(|item| match item {
-            ListItem::Worktree(info) => Some(info),
-            ListItem::Branch(_) => None,
-        })
-        .map(|info| {
+        .filter_map(|item| item.worktree_path())
+        .map(|path| {
             use crate::display::shorten_path;
             use unicode_width::UnicodeWidthStr;
-            shorten_path(&info.worktree.path, &common_prefix).width()
+            shorten_path(path.as_path(), &common_prefix).width()
         })
         .max()
         .unwrap_or(20); // fallback to 20 if no paths
