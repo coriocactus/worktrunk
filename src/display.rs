@@ -10,6 +10,13 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn format_relative_time(timestamp: i64) -> String {
+    const MINUTE: i64 = 60;
+    const HOUR: i64 = MINUTE * 60;
+    const DAY: i64 = HOUR * 24;
+    const WEEK: i64 = DAY * 7;
+    const MONTH: i64 = DAY * 30; // Approximate calendar month
+    const YEAR: i64 = DAY * 365; // Approximate calendar year
+
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -21,32 +28,28 @@ pub fn format_relative_time(timestamp: i64) -> String {
         return "in the future".to_string();
     }
 
-    let minutes = seconds_ago / 60;
-    let hours = minutes / 60;
-    let days = hours / 24;
-    let weeks = days / 7;
-    let months = days / 30;
-    let years = days / 365;
-
-    if years > 0 {
-        format!("{} year{} ago", years, if years == 1 { "" } else { "s" })
-    } else if months > 0 {
-        format!("{} month{} ago", months, if months == 1 { "" } else { "s" })
-    } else if weeks > 0 {
-        format!("{} week{} ago", weeks, if weeks == 1 { "" } else { "s" })
-    } else if days > 0 {
-        format!("{} day{} ago", days, if days == 1 { "" } else { "s" })
-    } else if hours > 0 {
-        format!("{} hour{} ago", hours, if hours == 1 { "" } else { "s" })
-    } else if minutes > 0 {
-        format!(
-            "{} minute{} ago",
-            minutes,
-            if minutes == 1 { "" } else { "s" }
-        )
-    } else {
-        "just now".to_string()
+    if seconds_ago < MINUTE {
+        return "just now".to_string();
     }
+
+    const UNITS: &[(i64, &str)] = &[
+        (YEAR, "year"),
+        (MONTH, "month"),
+        (WEEK, "week"),
+        (DAY, "day"),
+        (HOUR, "hour"),
+        (MINUTE, "minute"),
+    ];
+
+    for &(unit_seconds, label) in UNITS {
+        let value = seconds_ago / unit_seconds;
+        if value > 0 {
+            let plural = if value == 1 { "" } else { "s" };
+            return format!("{} {}{} ago", value, label, plural);
+        }
+    }
+
+    "just now".to_string()
 }
 
 /// Find the common prefix among all paths

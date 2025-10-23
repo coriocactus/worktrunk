@@ -159,6 +159,13 @@ impl ListItem {
             ListItem::Branch(_) => false,
         }
     }
+
+    pub fn commit_timestamp(&self) -> i64 {
+        match self {
+            ListItem::Worktree(info) => info.commit.timestamp,
+            ListItem::Branch(info) => info.commit.timestamp,
+        }
+    }
 }
 
 impl BranchInfo {
@@ -197,19 +204,11 @@ impl WorktreeInfo {
         let is_primary = wt.path == primary.path;
 
         let commit = CommitDetails::gather(&wt_repo, &wt.head)?;
-
-        let counts = if is_primary {
-            AheadBehind::default()
-        } else {
-            AheadBehind::compute(&wt_repo, primary.branch.as_deref(), &wt.head)?
-        };
+        let base_branch = primary.branch.as_deref().filter(|_| !is_primary);
+        let counts = AheadBehind::compute(&wt_repo, base_branch, &wt.head)?;
 
         let working_tree_diff = wt_repo.working_tree_diff_stats()?;
-        let branch_diff = if is_primary {
-            BranchDiffTotals::default()
-        } else {
-            BranchDiffTotals::compute(&wt_repo, primary.branch.as_deref(), &wt.head)?
-        };
+        let branch_diff = BranchDiffTotals::compute(&wt_repo, base_branch, &wt.head)?;
         let upstream = UpstreamStatus::calculate(&wt_repo, wt.branch.as_deref(), &wt.head)?;
 
         // Get worktree state (merge/rebase/etc)
@@ -283,13 +282,7 @@ pub fn handle_list(format: crate::OutputFormat, show_branches: bool) -> Result<(
     }
 
     // Sort by most recent commit (descending)
-    items.sort_by_key(|item| {
-        let timestamp = match item {
-            ListItem::Worktree(info) => info.commit.timestamp,
-            ListItem::Branch(info) => info.commit.timestamp,
-        };
-        std::cmp::Reverse(timestamp)
-    });
+    items.sort_by_key(|item| std::cmp::Reverse(item.commit_timestamp()));
 
     match format {
         crate::OutputFormat::Json => {
@@ -331,41 +324,10 @@ fn display_summary(items: &[ListItem], include_branches: bool) {
         return;
     }
 
-    let worktree_count = items
-        .iter()
-        .filter(|i| matches!(i, ListItem::Worktree(_)))
-        .count();
-    let branch_count = items.len() - worktree_count;
-
-    // Count worktrees with changes
-    let dirty_count = items
-        .iter()
-        .filter_map(|i| match i {
-            ListItem::Worktree(wt) => Some(wt),
-            _ => None,
-        })
-        .filter(|wt| {
-            let (added, deleted) = wt.working_tree_diff;
-            added > 0 || deleted > 0
-        })
-        .count();
-
-    // Count items ahead/behind
-    let ahead_count = items
-        .iter()
-        .filter(|i| match i {
-            ListItem::Worktree(wt) => wt.counts.ahead > 0,
-            ListItem::Branch(br) => br.counts.ahead > 0,
-        })
-        .count();
-
-    let behind_count = items
-        .iter()
-        .filter(|i| match i {
-            ListItem::Worktree(wt) => wt.counts.behind > 0,
-            ListItem::Branch(br) => br.counts.behind > 0,
-        })
-        .count();
+    let mut metrics = SummaryMetrics::default();
+    for item in items {
+        metrics.update(item);
+    }
 
     println!();
     let dim = Style::new().dimmed();
@@ -374,27 +336,65 @@ fn display_summary(items: &[ListItem], include_branches: bool) {
     let mut parts = Vec::new();
 
     if include_branches {
-        parts.push(format!("{} worktrees", worktree_count));
-        if branch_count > 0 {
-            parts.push(format!("{} branches", branch_count));
+        parts.push(format!("{} worktrees", metrics.worktrees));
+        if metrics.branches > 0 {
+            parts.push(format!("{} branches", metrics.branches));
         }
     } else {
-        let plural = if worktree_count == 1 { "" } else { "s" };
-        parts.push(format!("{} worktree{}", worktree_count, plural));
+        let plural = if metrics.worktrees == 1 { "" } else { "s" };
+        parts.push(format!("{} worktree{}", metrics.worktrees, plural));
     }
 
-    if dirty_count > 0 {
-        parts.push(format!("{} with changes", dirty_count));
+    if metrics.dirty_worktrees > 0 {
+        parts.push(format!("{} with changes", metrics.dirty_worktrees));
     }
 
-    if ahead_count > 0 {
-        parts.push(format!("{} ahead", ahead_count));
+    if metrics.ahead_items > 0 {
+        parts.push(format!("{} ahead", metrics.ahead_items));
     }
 
-    if behind_count > 0 {
-        parts.push(format!("{} behind", behind_count));
+    if metrics.behind_items > 0 {
+        parts.push(format!("{} behind", metrics.behind_items));
     }
 
     let summary = parts.join(", ");
     println!("{dim}Showing {summary}{dim:#}");
+}
+
+#[derive(Default)]
+struct SummaryMetrics {
+    worktrees: usize,
+    branches: usize,
+    dirty_worktrees: usize,
+    ahead_items: usize,
+    behind_items: usize,
+}
+
+impl SummaryMetrics {
+    fn update(&mut self, item: &ListItem) {
+        match item {
+            ListItem::Worktree(wt) => {
+                self.worktrees += 1;
+                let (added, deleted) = wt.working_tree_diff;
+                if added > 0 || deleted > 0 {
+                    self.dirty_worktrees += 1;
+                }
+                if wt.counts.ahead > 0 {
+                    self.ahead_items += 1;
+                }
+                if wt.counts.behind > 0 {
+                    self.behind_items += 1;
+                }
+            }
+            ListItem::Branch(br) => {
+                self.branches += 1;
+                if br.counts.ahead > 0 {
+                    self.ahead_items += 1;
+                }
+                if br.counts.behind > 0 {
+                    self.behind_items += 1;
+                }
+            }
+        }
+    }
 }
