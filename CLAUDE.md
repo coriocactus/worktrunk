@@ -243,64 +243,62 @@ See `src/commands/list/render.rs` for advanced usage.
 
 The **gutter** is a subtle visual separator (single space with background color) used for quoted content like commands and configuration.
 
-**Core Principle: Alignment with Context**
+**Core Principle: Gutter provides all the separation needed**
 
-The gutter must align with its surrounding context to maintain clear visual hierarchy.
+The gutter's visual distinction is sufficient - no additional indentation required. This keeps the output clean and maximizes horizontal space for content.
 
-#### Indentation Rules
+#### Formatting Rules
 
-1. **Gutter positioning**: Place the gutter at the same indent level as its context
-   - If the label/description is at indent N, the gutter starts at indent N
-   - This creates visual cohesion between the context and the quoted content
+1. **Always use empty left margin**: `format_with_gutter(content, "")`
+   - Gutter appears at column 0
+   - Content appears at column 1 (after the gutter + 1 space)
+   - The colored background provides visual separation from surrounding text
 
-2. **After-gutter spacing**: Always use 1 space after the gutter
-   - The gutter itself provides visual separation
-   - Minimal spacing keeps content readable without excessive whitespace
-
-3. **Preserve internal structure**: Multi-line content maintains its original formatting
+2. **Preserve internal structure**: Multi-line content maintains its original formatting
    - Don't strip leading whitespace that's part of the content
    - Apply gutter treatment uniformly to each line
 
 #### Examples
 
-**Top-level content (no context indent):**
+**Config display:**
 ```
 Global Config: /path/to/config
  worktree-path = "../{main-worktree}.{branch}"
 
  [llm]
 ```
-- Label at column 0 → gutter at column 0 → content at column 1
 
-**Nested context (2-space indent):**
+**Command approval:**
 ```
   project wants to execute:
-   command here
-   more lines
+ [ -d {repo_root}/target ] &&
+ [ ! -e {worktree}/target ] &&
+ cp -cR {repo_root}/target/. {worktree}/target/
 ```
-- Label at column 2 → gutter at column 2 → content at column 3
 
-**Implementation:**
+**Command execution:**
+```
+🔄 Executing (post-create):
+ npm install
+```
+
+#### Implementation
+
+**Always use empty left margin:**
 
 ```rust
 use worktrunk::styling::format_with_gutter;
 
-// Top-level: gutter at column 0
+// All contexts - no indentation needed
 print!("{}", format_with_gutter(&command, ""));
-
-// 2-space context: gutter at column 2
-print!("  ");  // Position at context level
-print!("{}", format_with_gutter(&command, ""));
-
-// Or equivalently with left margin parameter:
-print!("{}", format_with_gutter(&command, "  "));
+print!("{}", format_with_gutter(&config, ""));
 ```
 
-**Function Signature:**
+**Function signature:**
 ```rust
 /// Arguments:
 /// - content: Text to format (preserves internal structure for multi-line)
-/// - left_margin: Spaces before the gutter (positions it at context level)
+/// - left_margin: Should always be "" (kept as parameter for API consistency)
 pub fn format_with_gutter(content: &str, left_margin: &str) -> String
 ```
 

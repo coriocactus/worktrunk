@@ -169,17 +169,15 @@ impl StyledLine {
 ///
 /// # Arguments
 /// * `content` - The text to format (preserves internal structure for multi-line)
-/// * `left_margin` - Spaces before the gutter (positions it at the context indent level)
+/// * `left_margin` - Should always be "" (gutter provides all visual separation)
 ///
-/// The gutter appears at the `left_margin` position, followed by 1 space, then the content.
+/// The gutter appears at column 0, followed by 1 space, then the content at column 1.
 ///
 /// # Example
 /// ```ignore
-/// // Top-level (gutter at column 0)
+/// // All contexts use empty left margin
 /// print!("{}", format_with_gutter(&config, ""));
-///
-/// // Nested in 2-space context (gutter at column 2)
-/// print!("{}", format_with_gutter(&command, "  "));
+/// print!("{}", format_with_gutter(&command, ""));
 /// ```
 pub fn format_with_gutter(content: &str, left_margin: &str) -> String {
     let gutter = Style::new().bg_color(Some(Color::Ansi(AnsiColor::Black)));
