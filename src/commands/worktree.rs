@@ -138,6 +138,8 @@ pub enum RemoveResult {
     RemovedWorktree { primary_path: PathBuf },
     /// Switched to default branch in main repo
     SwitchedToDefault(String),
+    /// Removed a different worktree (not the current one)
+    RemovedOtherWorktree { branch: String },
 }
 
 pub fn handle_switch(
@@ -228,10 +230,19 @@ pub fn handle_switch(
     })
 }
 
-pub fn handle_remove() -> Result<RemoveResult, GitError> {
+pub fn handle_remove(worktree_name: Option<&str>) -> Result<RemoveResult, GitError> {
     let repo = Repository::current();
 
-    // Check for uncommitted changes
+    // Two modes: remove current worktree vs. remove by name
+    match worktree_name {
+        None => remove_current_worktree(&repo),
+        Some(name) => remove_worktree_by_name(&repo, name),
+    }
+}
+
+/// Remove the current worktree (original behavior)
+fn remove_current_worktree(repo: &Repository) -> Result<RemoveResult, GitError> {
+    // Check for uncommitted changes in current worktree
     repo.ensure_clean_working_tree()?;
 
     // Get current state
@@ -269,6 +280,68 @@ pub fn handle_remove() -> Result<RemoveResult, GitError> {
             })?;
 
         Ok(RemoveResult::SwitchedToDefault(default_branch))
+    }
+}
+
+/// Remove a worktree by branch name
+fn remove_worktree_by_name(repo: &Repository, branch_name: &str) -> Result<RemoveResult, GitError> {
+    // Find the worktree for this branch
+    let worktree_path = repo.worktree_for_branch(branch_name)?;
+
+    let worktree_path = match worktree_path {
+        Some(path) => path,
+        None => {
+            let error_bold = ERROR.bold();
+            eprintln!(
+                "{ERROR_EMOJI} {ERROR}No worktree found for branch {error_bold}{branch_name}{error_bold:#}{ERROR:#}"
+            );
+            return Err(GitError::CommandFailed(String::new()));
+        }
+    };
+
+    // Check if the target worktree exists on disk
+    if !worktree_path.exists() {
+        let error_bold = ERROR.bold();
+        eprintln!(
+            "{ERROR_EMOJI} {ERROR}Worktree directory missing for {error_bold}{branch_name}{error_bold:#}{ERROR:#}"
+        );
+        eprintln!();
+        eprintln!("{HINT_EMOJI} {HINT}Run 'git worktree prune' to clean up{HINT:#}");
+        return Err(GitError::CommandFailed(String::new()));
+    }
+
+    // Check if the target worktree is clean (no uncommitted changes)
+    let target_repo = Repository::at(&worktree_path);
+    target_repo.ensure_clean_working_tree()?;
+
+    // Get the current worktree root to check if we're removing ourselves
+    let current_worktree = repo.worktree_root()?;
+    let removing_current = current_worktree == worktree_path;
+
+    // Get primary worktree path BEFORE removing (while we can still run git commands)
+    let primary_worktree_dir = if removing_current {
+        Some(repo.main_worktree_root()?)
+    } else {
+        None
+    };
+
+    // Remove the worktree
+    if let Err(e) = repo.remove_worktree(&worktree_path) {
+        eprintln!("{WARNING_EMOJI} {WARNING}Failed to remove worktree: {e}{WARNING:#}");
+        eprintln!(
+            "You may need to run 'git worktree remove {}' manually",
+            worktree_path.display()
+        );
+    }
+
+    // If we removed the current worktree, return to primary
+    if let Some(primary_path) = primary_worktree_dir {
+        Ok(RemoveResult::RemovedWorktree { primary_path })
+    } else {
+        // Stay where we are (no directory change needed)
+        Ok(RemoveResult::RemovedOtherWorktree {
+            branch: branch_name.to_string(),
+        })
     }
 }
 

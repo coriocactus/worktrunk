@@ -1,0 +1,26 @@
+---
+source: tests/integration_tests/remove.rs
+info:
+  program: wt
+  args:
+    - remove
+    - feature-dirty
+  env:
+    CLICOLOR_FORCE: "1"
+    GIT_AUTHOR_DATE: "2025-01-01T00:00:00Z"
+    GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
+    GIT_CONFIG_GLOBAL: /dev/null
+    GIT_CONFIG_SYSTEM: /dev/null
+    GIT_EDITOR: ""
+    LANG: C
+    LC_ALL: C
+    SOURCE_DATE_EPOCH: "1704067200"
+---
+success: false
+exit_code: 1
+----- stdout -----
+
+----- stderr -----
+❌ [31mWorking tree has uncommitted changes[0m
+
+💡 [2mCommit or stash them first[0m

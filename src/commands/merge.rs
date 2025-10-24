@@ -95,7 +95,7 @@ pub fn handle_merge(
         // Get primary worktree path before finishing (while we can still run git commands)
         let primary_worktree_dir = repo.main_worktree_root()?;
 
-        let result = handle_remove()?;
+        let result = handle_remove(None)?;
 
         // Display output based on mode
         handle_remove_output(&result)?;

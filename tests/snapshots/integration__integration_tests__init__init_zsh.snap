@@ -229,6 +229,7 @@ _arguments "${_arguments_options[@]}" : \
 '--verbose[Enable verbose output (show git commands and debug info)]' \
 '-h[Print help]' \
 '--help[Print help]' \
+'::worktree -- Worktree name or branch to remove (defaults to current worktree):_default' \
 && ret=0
 ;;
 (push)

@@ -50,6 +50,9 @@ fn format_remove_message_plain(result: &RemoveResult) -> String {
         RemoveResult::SwitchedToDefault(branch) => {
             format!("Switched to default branch {bold}{branch}{bold:#}")
         }
+        RemoveResult::RemovedOtherWorktree { branch } => {
+            format!("Removed worktree for {bold}{branch}{bold:#}")
+        }
     }
 }
 

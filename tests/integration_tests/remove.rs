@@ -78,3 +78,83 @@ fn test_remove_dirty_working_tree() {
 
     snapshot_remove("remove_dirty_working_tree", &repo, &[], None);
 }
+
+#[test]
+fn test_remove_by_name_from_main() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.setup_remote("main");
+
+    // Create a worktree
+    let _worktree_path = repo.add_worktree("feature-a", "feature-a");
+
+    // Remove it by name from main repo
+    snapshot_remove("remove_by_name_from_main", &repo, &["feature-a"], None);
+}
+
+#[test]
+fn test_remove_by_name_from_other_worktree() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.setup_remote("main");
+
+    // Create two worktrees
+    let worktree_a = repo.add_worktree("feature-a", "feature-a");
+    let _worktree_b = repo.add_worktree("feature-b", "feature-b");
+
+    // From worktree A, remove worktree B by name
+    snapshot_remove(
+        "remove_by_name_from_other_worktree",
+        &repo,
+        &["feature-b"],
+        Some(&worktree_a),
+    );
+}
+
+#[test]
+fn test_remove_current_by_name() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.setup_remote("main");
+
+    let worktree_path = repo.add_worktree("feature-current", "feature-current");
+
+    // Remove current worktree by specifying its name
+    snapshot_remove(
+        "remove_current_by_name",
+        &repo,
+        &["feature-current"],
+        Some(&worktree_path),
+    );
+}
+
+#[test]
+fn test_remove_nonexistent_worktree() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.setup_remote("main");
+
+    // Try to remove a worktree that doesn't exist
+    snapshot_remove("remove_nonexistent_worktree", &repo, &["nonexistent"], None);
+}
+
+#[test]
+fn test_remove_by_name_dirty_target() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.setup_remote("main");
+
+    let worktree_path = repo.add_worktree("feature-dirty", "feature-dirty");
+
+    // Create a dirty file in the target worktree
+    std::fs::write(worktree_path.join("dirty.txt"), "uncommitted changes")
+        .expect("Failed to create file");
+
+    // Try to remove it by name from main repo
+    snapshot_remove(
+        "remove_by_name_dirty_target",
+        &repo,
+        &["feature-dirty"],
+        None,
+    );
+}

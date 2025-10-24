@@ -123,6 +123,9 @@ enum Commands {
 
     /// Finish current worktree, returning to primary if current
     Remove {
+        /// Worktree name or branch to remove (defaults to current worktree)
+        worktree: Option<String>,
+
         /// Use internal mode (outputs directives for shell wrapper)
         #[arg(long, hide = true)]
         internal: bool,
@@ -332,7 +335,7 @@ fn main() {
                     .and_then(|result| handle_switch_output(&result, &branch, execute.as_deref()))
                 })
         }
-        Commands::Remove { internal } => {
+        Commands::Remove { worktree, internal } => {
             // Initialize output context based on mode
             let output_mode = if internal {
                 output::OutputMode::Directive
@@ -341,7 +344,7 @@ fn main() {
             };
             output::initialize(output_mode);
 
-            handle_remove().and_then(|result| handle_remove_output(&result))
+            handle_remove(worktree.as_deref()).and_then(|result| handle_remove_output(&result))
         }
         Commands::Push {
             target,
