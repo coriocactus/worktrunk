@@ -44,9 +44,9 @@ vergen-gitcl = { version = "1.0.8", features = ["build"] }
 insta = { version = "1.43", features = ["yaml", "redactions", "filters"] }
 insta-cmd = "0.6"
 assert_cmd = "2.0"
+rstest = "0.26"
 tempfile = "3.23"
 toml = "0.9"
-rstest = "0.26"
 criterion = "0.7"
 regex = "1.12"
 

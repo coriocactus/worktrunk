@@ -13,54 +13,127 @@ use insta::assert_snapshot;
 use insta_cmd::get_cargo_bin;
 use std::fs;
 use std::process::Command;
+use std::sync::LazyLock;
 
-/// Generate the bash wrapper script using the actual `wt init` command
-fn generate_bash_wrapper(repo: &TestRepo) -> String {
+/// Regex for normalizing temporary directory paths in test snapshots
+static TMPDIR_REGEX: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
+        .expect("Invalid tmpdir regex pattern")
+});
+
+/// Output from executing a command through a shell wrapper
+#[derive(Debug)]
+struct ShellOutput {
+    /// Combined stdout and stderr as user would see
+    combined: String,
+    /// Exit code from the command
+    exit_code: i32,
+}
+
+impl ShellOutput {
+    /// Check if output contains no directive leaks
+    fn assert_no_directive_leaks(&self) {
+        assert!(
+            !self.combined.contains("__WORKTRUNK_CD__"),
+            "Output contains leaked __WORKTRUNK_CD__ directive:\n{}",
+            self.combined
+        );
+        assert!(
+            !self.combined.contains("__WORKTRUNK_EXEC__"),
+            "Output contains leaked __WORKTRUNK_EXEC__ directive:\n{}",
+            self.combined
+        );
+    }
+
+    /// Normalize paths in output for snapshot testing
+    fn normalized(&self) -> std::borrow::Cow<'_, str> {
+        TMPDIR_REGEX.replace_all(&self.combined, "[TMPDIR]")
+    }
+}
+
+/// Generate a shell wrapper script using the actual `wt init` command
+fn generate_wrapper(repo: &TestRepo, shell: &str) -> String {
     let wt_bin = get_cargo_bin("wt");
 
     let mut cmd = Command::new(&wt_bin);
-    cmd.arg("init").arg("bash");
+    cmd.arg("init").arg(shell);
 
     // Configure environment
     repo.clean_cli_env(&mut cmd);
 
-    let output = cmd.output().expect("Failed to run wt init bash");
+    let output = cmd
+        .output()
+        .unwrap_or_else(|_| panic!("Failed to run wt init {}", shell));
 
     if !output.status.success() {
         panic!(
-            "wt init bash failed with exit code: {:?}\nOutput:\n{}",
+            "wt init {} failed with exit code: {:?}\nOutput:\n{}",
+            shell,
             output.status.code(),
             String::from_utf8_lossy(&output.stderr)
         );
     }
 
-    String::from_utf8(output.stdout).expect("wt init bash produced invalid UTF-8")
+    String::from_utf8(output.stdout)
+        .unwrap_or_else(|_| panic!("wt init {} produced invalid UTF-8", shell))
 }
 
-/// Generate the fish wrapper script using the actual `wt init` command
-fn generate_fish_wrapper(repo: &TestRepo) -> String {
+/// Quote a shell argument if it contains special characters
+fn quote_arg(arg: &str) -> String {
+    if arg.contains(' ') || arg.contains(';') || arg.contains('\'') {
+        format!("'{}'", arg.replace('\'', "'\\''"))
+    } else {
+        arg.to_string()
+    }
+}
+
+/// Build a shell script that sources the wrapper and runs a command
+fn build_shell_script(shell: &str, repo: &TestRepo, subcommand: &str, args: &[&str]) -> String {
     let wt_bin = get_cargo_bin("wt");
+    let wrapper_script = generate_wrapper(repo, shell);
+    let mut script = String::new();
 
-    let mut cmd = Command::new(&wt_bin);
-    cmd.arg("init").arg("fish");
-
-    // Configure environment
-    repo.clean_cli_env(&mut cmd);
-
-    let output = cmd.output().expect("Failed to run wt init fish");
-
-    if !output.status.success() {
-        panic!(
-            "wt init fish failed with exit code: {:?}\nOutput:\n{}",
-            output.status.code(),
-            String::from_utf8_lossy(&output.stderr)
-        );
+    // Set environment variables - syntax varies by shell
+    // Don't use 'set -e' in bash/zsh - we want to capture failures and their exit codes.
+    // This is tested by test_wrapper_handles_command_failure which verifies
+    // that command failures return proper exit codes rather than aborting the script.
+    match shell {
+        "fish" => {
+            script.push_str(&format!("set -x WORKTRUNK_BIN '{}'\n", wt_bin.display()));
+            script.push_str(&format!(
+                "set -x WORKTRUNK_CONFIG_PATH '{}'\n",
+                repo.test_config_path().display()
+            ));
+            script.push_str("set -x CLICOLOR_FORCE 1\n");
+        }
+        _ => {
+            // bash, zsh
+            script.push_str(&format!("export WORKTRUNK_BIN='{}'\n", wt_bin.display()));
+            script.push_str(&format!(
+                "export WORKTRUNK_CONFIG_PATH='{}'\n",
+                repo.test_config_path().display()
+            ));
+            script.push_str("export CLICOLOR_FORCE=1\n");
+        }
     }
 
-    String::from_utf8(output.stdout).expect("wt init fish produced invalid UTF-8")
+    // Source the wrapper
+    script.push_str(&wrapper_script);
+    script.push('\n');
+
+    // Build the command
+    script.push_str("wt ");
+    script.push_str(subcommand);
+    for arg in args {
+        script.push(' ');
+        script.push_str(&quote_arg(arg));
+    }
+    script.push('\n');
+
+    script
 }
 
-/// Execute a command through the bash shell wrapper
+/// Execute a command through a shell wrapper
 ///
 /// This simulates what actually happens when users run `wt switch`, etc. in their shell:
 /// 1. The `wt` function is defined (from shell integration)
@@ -68,51 +141,24 @@ fn generate_fish_wrapper(repo: &TestRepo) -> String {
 /// 3. The wrapper parses NUL-delimited output and handles directives
 /// 4. Users see only the final human-friendly output
 ///
-/// Returns the combined stdout+stderr output as users would see it
-fn exec_through_bash_wrapper(repo: &TestRepo, subcommand: &str, args: &[&str]) -> String {
-    let wrapper_script = generate_bash_wrapper(repo);
+/// Returns ShellOutput with combined output and exit code
+fn exec_through_wrapper(
+    shell: &str,
+    repo: &TestRepo,
+    subcommand: &str,
+    args: &[&str],
+) -> ShellOutput {
+    let script = build_shell_script(shell, repo, subcommand, args);
 
-    // Get the path to wt binary
-    let wt_bin = get_cargo_bin("wt");
-
-    // Build the full script that sources the wrapper and runs the command
-    let mut script = String::new();
-    script.push_str("set -e\n"); // Exit on error
-    script.push_str(&format!("export WORKTRUNK_BIN='{}'\n", wt_bin.display()));
-    script.push_str(&format!(
-        "export WORKTRUNK_CONFIG_PATH='{}'\n",
-        repo.test_config_path().display()
-    ));
-    script.push_str("export CLICOLOR_FORCE=1\n"); // Force colors for snapshot testing
-
-    // Source the wrapper
-    script.push_str(&wrapper_script);
-    script.push('\n');
-
-    // Run the command
-    script.push_str("wt ");
-    script.push_str(subcommand);
-    for arg in args {
-        script.push(' ');
-        // Quote arguments that need special handling (spaces, semicolons, etc.)
-        if arg.contains(' ') || arg.contains(';') || arg.contains('\'') {
-            script.push('\'');
-            script.push_str(&arg.replace('\'', "'\\''"));
-            script.push('\'');
-        } else {
-            script.push_str(arg);
-        }
-    }
-    script.push('\n');
-
-    // Execute through bash
-    let mut cmd = Command::new("bash");
+    let mut cmd = Command::new(shell);
     cmd.arg("-c").arg(&script).current_dir(repo.root_path());
 
     // Configure git environment
     repo.clean_cli_env(&mut cmd);
 
-    let output = cmd.output().expect("Failed to execute bash wrapper");
+    let output = cmd
+        .output()
+        .unwrap_or_else(|_| panic!("Failed to execute {} wrapper", shell));
 
     // Combine stdout and stderr as users would see in a terminal
     let mut combined = String::from_utf8_lossy(&output.stdout).to_string();
@@ -120,130 +166,173 @@ fn exec_through_bash_wrapper(repo: &TestRepo, subcommand: &str, args: &[&str]) -
         combined.push_str(&String::from_utf8_lossy(&output.stderr));
     }
 
-    // Check that command succeeded
-    if !output.status.success() {
-        panic!(
-            "Command failed with exit code: {:?}\nOutput:\n{}",
-            output.status.code(),
-            combined
-        );
+    ShellOutput {
+        combined,
+        exit_code: output.status.code().unwrap_or(1),
     }
-
-    combined
-}
-
-/// Execute a command through the fish shell wrapper
-///
-/// This simulates what actually happens when users run `wt switch`, etc. in their Fish shell:
-/// 1. The `wt` function is defined (from shell integration)
-/// 2. It calls `_wt_exec --internal switch ...`
-/// 3. The wrapper parses NUL-delimited output and handles directives
-/// 4. Users see only the final human-friendly output
-///
-/// Returns the combined stdout+stderr output as users would see it
-fn exec_through_fish_wrapper(repo: &TestRepo, subcommand: &str, args: &[&str]) -> String {
-    let wrapper_script = generate_fish_wrapper(repo);
-
-    // Get the path to wt binary
-    let wt_bin = get_cargo_bin("wt");
-
-    // Build the full script that sources the wrapper and runs the command
-    let mut script = String::new();
-
-    // Set environment variables
-    script.push_str(&format!("set -x WORKTRUNK_BIN '{}'\n", wt_bin.display()));
-    script.push_str(&format!(
-        "set -x WORKTRUNK_CONFIG_PATH '{}'\n",
-        repo.test_config_path().display()
-    ));
-    script.push_str("set -x CLICOLOR_FORCE 1\n"); // Force colors for snapshot testing
-
-    // Source the wrapper
-    script.push_str(&wrapper_script);
-    script.push('\n');
-
-    // Run the command
-    script.push_str("wt ");
-    script.push_str(subcommand);
-    for arg in args {
-        script.push(' ');
-        // Quote arguments that need special handling (spaces, semicolons, etc.)
-        if arg.contains(' ') || arg.contains(';') || arg.contains('\'') {
-            script.push('\'');
-            script.push_str(&arg.replace('\'', "'\\''"));
-            script.push('\'');
-        } else {
-            script.push_str(arg);
-        }
-    }
-    script.push('\n');
-
-    // Execute through fish
-    let mut cmd = Command::new("fish");
-    cmd.arg("-c").arg(&script).current_dir(repo.root_path());
-
-    // Configure git environment
-    repo.clean_cli_env(&mut cmd);
-
-    let output = cmd.output().expect("Failed to execute fish wrapper");
-
-    // Combine stdout and stderr as users would see in a terminal
-    let mut combined = String::from_utf8_lossy(&output.stdout).to_string();
-    if !output.stderr.is_empty() {
-        combined.push_str(&String::from_utf8_lossy(&output.stderr));
-    }
-
-    // Check that command succeeded
-    if !output.status.success() {
-        panic!(
-            "Command failed with exit code: {:?}\nOutput:\n{}",
-            output.status.code(),
-            combined
-        );
-    }
-
-    combined
-}
-
-/// Assert that output contains no directive leaks
-fn assert_no_directive_leaks(output: &str) {
-    assert!(
-        !output.contains("__WORKTRUNK_CD__"),
-        "Output contains leaked __WORKTRUNK_CD__ directive:\n{}",
-        output
-    );
-    assert!(
-        !output.contains("__WORKTRUNK_EXEC__"),
-        "Output contains leaked __WORKTRUNK_EXEC__ directive:\n{}",
-        output
-    );
 }
 
 mod tests {
     use super::*;
+    use rstest::rstest;
+
+    // TODO: Add zsh support
+    // Zsh currently uses the bash template (src/shell.rs:313), which includes bash-specific
+    // commands like `complete -F` and `COMP_WORDS` that don't exist in zsh.
+    // This causes zsh tests to hang waiting for the wrapper to execute.
+    // Need to create templates/zsh.zsh with proper zsh syntax:
+    // - Use `compdef` instead of `complete` for completions
+    // - Use zsh-specific completion system
+    // - Fix temp file cleanup (currently tries `\rm` which fails in test environment)
+
+    // ========================================================================
+    // Cross-Shell Error Handling Tests
+    // ========================================================================
+    //
+    // These tests use parametrized testing to verify consistent behavior
+    // across all supported shells (bash, fish).
+
+    #[rstest]
+    #[case("bash")]
+    #[case("fish")]
+    fn test_wrapper_handles_command_failure(#[case] shell: &str) {
+        let mut repo = TestRepo::new();
+        repo.commit("Initial commit");
+
+        // Create a worktree that already exists
+        repo.add_worktree("existing", "existing");
+
+        // Try to create it again - should fail
+        let output = exec_through_wrapper(shell, &repo, "switch", &["--create", "existing"]);
+
+        // Shell-agnostic assertions: these must be true for ALL shells
+        assert_eq!(
+            output.exit_code, 1,
+            "{}: Command should fail with exit code 1",
+            shell
+        );
+        output.assert_no_directive_leaks();
+        assert!(
+            output.combined.contains("already exists"),
+            "{}: Error message should mention 'already exists'.\nOutput:\n{}",
+            shell,
+            output.combined
+        );
+
+        // Snapshot for shell-specific formatting
+        assert_snapshot!(
+            format!("command_failure_{}", shell),
+            output.normalized().as_ref()
+        );
+    }
+
+    #[rstest]
+    #[case("bash")]
+    #[case("fish")]
+    fn test_wrapper_switch_create(#[case] shell: &str) {
+        let repo = TestRepo::new();
+        repo.commit("Initial commit");
+
+        let output = exec_through_wrapper(shell, &repo, "switch", &["--create", "feature"]);
+
+        // Shell-agnostic assertions
+        assert_eq!(output.exit_code, 0, "{}: Command should succeed", shell);
+        output.assert_no_directive_leaks();
+
+        assert!(
+            output.combined.contains("Created new worktree"),
+            "{}: Should show success message",
+            shell
+        );
+
+        // Shell-specific snapshot
+        assert_snapshot!(
+            format!("switch_create_{}", shell),
+            output.normalized().as_ref()
+        );
+    }
+
+    #[rstest]
+    #[case("bash")]
+    #[case("fish")]
+    fn test_wrapper_remove(#[case] shell: &str) {
+        let mut repo = TestRepo::new();
+        repo.commit("Initial commit");
+
+        // Create a worktree to remove
+        repo.add_worktree("to-remove", "to-remove");
+
+        let output = exec_through_wrapper(shell, &repo, "remove", &["to-remove"]);
+
+        // Shell-agnostic assertions
+        assert_eq!(output.exit_code, 0, "{}: Command should succeed", shell);
+        output.assert_no_directive_leaks();
+
+        // Shell-specific snapshot
+        assert_snapshot!(format!("remove_{}", shell), output.normalized().as_ref());
+    }
+
+    #[rstest]
+    #[case("bash")]
+    #[case("fish")]
+    fn test_wrapper_merge(#[case] shell: &str) {
+        let mut repo = TestRepo::new();
+        repo.commit("Initial commit");
+
+        // Create a feature branch
+        repo.add_worktree("feature", "feature");
+
+        let output = exec_through_wrapper(shell, &repo, "merge", &["main"]);
+
+        // Shell-agnostic assertions
+        assert_eq!(output.exit_code, 0, "{}: Command should succeed", shell);
+        output.assert_no_directive_leaks();
+
+        // Shell-specific snapshot
+        assert_snapshot!(format!("merge_{}", shell), output.normalized().as_ref());
+    }
+
+    #[rstest]
+    #[case("bash")]
+    #[case("fish")]
+    fn test_wrapper_switch_with_execute(#[case] shell: &str) {
+        let repo = TestRepo::new();
+        repo.commit("Initial commit");
+
+        // Use --force to skip approval prompt in tests
+        let output = exec_through_wrapper(
+            shell,
+            &repo,
+            "switch",
+            &[
+                "--create",
+                "test-exec",
+                "--execute",
+                "echo executed",
+                "--force",
+            ],
+        );
+
+        // Shell-agnostic assertions
+        assert_eq!(output.exit_code, 0, "{}: Command should succeed", shell);
+        output.assert_no_directive_leaks();
+
+        assert!(
+            output.combined.contains("executed"),
+            "{}: Execute command output missing",
+            shell
+        );
+
+        // Shell-specific snapshot
+        assert_snapshot!(
+            format!("switch_with_execute_{}", shell),
+            output.normalized().as_ref()
+        );
+    }
 
     // ========================================================================
     // Bash Shell Wrapper Tests
     // ========================================================================
-
-    #[test]
-    fn test_switch_create_through_wrapper_no_directive_leak() {
-        let repo = TestRepo::new();
-        repo.commit("Initial commit");
-
-        let output = exec_through_bash_wrapper(&repo, "switch", &["--create", "feature"]);
-
-        // The critical assertion: directives must never appear in user-facing output
-        assert_no_directive_leaks(&output);
-
-        // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        // Snapshot the output for regression testing
-        assert_snapshot!(normalized.as_ref());
-    }
 
     #[test]
     fn test_switch_with_post_start_command_no_directive_leak() {
@@ -275,20 +364,18 @@ command = "echo 'test command executed'"
         .expect("Failed to write user config");
 
         let output =
-            exec_through_bash_wrapper(&repo, "switch", &["--create", "feature-with-hooks"]);
+            exec_through_wrapper("bash", &repo, "switch", &["--create", "feature-with-hooks"]);
 
         // The critical assertion: directives must never appear in user-facing output
         // This is where the bug occurs - "🔄 Starting (background):" is printed with println!
         // which causes it to concatenate with the directive
-        assert_no_directive_leaks(&output);
+        output.assert_no_directive_leaks();
+
+        assert_eq!(output.exit_code, 0, "Command should succeed");
 
         // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
         // Snapshot the output
-        assert_snapshot!(normalized.as_ref());
+        assert_snapshot!(output.normalized().as_ref());
     }
 
     #[test]
@@ -297,7 +384,8 @@ command = "echo 'test command executed'"
         repo.commit("Initial commit");
 
         // Use --force to skip approval prompt in tests
-        let output = exec_through_bash_wrapper(
+        let output = exec_through_wrapper(
+            "bash",
             &repo,
             "switch",
             &[
@@ -310,65 +398,19 @@ command = "echo 'test command executed'"
         );
 
         // No directives should leak
-        assert_no_directive_leaks(&output);
+        output.assert_no_directive_leaks();
+
+        assert_eq!(output.exit_code, 0, "Command should succeed");
 
         // The executed command output should appear
         assert!(
-            output.contains("executed"),
+            output.combined.contains("executed"),
             "Execute command output missing"
         );
 
         // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
         // Snapshot the output
-        assert_snapshot!(normalized.as_ref());
-    }
-
-    #[test]
-    fn test_remove_through_wrapper_no_directive_leak() {
-        let mut repo = TestRepo::new();
-        repo.commit("Initial commit");
-
-        // Create a worktree to remove
-        repo.add_worktree("to-remove", "to-remove");
-
-        let output = exec_through_bash_wrapper(&repo, "remove", &["to-remove"]);
-
-        // No directives should leak
-        assert_no_directive_leaks(&output);
-
-        // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        // Snapshot the output
-        assert_snapshot!(normalized.as_ref());
-    }
-
-    #[test]
-    fn test_merge_through_wrapper_no_directive_leak() {
-        let mut repo = TestRepo::new();
-        repo.commit("Initial commit");
-
-        // Create a feature branch
-        repo.add_worktree("feature", "feature");
-
-        let output = exec_through_bash_wrapper(&repo, "merge", &["main"]);
-
-        // No directives should leak
-        assert_no_directive_leaks(&output);
-
-        // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        // Snapshot the output
-        assert_snapshot!(normalized.as_ref());
+        assert_snapshot!(output.normalized().as_ref());
     }
 
     #[test]
@@ -378,27 +420,22 @@ command = "echo 'test command executed'"
 
         // When running through the shell wrapper, the "To enable automatic cd" hint
         // should NOT appear because the user already has shell integration
-        let output = exec_through_bash_wrapper(&repo, "switch", &["--create", "bash-test"]);
+        let output = exec_through_wrapper("bash", &repo, "switch", &["--create", "bash-test"]);
 
         // Critical: shell integration hint must be suppressed in directive mode
         assert!(
-            !output.contains("To enable automatic cd"),
+            !output.combined.contains("To enable automatic cd"),
             "Shell integration hint should not appear when running through wrapper. Output:\n{}",
-            output
+            output.combined
         );
 
         // Should still have the success message
         assert!(
-            output.contains("Created new worktree"),
+            output.combined.contains("Created new worktree"),
             "Success message missing"
         );
 
-        // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        assert_snapshot!(normalized.as_ref());
+        assert_snapshot!(output.normalized().as_ref());
     }
 
     #[test]
@@ -429,33 +466,31 @@ command = "echo 'background task'"
         )
         .expect("Failed to write user config");
 
-        let output = exec_through_bash_wrapper(&repo, "switch", &["--create", "feature-bg"]);
+        let output = exec_through_wrapper("bash", &repo, "switch", &["--create", "feature-bg"]);
 
         // No directives should leak
-        assert_no_directive_leaks(&output);
+        output.assert_no_directive_leaks();
+
+        assert_eq!(output.exit_code, 0, "Command should succeed");
 
         // Critical assertion: progress messages should appear to users
         // This is the test that catches the bug where progress() is suppressed in directive mode
         assert!(
-            output.contains("Starting (background)"),
+            output.combined.contains("Starting (background)"),
             "Progress message 'Starting (background)' missing from output. \
          Output:\n{}",
-            output
+            output.combined
         );
 
         // The background command itself should be shown via gutter formatting
         assert!(
-            output.contains("background task"),
+            output.combined.contains("background task"),
             "Background command content missing from output"
         );
 
         // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
         // Snapshot the full output
-        assert_snapshot!(normalized.as_ref());
+        assert_snapshot!(output.normalized().as_ref());
     }
 
     // ============================================================================
@@ -471,24 +506,6 @@ command = "echo 'background task'"
     // Fish uses `read -z` to parse NUL-delimited chunks and `psub` for
     // process substitution. These have known limitations (fish-shell #1040)
     // but work correctly for our use case.
-
-    #[test]
-    fn test_fish_switch_create_no_directive_leak() {
-        let repo = TestRepo::new();
-        repo.commit("Initial commit");
-
-        let output = exec_through_fish_wrapper(&repo, "switch", &["--create", "fish-feature"]);
-
-        // Critical: directives must never appear in user-facing output
-        assert_no_directive_leaks(&output);
-
-        // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        assert_snapshot!(normalized.as_ref());
-    }
 
     #[test]
     fn test_fish_wrapper_preserves_progress_messages() {
@@ -518,82 +535,28 @@ command = "echo 'fish background task'"
         )
         .expect("Failed to write user config");
 
-        let output = exec_through_fish_wrapper(&repo, "switch", &["--create", "fish-bg"]);
+        let output = exec_through_wrapper("fish", &repo, "switch", &["--create", "fish-bg"]);
 
         // No directives should leak
-        assert_no_directive_leaks(&output);
+        output.assert_no_directive_leaks();
+
+        assert_eq!(output.exit_code, 0, "Command should succeed");
 
         // Critical: progress messages should appear to users through Fish wrapper
         assert!(
-            output.contains("Starting (background)"),
+            output.combined.contains("Starting (background)"),
             "Progress message 'Starting (background)' missing from Fish wrapper output. \
          Output:\n{}",
-            output
+            output.combined
         );
 
         // The background command itself should be shown via gutter formatting
         assert!(
-            output.contains("fish background task"),
+            output.combined.contains("fish background task"),
             "Background command content missing from output"
         );
 
-        // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        assert_snapshot!(normalized.as_ref());
-    }
-
-    #[test]
-    fn test_fish_shell_integration_hint_suppressed() {
-        let repo = TestRepo::new();
-        repo.commit("Initial commit");
-
-        // When running through the shell wrapper, the "To enable automatic cd" hint
-        // should NOT appear because the user already has shell integration
-        let output = exec_through_fish_wrapper(&repo, "switch", &["--create", "fish-test"]);
-
-        // Critical: shell integration hint must be suppressed in directive mode
-        assert!(
-            !output.contains("To enable automatic cd"),
-            "Shell integration hint should not appear when running through wrapper. Output:\n{}",
-            output
-        );
-
-        // Should still have the success message
-        assert!(
-            output.contains("Created new worktree"),
-            "Success message missing"
-        );
-
-        // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        assert_snapshot!(normalized.as_ref());
-    }
-
-    #[test]
-    fn test_fish_remove_no_directive_leak() {
-        let mut repo = TestRepo::new();
-        repo.commit("Initial commit");
-
-        // Create a worktree to remove
-        repo.add_worktree("fish-to-remove", "fish-to-remove");
-
-        let output = exec_through_fish_wrapper(&repo, "remove", &["fish-to-remove"]);
-
-        // No directives should leak
-        assert_no_directive_leaks(&output);
-
-        // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        assert_snapshot!(normalized.as_ref());
+        assert_snapshot!(output.normalized().as_ref());
     }
 
     #[test]
@@ -607,7 +570,8 @@ command = "echo 'fish background task'"
         let multiline_cmd = "echo 'line 1'; echo 'line 2'; echo 'line 3'";
 
         // Use --force to skip approval prompt in tests
-        let output = exec_through_fish_wrapper(
+        let output = exec_through_wrapper(
+            "fish",
             &repo,
             "switch",
             &[
@@ -620,19 +584,17 @@ command = "echo 'fish background task'"
         );
 
         // No directives should leak
-        assert_no_directive_leaks(&output);
+        output.assert_no_directive_leaks();
+
+        assert_eq!(output.exit_code, 0, "Command should succeed");
 
         // All three lines should be executed and visible
-        assert!(output.contains("line 1"), "First line missing");
-        assert!(output.contains("line 2"), "Second line missing");
-        assert!(output.contains("line 3"), "Third line missing");
+        assert!(output.combined.contains("line 1"), "First line missing");
+        assert!(output.combined.contains("line 2"), "Second line missing");
+        assert!(output.combined.contains("line 3"), "Third line missing");
 
         // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        assert_snapshot!(normalized.as_ref());
+        assert_snapshot!(output.normalized().as_ref());
     }
 
     #[test]
@@ -642,22 +604,20 @@ command = "echo 'fish background task'"
 
         // Test edge case: command that produces minimal output
         // This verifies Fish's `test -n "$chunk"` check works correctly
-        let output = exec_through_fish_wrapper(&repo, "switch", &["--create", "fish-minimal"]);
+        let output = exec_through_wrapper("fish", &repo, "switch", &["--create", "fish-minimal"]);
 
         // No directives should leak even with minimal output
-        assert_no_directive_leaks(&output);
+        output.assert_no_directive_leaks();
+
+        assert_eq!(output.exit_code, 0, "Command should succeed");
 
         // Should still show success message
         assert!(
-            output.contains("Created new worktree"),
+            output.combined.contains("Created new worktree"),
             "Success message missing from minimal output"
         );
 
         // Normalize paths in output for snapshot testing
-        let normalized = regex::Regex::new(r"/private/var/folders/[^/]+/[^/]+/T/\.tmp[^/]+")
-            .unwrap()
-            .replace_all(&output, "[TMPDIR]");
-
-        assert_snapshot!(normalized.as_ref());
+        assert_snapshot!(output.normalized().as_ref());
     }
 }

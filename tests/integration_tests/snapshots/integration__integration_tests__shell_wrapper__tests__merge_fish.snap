@@ -1,0 +1,6 @@
+---
+source: tests/integration_tests/shell_wrapper.rs
+expression: output.normalized().as_ref()
+---
+🔄 [36mValidating merge...[0m
+Already on [1mmain[0m, nothing to merge

@@ -1,0 +1,5 @@
+---
+source: tests/integration_tests/shell_wrapper.rs
+expression: output.normalized().as_ref()
+---
+Removed worktree for [1mto-remove[0m
