@@ -360,7 +360,3 @@ fn main() {
         process::exit(1);
     }
 }
-// test change
-fn main() {
-    unsafe { }
-}
