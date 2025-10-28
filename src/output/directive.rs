@@ -50,7 +50,6 @@ impl DirectiveOutput {
     }
 
     pub fn flush(&mut self) -> io::Result<()> {
-        writeln!(io::stdout())?;
         io::stdout().flush()?;
         io::stderr().flush()
     }

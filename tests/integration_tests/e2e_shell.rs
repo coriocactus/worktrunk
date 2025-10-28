@@ -392,3 +392,41 @@ fn test_bash_e2e_multiple_switches() {
         output
     );
 }
+
+#[test]
+fn test_bash_e2e_switch_linebreaks() {
+    if !is_shell_available("bash") {
+        eprintln!("Skipping test: bash not available");
+        return;
+    }
+
+    let repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    let init_code = generate_init_code(&repo, "bash");
+    let bin_path = get_cargo_bin("wt")
+        .parent()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+
+    // Script that switches and immediately echoes a marker to count linebreaks
+    let script = format!(
+        r#"
+        {}
+        {}
+        wt switch --create test-branch 2>&1
+        echo "MARKER"
+        "#,
+        path_export_syntax("bash", &bin_path),
+        init_code
+    );
+
+    let output = execute_shell_script(&repo, "bash", &script);
+
+    // Setup insta settings to normalize paths
+    let settings = crate::common::setup_snapshot_settings(&repo);
+    settings.bind(|| {
+        insta::assert_snapshot!("bash_e2e_switch_linebreaks", output);
+    });
+}
