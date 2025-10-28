@@ -1,0 +1,6 @@
+---
+source: tests/integration_tests/shell_wrapper.rs
+expression: normalized.as_ref()
+---
+Created new worktree for test-exec at [TMPDIR]/test-repo.test-exec
+executed

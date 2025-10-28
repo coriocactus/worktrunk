@@ -12,13 +12,14 @@ info:
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
     GIT_CONFIG_GLOBAL: /dev/null
     GIT_CONFIG_SYSTEM: /dev/null
+    GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
     WORKTRUNK_COMMIT_GENERATION__ARGS__0: "-c"
     WORKTRUNK_COMMIT_GENERATION__ARGS__1: "cat >/dev/null && echo 'feat: implement user authentication system'"
     WORKTRUNK_COMMIT_GENERATION__COMMAND: sh
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpEpPXtB/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpmCA23B/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -31,6 +32,7 @@ exit_code: 0
 [40m [0m Combined commits:
 [40m [0m - feat: add authentication
 [40m [0m - fix: handle edge case
+
 ✅ [32mSquashed 2 commits into one[0m
 🔄 [36mRebasing onto [1m[36mmain[0m...[0m
 🔄 [36mPushing 1 commit to [1m[36mmain[0m @ [SHA][0m

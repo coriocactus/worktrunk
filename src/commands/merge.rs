@@ -1,6 +1,6 @@
 use worktrunk::config::{ProjectConfig, WorktrunkConfig};
 use worktrunk::git::{GitError, Repository};
-use worktrunk::styling::{AnstyleStyle, CYAN, CYAN_BOLD, eprint, format_with_gutter, println};
+use worktrunk::styling::{AnstyleStyle, CYAN, CYAN_BOLD, format_with_gutter};
 
 use super::command_executor::{CommandContext, prepare_project_commands};
 use super::worktree::handle_push;
@@ -151,11 +151,13 @@ pub fn handle_merge(
         }
 
         // Print comprehensive summary
-        println!();
+        crate::output::progress("")
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
         handle_merge_summary_output(Some(&primary_worktree_dir))?;
     } else {
         // Print comprehensive summary (worktree preserved)
-        println!();
+        crate::output::progress("")
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
         handle_merge_summary_output(None)?;
     }
 
@@ -233,11 +235,8 @@ fn handle_commit_changes(
 
     // Display the generated commit message
     let formatted_message = format_commit_message_for_display(&commit_message);
-    print!("{}", format_with_gutter(&formatted_message, "", None));
-
-    // Flush stdout to ensure message appears immediately (before any subsequent stderr output)
-    use std::io::Write;
-    let _ = std::io::stdout().flush();
+    crate::output::progress(format_with_gutter(&formatted_message, "", None))
+        .map_err(|e| GitError::CommandFailed(e.to_string()))?;
 
     // Commit
     repo.run_command(&["commit", "-m", &commit_message])
@@ -313,11 +312,8 @@ fn handle_squash(target_branch: &str) -> Result<Option<usize>, GitError> {
 
     // Display the generated commit message
     let formatted_message = format_commit_message_for_display(&commit_message);
-    print!("{}", format_with_gutter(&formatted_message, "", None));
-
-    // Flush stdout to ensure message appears immediately (before any subsequent stderr output)
-    use std::io::Write;
-    let _ = std::io::stdout().flush();
+    crate::output::progress(format_with_gutter(&formatted_message, "", None))
+        .map_err(|e| GitError::CommandFailed(e.to_string()))?;
 
     // Reset to merge base (soft reset stages all changes)
     repo.run_command(&["reset", "--soft", &merge_base])
@@ -358,19 +354,18 @@ fn run_pre_merge_commands(
         "Pre-merge commands",
         |_, command| {
             let dim = AnstyleStyle::new().dimmed();
-            println!("{dim}Skipping pre-merge command: {command}{dim:#}");
+            crate::output::progress(format!("{dim}Skipping pre-merge command: {command}{dim:#}"))
+                .ok();
         },
     )?;
     for prepared in commands {
-        use std::io::Write;
-        use worktrunk::styling;
-
-        println!(
+        crate::output::progress(format!(
             "🔄 {CYAN}Running pre-merge command {CYAN_BOLD}{name}{CYAN_BOLD:#}:{CYAN:#}",
             name = prepared.name
-        );
-        eprint!("{}", format_with_gutter(&prepared.expanded, "", None)); // Gutter at column 0
-        let _ = styling::stderr().flush();
+        ))
+        .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
+        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
 
         if let Err(e) = execute_command_in_worktree(worktree_path, &prepared.expanded) {
             return Err(GitError::PreMergeCommandFailed {
@@ -422,7 +417,7 @@ fn execute_post_merge_commands(
         "Post-merge commands",
         |_, command| {
             let dim = AnstyleStyle::new().dimmed();
-            println!("{dim}Skipping command: {command}{dim:#}");
+            crate::output::progress(format!("{dim}Skipping command: {command}{dim:#}")).ok();
         },
     )?;
 
@@ -432,28 +427,27 @@ fn execute_post_merge_commands(
 
     // Execute each command sequentially in the main worktree
     for prepared in commands {
-        use std::io::Write;
-        println!(
+        crate::output::progress(format!(
             "🔄 {CYAN}Running post-merge command {CYAN_BOLD}{name}{CYAN_BOLD:#}:{CYAN:#}",
             name = prepared.name
-        );
-        eprint!("{}", format_with_gutter(&prepared.expanded, "", None));
-        let _ = std::io::stderr().flush();
+        ))
+        .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
+        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
 
         if let Err(e) = execute_command_in_worktree(main_worktree_path, &prepared.expanded) {
             use worktrunk::styling::WARNING_EMOJI;
             let warning_bold = WARNING.bold();
-            println!(
+            crate::output::progress(format!(
                 "{WARNING_EMOJI} {WARNING}Command {warning_bold}{name}{warning_bold:#} failed: {e}{WARNING:#}",
                 name = prepared.name,
-            );
+            ))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
             // Continue with other commands even if one fails
         }
     }
 
-    use std::io::Write;
-    let _ = std::io::stdout().flush();
-    let _ = std::io::stderr().flush();
+    crate::output::flush().map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
 
     Ok(())
 }

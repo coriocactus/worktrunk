@@ -615,6 +615,78 @@ output::progress("💡 Use 'wt list' to see all worktrees")?;
 
 If the output function you need doesn't exist yet, follow the pattern in "Adding New Output Functions" above.
 
+### Architectural Constraint: --internal Commands Must Use Output System
+
+**CRITICAL: Commands that support `--internal` mode must NEVER use direct print macros (`print!()`, `println!()`, `eprint!()`, or `eprintln!()`).**
+
+Commands that support the `--internal` flag (switch, remove, merge) emit directives for shell wrapper integration. Using direct print statements bypasses the output system and causes directive leaks - directives become visible to users in interactive mode.
+
+#### The Problem
+
+When a command uses `println!()` directly:
+
+1. **Interactive mode**: Output appears correctly (luck, not design)
+2. **Directive mode**: Direct prints get concatenated with NUL-terminated directives, causing directives to leak into user-visible output
+
+**Example of the bug:**
+```
+🔄 Starting (background):
+__WORKTRUNK_CD__/Users/name/workspace/repo.branch
+Created new worktree...
+```
+
+The `__WORKTRUNK_CD__` directive should be invisible, parsed only by the shell wrapper.
+
+#### The Solution
+
+**Commands supporting `--internal` must use `crate::output::*` functions exclusively:**
+
+```rust
+// ❌ NEVER DO THIS in commands that support --internal
+println!("🔄 Starting operation...");
+print!("{}", formatted_output);
+eprintln!("Some progress message");
+eprint!("{}", error_message);
+
+// ✅ ALWAYS DO THIS
+crate::output::progress("🔄 Starting operation...")?;
+crate::output::progress(formatted_output)?;
+crate::output::progress("Some progress message")?;
+crate::output::progress(error_message)?;
+```
+
+#### Which Commands Are Restricted
+
+Files that support `--internal` mode (see `scripts/check-output-system.sh`):
+
+- `src/commands/worktree.rs` (switch, remove commands)
+- `src/commands/merge.rs` (merge command)
+
+Other command files can use direct `println!()` if they never emit directives.
+
+#### Enforcement
+
+The restriction is enforced by:
+
+1. **Lint script**: `scripts/check-output-system.sh` checks restricted files for direct print usage
+2. **Integration tests**: `tests/integration_tests/shell_wrapper.rs` executes commands through the actual bash wrapper to catch directive leaks
+
+Run the lint script to verify compliance:
+```bash
+./scripts/check-output-system.sh
+```
+
+#### Why This Matters
+
+This constraint maintains architectural integrity:
+
+- **Separation of concerns**: Output formatting is centralized in the output system
+- **Mode transparency**: Commands don't need to know which mode they're running in
+- **Protocol correctness**: Directives are properly NUL-terminated and never leak
+- **Testability**: Shell integration can be tested end-to-end
+
+When adding new functionality to restricted commands, always ask: "Does this need output?" If yes, use `crate::output::progress()` or `crate::output::success()`, never direct prints.
+
 ## Testing Guidelines
 
 ### Testing with --execute Commands

@@ -1,0 +1,5 @@
+---
+source: tests/integration_tests/shell_wrapper.rs
+expression: output
+---
+Already on main, nothing to merge

@@ -15,5 +15,6 @@ pub mod merge;
 pub mod post_start_commands;
 pub mod push;
 pub mod remove;
+pub mod shell_wrapper;
 pub mod spacing_edge_cases;
 pub mod switch;

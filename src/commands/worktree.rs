@@ -105,7 +105,7 @@ use worktrunk::config::{ProjectConfig, WorktrunkConfig};
 use worktrunk::git::{GitError, Repository};
 use worktrunk::styling::{
     ADDITION, AnstyleStyle, CYAN, CYAN_BOLD, DELETION, GREEN, GREEN_BOLD, SUCCESS_EMOJI, WARNING,
-    WARNING_EMOJI, eprint, format_with_gutter, println,
+    WARNING_EMOJI, format_with_gutter,
 };
 
 use super::command_executor::{CommandContext, prepare_project_commands};
@@ -161,9 +161,10 @@ pub fn handle_switch(
 
     // Check if base flag was provided without create flag
     if base.is_some() && !create {
-        println!(
+        crate::output::progress(format!(
             "{WARNING_EMOJI} {WARNING}--base flag is only used with --create, ignoring{WARNING:#}"
-        );
+        ))
+        .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
     }
 
     // Check if worktree already exists for this branch
@@ -261,11 +262,15 @@ fn remove_current_worktree(repo: &Repository) -> Result<RemoveResult, GitError> 
 
         // Remove the worktree
         if let Err(e) = repo.remove_worktree(&worktree_root) {
-            println!("{WARNING_EMOJI} {WARNING}Failed to remove worktree: {e}{WARNING:#}");
-            println!(
+            crate::output::progress(format!(
+                "{WARNING_EMOJI} {WARNING}Failed to remove worktree: {e}{WARNING:#}"
+            ))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
+            crate::output::progress(format!(
                 "You may need to run 'git worktree remove {}' manually",
                 worktree_root.display()
-            );
+            ))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
         }
 
         Ok(RemoveResult::RemovedWorktree {
@@ -320,11 +325,15 @@ fn remove_worktree_by_name(repo: &Repository, branch_name: &str) -> Result<Remov
 
     // Remove the worktree
     if let Err(e) = repo.remove_worktree(&worktree_path) {
-        println!("{WARNING_EMOJI} {WARNING}Failed to remove worktree: {e}{WARNING:#}");
-        println!(
+        crate::output::progress(format!(
+            "{WARNING_EMOJI} {WARNING}Failed to remove worktree: {e}{WARNING:#}"
+        ))
+        .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
+        crate::output::progress(format!(
             "You may need to run 'git worktree remove {}' manually",
             worktree_path.display()
-        );
+        ))
+        .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
     }
 
     // If we removed the current worktree, return to primary
@@ -419,7 +428,7 @@ fn execute_post_create_commands(
         "Post-create commands",
         |_, command| {
             let dim = AnstyleStyle::new().dimmed();
-            println!("{dim}Skipping command: {command}{dim:#}");
+            crate::output::progress(format!("{dim}Skipping command: {command}{dim:#}")).ok();
         },
     )?;
 
@@ -429,24 +438,23 @@ fn execute_post_create_commands(
 
     // Execute each command sequentially
     for prepared in commands {
-        use std::io::Write;
-        println!("🔄 {CYAN}Executing (post-create):{CYAN:#}");
-        eprint!("{}", format_with_gutter(&prepared.expanded, "", None)); // Gutter at column 0
-        let _ = std::io::stderr().flush();
+        crate::output::progress(format!("🔄 {CYAN}Executing (post-create):{CYAN:#}"))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
+        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
 
         if let Err(e) = execute_command_in_worktree(worktree_path, &prepared.expanded) {
             let warning_bold = WARNING.bold();
-            println!(
+            crate::output::progress(format!(
                 "{WARNING_EMOJI} {WARNING}Command {warning_bold}{name}{warning_bold:#} failed: {e}{WARNING:#}",
                 name = prepared.name,
-            );
+            ))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
             // Continue with other commands even if one fails
         }
     }
 
-    use std::io::Write;
-    let _ = std::io::stdout().flush();
-    let _ = std::io::stderr().flush();
+    crate::output::flush().map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
 
     Ok(())
 }
@@ -478,7 +486,7 @@ fn spawn_post_start_commands(
         "Post-start commands",
         |_, command| {
             let dim = AnstyleStyle::new().dimmed();
-            println!("{dim}Skipping command: {command}{dim:#}");
+            crate::output::progress(format!("{dim}Skipping command: {command}{dim:#}")).ok();
         },
     )?;
 
@@ -488,10 +496,10 @@ fn spawn_post_start_commands(
 
     // Spawn each command as a detached background process
     for prepared in commands {
-        use std::io::Write;
-        println!("🔄 {CYAN}Starting (background):{CYAN:#}");
-        eprint!("{}", format_with_gutter(&prepared.expanded, "", None));
-        let _ = std::io::stderr().flush();
+        crate::output::progress(format!("🔄 {CYAN}Starting (background):{CYAN:#}"))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
+        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))
+            .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
 
         match spawn_detached(worktree_path, &prepared.expanded, &prepared.name) {
             Ok(_log_path) => {
@@ -499,17 +507,16 @@ fn spawn_post_start_commands(
                 // Log file path not shown - only needed for debugging failures
             }
             Err(e) => {
-                println!(
+                crate::output::progress(format!(
                     "{WARNING_EMOJI} {WARNING}Failed to spawn '{name}': {e}{WARNING:#}",
                     name = prepared.name,
-                );
+                ))
+                .map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
             }
         }
     }
 
-    use std::io::Write;
-    let _ = std::io::stdout().flush();
-    let _ = std::io::stderr().flush();
+    crate::output::flush().map_err(|e| GitError::CommandFailed(format!("Output error: {}", e)))?;
 
     Ok(())
 }
