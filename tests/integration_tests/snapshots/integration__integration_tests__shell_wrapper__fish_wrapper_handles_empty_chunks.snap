@@ -2,6 +2,6 @@
 source: tests/integration_tests/shell_wrapper.rs
 expression: normalized.as_ref()
 ---
-Created new worktree for feature at [TMPDIR]/test-repo.feature
+Created new worktree for fish-minimal at [TMPDIR]/test-repo.fish-minimal
 
 To enable automatic cd, run: wt configure-shell

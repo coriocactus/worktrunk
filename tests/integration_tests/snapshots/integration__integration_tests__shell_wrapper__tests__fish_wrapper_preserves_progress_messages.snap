@@ -3,8 +3,8 @@ source: tests/integration_tests/shell_wrapper.rs
 expression: normalized.as_ref()
 ---
 🔄 Starting (background):
-  echo 'test command executed'
+  echo 'fish background task'
 
-Created new worktree for feature-with-hooks at [TMPDIR]/test-repo.feature-with-hooks
+Created new worktree for fish-bg at [TMPDIR]/test-repo.fish-bg
 
 To enable automatic cd, run: wt configure-shell

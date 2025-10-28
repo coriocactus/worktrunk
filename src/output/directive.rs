@@ -20,9 +20,12 @@ impl DirectiveOutput {
         io::stdout().flush()
     }
 
-    pub fn progress(&mut self, _message: String) -> io::Result<()> {
-        // Progress messages are only for humans - suppress in directive mode
-        Ok(())
+    pub fn progress(&mut self, message: String) -> io::Result<()> {
+        // Progress messages are for humans - output them just like success messages
+        // The shell wrapper will display these to users
+        let plain = strip_str(&message).to_string();
+        write!(io::stdout(), "{}\0", plain)?;
+        io::stdout().flush()
     }
 
     pub fn change_directory(&mut self, path: &Path) -> io::Result<()> {

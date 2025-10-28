@@ -3,4 +3,6 @@ source: tests/integration_tests/e2e_shell.rs
 expression: output
 ---
 Created new worktree for test-branch at [REPO].test-branch
+
+To enable automatic cd, run: wt configure-shell
 MARKER

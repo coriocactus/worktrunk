@@ -173,7 +173,15 @@ fn test_merge_internal_keep() {
             .arg("--keep")
             .current_dir(&feature_wt);
 
-        assert_cmd_snapshot!(cmd, @"success: true\nexit_code: 0\n----- stdout -----\nKept worktree (use 'wt remove' to clean up)\0\n----- stderr -----");
+        assert_cmd_snapshot!(cmd, @"success: true
+exit_code: 0
+----- stdout -----
+🔄 Validating merge...\0🔄 Rebasing onto main...\0🔄 Pushing 1 commit to main @ [SHA]
+\0* 6551244 (HEAD -> feature) Add feature file
+\0 feature.txt | 1 +
+ 1 file changed, 1 insertion(+)
+\0✅ Pushed to main (1 commit, 1 file, +1)  \0\0Kept worktree (use 'wt remove' to clean up)\0
+----- stderr -----");
     });
 }
 
@@ -229,6 +237,14 @@ fn test_merge_internal_remove() {
             .arg("main")
             .current_dir(&feature_wt);
 
-        assert_cmd_snapshot!(cmd, @"success: true\nexit_code: 0\n----- stdout -----\n__WORKTRUNK_CD__[PATH]\0Returned to primary at [REPO]\0\n----- stderr -----");
+        assert_cmd_snapshot!(cmd, @"success: true
+exit_code: 0
+----- stdout -----
+🔄 Validating merge...\0🔄 Rebasing onto main...\0🔄 Pushing 1 commit to main @ [SHA]
+\0* 6551244 (HEAD -> feature) Add feature file
+\0 feature.txt | 1 +
+ 1 file changed, 1 insertion(+)
+\0✅ Pushed to main (1 commit, 1 file, +1)  \0🔄 Cleaning up worktree...\0__WORKTRUNK_CD__[PATH]\0\0Returned to primary at [REPO]\0
+----- stderr -----");
     });
 }
