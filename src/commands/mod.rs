@@ -11,7 +11,7 @@ pub mod process;
 pub mod worktree;
 
 pub use completion::{handle_complete, handle_completion};
-pub use config::{handle_config_init, handle_config_list};
+pub use config::{handle_config_help, handle_config_init, handle_config_list};
 pub use configure_shell::{ConfigAction, handle_configure_shell};
 pub use dev::handle_dev_run_hook;
 pub use init::handle_init;

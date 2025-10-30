@@ -18,7 +18,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpEXV3PM/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpk3RZ0C/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -192,6 +192,9 @@ _wt() {
             wt,switch)
                 cmd="wt__switch"
                 ;;
+            wt__config,help)
+                cmd="wt__config__help"
+                ;;
             wt__config,init)
                 cmd="wt__config__init"
                 ;;
@@ -250,8 +253,22 @@ _wt() {
             return 0
             ;;
         wt__config)
-            opts="-v -h --verbose --help init list"
+            opts="-v -h --verbose --help init list help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        wt__config__help)
+            opts="-v -h --verbose --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi

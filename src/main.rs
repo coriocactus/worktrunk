@@ -11,9 +11,9 @@ mod llm;
 mod output;
 
 use commands::{
-    ConfigAction, Shell, handle_complete, handle_completion, handle_config_init,
-    handle_config_list, handle_configure_shell, handle_dev_run_hook, handle_init, handle_list,
-    handle_merge, handle_push, handle_remove, handle_switch,
+    ConfigAction, Shell, handle_complete, handle_completion, handle_config_help,
+    handle_config_init, handle_config_list, handle_configure_shell, handle_dev_run_hook,
+    handle_init, handle_list, handle_merge, handle_push, handle_remove, handle_switch,
 };
 use output::{handle_remove_output, handle_switch_output};
 
@@ -49,6 +49,8 @@ enum ConfigCommand {
     Init,
     /// List all configuration files and their locations
     List,
+    /// Show setup guide for AI-generated commit messages
+    Help,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -387,6 +389,7 @@ fn main() {
         Commands::Config { action } => match action {
             ConfigCommand::Init => handle_config_init(),
             ConfigCommand::List => handle_config_list(),
+            ConfigCommand::Help => handle_config_help(),
         },
         Commands::Dev { action } => match action {
             DevCommand::RunHook { hook_type, force } => handle_dev_run_hook(hook_type, force),

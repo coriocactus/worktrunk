@@ -207,6 +207,25 @@ fn format_commit_message_for_display(message: &str) -> String {
     result
 }
 
+/// Show hint if no LLM command is configured
+fn show_llm_config_hint_if_needed(
+    commit_generation_config: &worktrunk::config::CommitGenerationConfig,
+) -> Result<(), GitError> {
+    // Check if LLM is NOT configured (matching llm.rs logic)
+    let is_configured = commit_generation_config
+        .command
+        .as_ref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+
+    if !is_configured {
+        crate::output::hint(format!(
+            "{HINT_EMOJI} {HINT}Using fallback commit message. Run 'wt config help' to configure LLM-generated messages{HINT:#}"
+        ))?;
+    }
+    Ok(())
+}
+
 /// Commit already-staged changes with an LLM-generated message
 fn commit_with_generated_message(
     progress_msg: &str,
@@ -230,7 +249,9 @@ fn commit_with_generated_message(
     crate::output::progress(format!("🔄 {CYAN}{full_progress_msg}{CYAN:#}"))?;
     crate::output::progress(format!("🔄 {CYAN}Generating commit message...{CYAN:#}"))?;
 
+    show_llm_config_hint_if_needed(commit_generation_config)?;
     let commit_message = crate::llm::generate_commit_message(commit_generation_config)?;
+
     let formatted_message = format_commit_message_for_display(&commit_message);
     crate::output::progress(format_with_gutter(&formatted_message, "", None))?;
 
@@ -328,6 +349,8 @@ fn handle_squash(
     crate::output::progress(format!(
         "🔄 {CYAN}Generating squash commit message...{CYAN:#}"
     ))?;
+
+    show_llm_config_hint_if_needed(commit_generation_config)?;
 
     // Get current branch and repo name for template variables
     let current_branch = repo.current_branch()?.unwrap_or_else(|| "HEAD".to_string());

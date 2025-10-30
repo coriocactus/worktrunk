@@ -16,7 +16,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpohHD45/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpIY93iE/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -206,6 +206,14 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+'-v[Enable verbose output (show git commands and debug info)]' \
+'--verbose[Enable verbose output (show git commands and debug info)]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
         esac
     ;;
 esac
@@ -360,8 +368,14 @@ _wt__config_commands() {
     local commands; commands=(
 'init:Initialize global configuration file with examples' \
 'list:List all configuration files and their locations' \
+'help:Show setup guide for AI-generated commit messages' \
     )
     _describe -t commands 'wt config commands' commands "$@"
+}
+(( $+functions[_wt__config__help_commands] )) ||
+_wt__config__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'wt config help commands' commands "$@"
 }
 (( $+functions[_wt__config__init_commands] )) ||
 _wt__config__init_commands() {

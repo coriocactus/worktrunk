@@ -16,13 +16,14 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpLuX5t1/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpihdRQG/test-config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
 🔄 [36mCommitting changes... (1 file, [32m+1[0m, [31m-1[0m)[0m
 🔄 [36mGenerating commit message...[0m
+💡 [2mUsing fallback commit message. Run 'wt config help' to configure LLM-generated messages[0m
 [40m [0m [1mWIP: Auto-commit before merge[0m
 
 ✅ [32mCommitted changes @ [SHA][0m

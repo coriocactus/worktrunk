@@ -242,7 +242,7 @@ impl WorktrunkConfig {
     }
 }
 
-fn get_config_path() -> Option<PathBuf> {
+pub fn get_config_path() -> Option<PathBuf> {
     // Check for test override first (WORKTRUNK_CONFIG_PATH env var)
     if let Ok(path) = std::env::var("WORKTRUNK_CONFIG_PATH") {
         return Some(PathBuf::from(path));
