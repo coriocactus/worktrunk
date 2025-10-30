@@ -1,6 +1,8 @@
 use worktrunk::config::{ProjectConfig, WorktrunkConfig};
 use worktrunk::git::{GitError, GitResultExt, Repository};
-use worktrunk::styling::{AnstyleStyle, CYAN, CYAN_BOLD, HINT, HINT_EMOJI, format_with_gutter};
+use worktrunk::styling::{
+    AnstyleStyle, CYAN, CYAN_BOLD, HINT, HINT_EMOJI, format_bash_with_gutter, format_with_gutter,
+};
 
 use super::command_executor::{CommandContext, prepare_project_commands};
 use super::worktree::{handle_push, handle_remove, parse_diff_shortstat};
@@ -428,7 +430,7 @@ pub fn run_pre_merge_commands(
             format!("🔄 {CYAN}Running pre-merge command:{CYAN:#}")
         };
         crate::output::progress(header)?;
-        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))?;
+        crate::output::progress(format_bash_with_gutter(&prepared.expanded, ""))?;
 
         if let Err(e) = execute_command_in_worktree(worktree_path, &prepared.expanded) {
             return Err(GitError::PreMergeCommandFailed {
@@ -498,7 +500,7 @@ pub fn execute_post_merge_commands(
             format!("🔄 {CYAN}Running post-merge command:{CYAN:#}")
         };
         crate::output::progress(header)?;
-        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))?;
+        crate::output::progress(format_bash_with_gutter(&prepared.expanded, ""))?;
 
         if let Err(e) = execute_command_in_worktree(main_worktree_path, &prepared.expanded) {
             use worktrunk::styling::WARNING_EMOJI;

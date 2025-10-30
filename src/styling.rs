@@ -14,7 +14,7 @@
 //! Use `println!` for all worktrunk messages. Use `eprintln!` only for interactive prompts.
 
 use anstyle::{AnsiColor, Color, Style};
-use synoptic::{TokOpt, from_extension};
+use synoptic::{TokOpt, from_extension}; // Still used for TOML highlighting
 use unicode_width::UnicodeWidthStr;
 
 // ============================================================================
@@ -320,6 +320,167 @@ pub fn format_with_gutter(content: &str, left_margin: &str, max_width: Option<us
     }
 
     output
+}
+
+/// Formats bash/shell commands with syntax highlighting and gutter
+///
+/// Similar to `format_with_gutter` but applies bash syntax highlighting using tree-sitter.
+/// Long lines are wrapped at word boundaries to fit terminal width.
+///
+/// # Example
+/// ```ignore
+/// print!("{}", format_bash_with_gutter("npm install --frozen-lockfile"));
+/// ```
+pub fn format_bash_with_gutter(content: &str, left_margin: &str) -> String {
+    use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
+
+    let gutter = Style::new().bg_color(Some(Color::Ansi(AnsiColor::Black)));
+    let mut output = String::new();
+
+    // Calculate available width for wrapping
+    let term_width = get_terminal_width();
+    let left_margin_width = left_margin.width();
+    let available_width = term_width.saturating_sub(2 + left_margin_width);
+
+    // Wrap lines at word boundaries
+    let mut wrapped_lines = Vec::new();
+    for line in content.lines() {
+        let wrapped = wrap_text_at_width(line, available_width);
+        wrapped_lines.extend(wrapped);
+    }
+
+    // Set up tree-sitter bash highlighting
+    let highlight_names = vec![
+        "function", // Commands like npm, git, cargo
+        "keyword",  // Keywords like for, if, while
+        "string",   // Quoted strings
+        "operator", // Operators like &&, ||, |, $, -
+        "comment",  // Comments
+        "number",   // Numbers
+        "variable", // Variables
+        "constant", // Constants/flags
+    ];
+
+    let bash_language = tree_sitter_bash::LANGUAGE;
+    let bash_highlights = tree_sitter_bash::HIGHLIGHT_QUERY;
+
+    let mut config = HighlightConfiguration::new(
+        bash_language.into(),
+        "bash",
+        bash_highlights,
+        "", // injections query
+        "", // locals query
+    )
+    .unwrap_or_else(|_| {
+        // Fallback: if tree-sitter fails, use plain gutter formatting
+        HighlightConfiguration::new(
+            bash_language.into(),
+            "bash",
+            "", // empty query
+            "",
+            "",
+        )
+        .unwrap()
+    });
+
+    config.configure(&highlight_names);
+
+    let mut highlighter = Highlighter::new();
+
+    // Process each wrapped line
+    for line in &wrapped_lines {
+        output.push_str(&format!("{left_margin}{gutter} {gutter:#} "));
+
+        // Highlight this line
+        let Ok(highlights) = highlighter.highlight(&config, line.as_bytes(), None, |_| None) else {
+            // Fallback: just print plain text if highlighting fails
+            output.push_str(line);
+            output.push('\n');
+            continue;
+        };
+
+        let line_bytes = line.as_bytes();
+
+        for event in highlights {
+            match event.unwrap() {
+                HighlightEvent::Source { start, end } => {
+                    // Output the text for this source region
+                    if let Ok(text) = std::str::from_utf8(&line_bytes[start..end]) {
+                        output.push_str(text);
+                    }
+                }
+                HighlightEvent::HighlightStart(idx) => {
+                    // Start of a highlighted region - apply style
+                    if let Some(name) = highlight_names.get(idx.0)
+                        && let Some(style) = bash_token_style(name)
+                    {
+                        output.push_str(&format!("{style}"));
+                    }
+                }
+                HighlightEvent::HighlightEnd => {
+                    // End of highlighted region - reset style
+                    output.push_str(&format!("{:#}", Style::new()));
+                }
+            }
+        }
+
+        output.push('\n');
+    }
+
+    output
+}
+
+// ============================================================================
+// Bash Syntax Highlighting
+// ============================================================================
+
+/// Maps bash token kinds to anstyle styles
+///
+/// Token names come from tree-sitter-bash's highlight queries.
+/// Common tokens include:
+/// - "function": commands like npm, git, cargo, echo, cd
+/// - "keyword": bash keywords (if, then, for, while, do, done, etc.)
+/// - "string": quoted strings
+/// - "comment": hash-prefixed comments
+/// - "operator": operators like &&, ||, |, $, -, etc.
+/// - "constant": flags (arguments starting with -)
+fn bash_token_style(kind: &str) -> Option<Style> {
+    match kind {
+        // Commands (npm, git, cargo, echo, cd, etc.) - bold blue
+        "function" => Some(
+            Style::new()
+                .fg_color(Some(Color::Ansi(AnsiColor::Blue)))
+                .bold(),
+        ),
+
+        // Keywords (if, then, for, while, do, done, etc.) - bold magenta
+        "keyword" => Some(
+            Style::new()
+                .fg_color(Some(Color::Ansi(AnsiColor::Magenta)))
+                .bold(),
+        ),
+
+        // Strings (quoted values) - green
+        "string" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)))),
+
+        // Comments (hash-prefixed) - dimmed
+        "comment" => Some(Style::new().dimmed()),
+
+        // Operators (&&, ||, |, $, -, >, <, etc.) - cyan
+        "operator" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)))),
+
+        // Variables ($VAR, ${VAR}) - yellow
+        "variable" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)))),
+
+        // Numbers - yellow
+        "digit" | "number" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)))),
+
+        // Constants/flags (--flag, -f) - cyan
+        "constant" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)))),
+
+        // Everything else (plain arguments, etc.)
+        _ => None,
+    }
 }
 
 // ============================================================================

@@ -6,15 +6,15 @@ expression: output.normalized().as_ref()
 ✓ Linting passed - no warnings
 ✓ All 47 tests passed in 2.3s
 🔄 [36mRunning pre-merge command [1m[36mformat[0m:[0m
-[40m [0m echo '✓ Code formatting check passed'
+[40m [0m [1m[34mecho [32m'✓ Code formatting check passed'
 
 
 🔄 [36mRunning pre-merge command [1m[36mlint[0m:[0m
-[40m [0m echo '✓ Linting passed - no warnings'
+[40m [0m [1m[34mecho [32m'✓ Linting passed - no warnings'
 
 
 🔄 [36mRunning pre-merge command [1m[36mtest[0m:[0m
-[40m [0m echo '✓ All 47 tests passed in 2.3s'
+[40m [0m [1m[34mecho [32m'✓ All 47 tests passed in 2.3s'
 
 
 🔄 [36mRebasing onto [1m[36mmain[0m...[0m

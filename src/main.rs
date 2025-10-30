@@ -355,7 +355,7 @@ fn main() {
 
                     // Show what was done (instant operations, no progress needed)
                     for result in &results {
-                        use worktrunk::styling::format_with_gutter;
+                        use worktrunk::styling::format_bash_with_gutter;
                         let bold = Style::new().bold();
                         let shell = result.shell;
                         let path = result.path.display();
@@ -364,7 +364,7 @@ fn main() {
                             result.action.description(),
                         );
                         // Show config line with gutter
-                        print!("{}", format_with_gutter(&result.config_line, "", None));
+                        print!("{}", format_bash_with_gutter(&result.config_line, ""));
                     }
 
                     // Success summary

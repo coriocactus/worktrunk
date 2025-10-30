@@ -5,7 +5,7 @@
 use worktrunk::config::{ApprovedCommand, CommandConfig, WorktrunkConfig};
 use worktrunk::git::{GitError, GitResultExt};
 use worktrunk::styling::{
-    AnstyleStyle, HINT_EMOJI, WARNING, WARNING_EMOJI, eprintln, format_with_gutter,
+    AnstyleStyle, HINT_EMOJI, WARNING, WARNING_EMOJI, eprintln, format_bash_with_gutter,
 };
 
 /// Convert CommandConfig to a vector of `(name, command)` pairs.
@@ -115,7 +115,7 @@ fn prompt_for_batch_approval(
             Some(n) => format!("{n}: {command}"),
             None => (*command).clone(),
         };
-        eprint!("{}", format_with_gutter(&label, "", None));
+        eprint!("{}", format_bash_with_gutter(&label, ""));
     }
 
     eprintln!();

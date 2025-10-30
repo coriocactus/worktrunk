@@ -32,7 +32,7 @@ fn test_configure_shell_with_yes() {
         exit_code: 0
         ----- stdout -----
         Added [1mzsh[0m [TEMP_HOME]/.zshrc
-        [40m [0m if command -v wt >/dev/null 2>&1; then eval "$(wt init zsh)"; fi
+        [40m [0m [1m[35mif [1m[34mcommand [36m-v wt [36m>/dev/null [33m2>&1; [1m[35mthen [1m[34meval [32m"$([1m[34mwt init zsh)"; [1m[35mfi
 
         ✅ [32mConfigured 1 shell[0m
 
@@ -76,7 +76,7 @@ fn test_configure_shell_specific_shell() {
         exit_code: 0
         ----- stdout -----
         Added [1mzsh[0m [TEMP_HOME]/.zshrc
-        [40m [0m if command -v wt >/dev/null 2>&1; then eval "$(wt init zsh)"; fi
+        [40m [0m [1m[35mif [1m[34mcommand [36m-v wt [36m>/dev/null [33m2>&1; [1m[35mthen [1m[34meval [32m"$([1m[34mwt init zsh)"; [1m[35mfi
 
         ✅ [32mConfigured 1 shell[0m
 
@@ -170,7 +170,7 @@ fn test_configure_shell_custom_prefix() {
         exit_code: 0
         ----- stdout -----
         Added [1mbash[0m [TEMP_HOME]/.bash_profile
-        [40m [0m if command -v worktree >/dev/null 2>&1; then eval "$(worktree init bash)"; fi
+        [40m [0m [1m[35mif [1m[34mcommand [36m-v worktree [36m>/dev/null [33m2>&1; [1m[35mthen [1m[34meval [32m"$([1m[34mworktree init bash)"; [1m[35mfi
 
         ✅ [32mConfigured 1 shell[0m
 
@@ -210,7 +210,7 @@ fn test_configure_shell_fish() {
         exit_code: 0
         ----- stdout -----
         Created [1mfish[0m [TEMP_HOME]/.config/fish/conf.d/wt.fish
-        [40m [0m if type -q wt; wt init fish | source; end
+        [40m [0m [1m[35mif [1m[34mtype [36m-q wt; [1m[34mwt init fish [36m| [1m[34msource; end
 
         ✅ [32mConfigured 1 shell[0m
 
@@ -288,7 +288,7 @@ fn test_configure_shell_fish_custom_prefix() {
         exit_code: 0
         ----- stdout -----
         Created [1mfish[0m [TEMP_HOME]/.config/fish/conf.d/worktree.fish
-        [40m [0m if type -q worktree; worktree init fish | source; end
+        [40m [0m [1m[35mif [1m[34mtype [36m-q worktree; [1m[34mworktree init fish [36m| [1m[34msource; end
 
         ✅ [32mConfigured 1 shell[0m
 
@@ -346,9 +346,9 @@ fn test_configure_shell_multiple_configs() {
         exit_code: 0
         ----- stdout -----
         Added [1mbash[0m [TEMP_HOME]/.bash_profile
-        [40m [0m if command -v wt >/dev/null 2>&1; then eval "$(wt init bash)"; fi
+        [40m [0m [1m[35mif [1m[34mcommand [36m-v wt [36m>/dev/null [33m2>&1; [1m[35mthen [1m[34meval [32m"$([1m[34mwt init bash)"; [1m[35mfi
         Added [1mzsh[0m [TEMP_HOME]/.zshrc
-        [40m [0m if command -v wt >/dev/null 2>&1; then eval "$(wt init zsh)"; fi
+        [40m [0m [1m[35mif [1m[34mcommand [36m-v wt [36m>/dev/null [33m2>&1; [1m[35mthen [1m[34meval [32m"$([1m[34mwt init zsh)"; [1m[35mfi
 
         ✅ [32mConfigured 2 shells[0m
 
@@ -411,9 +411,9 @@ fn test_configure_shell_mixed_states() {
         exit_code: 0
         ----- stdout -----
         Already configured [1mbash[0m [TEMP_HOME]/.bash_profile
-        [40m [0m if command -v wt >/dev/null 2>&1; then eval "$(wt init bash)"; fi
+        [40m [0m [1m[35mif [1m[34mcommand [36m-v wt [36m>/dev/null [33m2>&1; [1m[35mthen [1m[34meval [32m"$([1m[34mwt init bash)"; [1m[35mfi
         Added [1mzsh[0m [TEMP_HOME]/.zshrc
-        [40m [0m if command -v wt >/dev/null 2>&1; then eval "$(wt init zsh)"; fi
+        [40m [0m [1m[35mif [1m[34mcommand [36m-v wt [36m>/dev/null [33m2>&1; [1m[35mthen [1m[34meval [32m"$([1m[34mwt init zsh)"; [1m[35mfi
 
         ✅ [32mConfigured 1 shell[0m
 

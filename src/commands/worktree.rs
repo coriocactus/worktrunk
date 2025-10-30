@@ -105,7 +105,7 @@ use worktrunk::config::{ProjectConfig, WorktrunkConfig};
 use worktrunk::git::{GitError, GitResultExt, Repository};
 use worktrunk::styling::{
     ADDITION, AnstyleStyle, CYAN, CYAN_BOLD, DELETION, GREEN, GREEN_BOLD, SUCCESS_EMOJI, WARNING,
-    WARNING_EMOJI, format_with_gutter,
+    WARNING_EMOJI, format_bash_with_gutter,
 };
 
 use super::command_executor::{CommandContext, prepare_project_commands};
@@ -431,7 +431,7 @@ pub fn execute_post_create_commands(
     // Execute each command sequentially
     for prepared in commands {
         crate::output::progress(format!("🔄 {CYAN}Executing (post-create):{CYAN:#}"))?;
-        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))?;
+        crate::output::progress(format_bash_with_gutter(&prepared.expanded, ""))?;
 
         if let Err(e) = execute_command_in_worktree(worktree_path, &prepared.expanded) {
             let warning_bold = WARNING.bold();
@@ -489,7 +489,7 @@ fn spawn_post_start_commands(
     // Spawn each command as a detached background process
     for prepared in commands {
         crate::output::progress(format!("🔄 {CYAN}Starting (background):{CYAN:#}"))?;
-        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))?;
+        crate::output::progress(format_bash_with_gutter(&prepared.expanded, ""))?;
 
         let name = prepared.name.as_deref().unwrap_or("cmd");
         match spawn_detached(worktree_path, &prepared.expanded, name) {
@@ -554,7 +554,7 @@ pub fn execute_post_start_commands_sequential(
     // Execute sequentially for testing
     for prepared in commands {
         crate::output::progress(format!("🔄 {CYAN}Executing (post-start):{CYAN:#}"))?;
-        crate::output::progress(format_with_gutter(&prepared.expanded, "", None))?;
+        crate::output::progress(format_bash_with_gutter(&prepared.expanded, ""))?;
 
         if let Err(e) = execute_command_in_worktree(worktree_path, &prepared.expanded) {
             let message = match &prepared.name {

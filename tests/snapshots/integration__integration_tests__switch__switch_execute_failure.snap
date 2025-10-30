@@ -10,6 +10,7 @@ info:
     - exit 1
   env:
     CLICOLOR_FORCE: "1"
+    COLUMNS: "150"
     GIT_AUTHOR_DATE: "2025-01-01T00:00:00Z"
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
     GIT_CONFIG_GLOBAL: /dev/null
@@ -18,14 +19,14 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpw4Og5c/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpx7rfUR/test-config.toml
 ---
 success: false
 exit_code: 1
 ----- stdout -----
 ✅ [32mCreated new worktree for [1m[32mfail-test[0m at [REPO].fail-test[0m
 🔄 [36mExecuting (--execute):[0m
-[40m [0m exit 1
+[40m [0m [1m[34mexit 1
 
 
 ----- stderr -----

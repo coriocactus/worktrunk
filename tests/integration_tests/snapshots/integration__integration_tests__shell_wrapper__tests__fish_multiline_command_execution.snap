@@ -4,7 +4,7 @@ expression: output.normalized().as_ref()
 ---
 ✅ [32mCreated new worktree for [1m[32mfish-multiline[0m at [TMPDIR]/test-repo.fish-multiline[0m
 🔄 [36mExecuting (--execute):[0m
-[40m [0m echo 'line 1'; echo 'line 2'; echo 'line 3'
+[40m [0m [1m[34mecho [32m'line 1'; [1m[34mecho [32m'line 2'; [1m[34mecho [32m'line 3'
 
 line 1
 line 2

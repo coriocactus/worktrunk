@@ -1,8 +1,8 @@
 ---
 source: tests/integration_tests/shell_wrapper.rs
-expression: normalized.as_ref()
+expression: output.normalized().as_ref()
 ---
 🔄 [36mStarting (background):[0m
-[40m [0m echo 'fish background task'
+[40m [0m [1m[34mecho [32m'fish background task'
 
 ✅ [32mCreated new worktree for [1m[32mfish-bg[0m at [TMPDIR]/test-repo.fish-bg[0m

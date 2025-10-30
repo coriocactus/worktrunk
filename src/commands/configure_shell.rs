@@ -2,7 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use worktrunk::shell::Shell;
-use worktrunk::styling::format_with_gutter;
+use worktrunk::styling::format_bash_with_gutter;
 
 pub struct ConfigureResult {
     pub shell: Shell,
@@ -361,7 +361,7 @@ fn prompt_for_confirmation(results: &[ConfigureResult]) -> Result<bool, String> 
         );
 
         // Show the config line that will be added with gutter
-        eprint!("{}", format_with_gutter(&result.config_line, "", None));
+        eprint!("{}", format_bash_with_gutter(&result.config_line, ""));
     }
 
     eprintln!();
