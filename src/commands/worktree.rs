@@ -410,15 +410,15 @@ fn execute_post_create_commands(
         return Ok(());
     };
 
-    let ctx = CommandContext::new(repo, config, branch, worktree_path, force);
+    let repo_root = repo.main_worktree_root()?;
+    let ctx = CommandContext::new(repo, config, branch, worktree_path, &repo_root, force);
     let commands = prepare_project_commands(
         post_create_config,
-        "cmd",
         &ctx,
         false,
         &[],
         "Post-create commands",
-        |_, command| {
+        |_name, command| {
             let dim = AnstyleStyle::new().dimmed();
             crate::output::progress(format!("{dim}Skipping command: {command}{dim:#}")).ok();
         },
@@ -435,10 +435,13 @@ fn execute_post_create_commands(
 
         if let Err(e) = execute_command_in_worktree(worktree_path, &prepared.expanded) {
             let warning_bold = WARNING.bold();
-            crate::output::progress(format!(
-                "{WARNING_EMOJI} {WARNING}Command {warning_bold}{name}{warning_bold:#} failed: {e}{WARNING:#}",
-                name = prepared.name,
-            ))?;
+            let message = match &prepared.name {
+                Some(name) => format!(
+                    "{WARNING_EMOJI} {WARNING}Command {warning_bold}{name}{warning_bold:#} failed: {e}{WARNING:#}"
+                ),
+                None => format!("{WARNING_EMOJI} {WARNING}Command failed: {e}{WARNING:#}"),
+            };
+            crate::output::progress(message)?;
             // Continue with other commands even if one fails
         }
     }
@@ -465,15 +468,15 @@ fn spawn_post_start_commands(
         return Ok(());
     };
 
-    let ctx = CommandContext::new(repo, config, branch, worktree_path, force);
+    let repo_root = repo.main_worktree_root()?;
+    let ctx = CommandContext::new(repo, config, branch, worktree_path, &repo_root, force);
     let commands = prepare_project_commands(
         post_start_config,
-        "cmd",
         &ctx,
         false,
         &[],
         "Post-start commands",
-        |_, command| {
+        |_name, command| {
             let dim = AnstyleStyle::new().dimmed();
             crate::output::progress(format!("{dim}Skipping command: {command}{dim:#}")).ok();
         },
@@ -488,16 +491,22 @@ fn spawn_post_start_commands(
         crate::output::progress(format!("🔄 {CYAN}Starting (background):{CYAN:#}"))?;
         crate::output::progress(format_with_gutter(&prepared.expanded, "", None))?;
 
-        match spawn_detached(worktree_path, &prepared.expanded, &prepared.name) {
+        let name = prepared.name.as_deref().unwrap_or("cmd");
+        match spawn_detached(worktree_path, &prepared.expanded, name) {
             Ok(_log_path) => {
                 // Background command spawned successfully
                 // Log file path not shown - only needed for debugging failures
             }
             Err(e) => {
-                crate::output::progress(format!(
-                    "{WARNING_EMOJI} {WARNING}Failed to spawn '{name}': {e}{WARNING:#}",
-                    name = prepared.name,
-                ))?;
+                let message = match &prepared.name {
+                    Some(name) => {
+                        format!("{WARNING_EMOJI} {WARNING}Failed to spawn '{name}': {e}{WARNING:#}")
+                    }
+                    None => {
+                        format!("{WARNING_EMOJI} {WARNING}Failed to spawn command: {e}{WARNING:#}")
+                    }
+                };
+                crate::output::progress(message)?;
             }
         }
     }

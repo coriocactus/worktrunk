@@ -19,12 +19,11 @@ info:
     SOURCE_DATE_EPOCH: "1761609600"
     WORKTRUNK_COMMIT_GENERATION__ARGS: "fix: update file 1 content"
     WORKTRUNK_COMMIT_GENERATION__COMMAND: echo
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpb02yof/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpsxGIDb/test-config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
-🔄 [36mStaging uncommitted changes...[0m
 🔄 [36mSquashing 2 commits into one...[0m
 🔄 [36mGenerating squash commit message...[0m
 [40m [0m [1mSquash commits from main[0m

@@ -11,22 +11,22 @@ use worktrunk::styling::{
 /// Convert CommandConfig to a vector of `(name, command)` pairs.
 ///
 /// Naming rules:
-/// - Single string → uses the prefix directly (`"cmd"`)
-/// - Array → appends 1-based index (`"cmd-1"`, `"cmd-2"`, …)
+/// - Single string → None (unnamed)
+/// - Array → numbered 1-based (`"1"`, `"2"`, …)
 /// - Table → uses the map keys (sorted for determinism)
-pub fn command_config_to_vec(
-    config: &CommandConfig,
-    default_prefix: &str,
-) -> Vec<(String, String)> {
+pub fn command_config_to_vec(config: &CommandConfig) -> Vec<(Option<String>, String)> {
     match config {
-        CommandConfig::Single(cmd) => vec![(default_prefix.to_string(), cmd.clone())],
+        CommandConfig::Single(cmd) => vec![(None, cmd.clone())],
         CommandConfig::Multiple(cmds) => cmds
             .iter()
             .enumerate()
-            .map(|(i, cmd)| (format!("{}-{}", default_prefix, i + 1), cmd.clone()))
+            .map(|(i, cmd)| (Some((i + 1).to_string()), cmd.clone()))
             .collect(),
         CommandConfig::Named(map) => {
-            let mut pairs: Vec<_> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            let mut pairs: Vec<_> = map
+                .iter()
+                .map(|(k, v)| (Some(k.clone()), v.clone()))
+                .collect();
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
             pairs
         }
@@ -37,13 +37,13 @@ pub fn command_config_to_vec(
 /// Returns `Ok(true)` when execution may continue, `Ok(false)` when the user
 /// declined, and `Err` if config reload/save fails.
 pub fn approve_command_batch(
-    commands: &[(String, String)],
+    commands: &[(Option<String>, String)],
     project_id: &str,
     config: &WorktrunkConfig,
     force: bool,
     context: &str,
 ) -> Result<bool, GitError> {
-    let needs_approval: Vec<(&String, &String)> = commands
+    let needs_approval: Vec<(&Option<String>, &String)> = commands
         .iter()
         .filter(|(_, command)| !config.is_command_approved(project_id, command))
         .map(|(name, command)| (name, command))
@@ -91,7 +91,7 @@ fn log_approval_warning(message: &str, error: impl std::fmt::Display) {
 }
 
 fn prompt_for_batch_approval(
-    commands: &[(&String, &String)],
+    commands: &[(&Option<String>, &String)],
     project_id: &str,
 ) -> std::io::Result<bool> {
     use std::io::{self, Write};
@@ -111,10 +111,9 @@ fn prompt_for_batch_approval(
     eprintln!();
 
     for (name, command) in commands {
-        let label = if count == 1 {
-            (*command).clone()
-        } else {
-            format!("{name}: {command}")
+        let label = match name {
+            Some(n) => format!("{n}: {command}"),
+            None => (*command).clone(),
         };
         eprint!("{}", format_with_gutter(&label, "", None));
     }
@@ -136,19 +135,19 @@ mod tests {
     #[test]
     fn test_command_config_to_vec_single() {
         let config = CommandConfig::Single("echo test".to_string());
-        let result = command_config_to_vec(&config, "cmd");
-        assert_eq!(result, vec![("cmd".to_string(), "echo test".to_string())]);
+        let result = command_config_to_vec(&config);
+        assert_eq!(result, vec![(None, "echo test".to_string())]);
     }
 
     #[test]
     fn test_command_config_to_vec_multiple() {
         let config = CommandConfig::Multiple(vec!["cmd1".to_string(), "cmd2".to_string()]);
-        let result = command_config_to_vec(&config, "check");
+        let result = command_config_to_vec(&config);
         assert_eq!(
             result,
             vec![
-                ("check-1".to_string(), "cmd1".to_string()),
-                ("check-2".to_string(), "cmd2".to_string())
+                (Some("1".to_string()), "cmd1".to_string()),
+                (Some("2".to_string()), "cmd2".to_string())
             ]
         );
     }
@@ -159,12 +158,12 @@ mod tests {
         map.insert("zebra".to_string(), "z".to_string());
         map.insert("alpha".to_string(), "a".to_string());
         let config = CommandConfig::Named(map);
-        let result = command_config_to_vec(&config, "cmd");
+        let result = command_config_to_vec(&config);
         assert_eq!(
             result,
             vec![
-                ("alpha".to_string(), "a".to_string()),
-                ("zebra".to_string(), "z".to_string())
+                (Some("alpha".to_string()), "a".to_string()),
+                (Some("zebra".to_string()), "z".to_string())
             ]
         );
     }

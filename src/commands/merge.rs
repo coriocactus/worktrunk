@@ -57,7 +57,6 @@ pub fn handle_merge(
     if repo.is_dirty()? {
         if squash {
             // Just stage - squash will handle committing
-            crate::output::progress(format!("🔄 {CYAN}Staging uncommitted changes...{CYAN:#}"))?;
             repo.run_command(&["add", "-A"])
                 .git_context("Failed to stage changes")?;
         } else {
@@ -106,23 +105,12 @@ pub fn handle_merge(
     // Fast-forward push to target branch (reuse handle_push logic)
     handle_push(Some(&target_branch), false, "Merged to")?;
 
-    // Execute post-merge commands in the main worktree
-    let main_worktree_path = repo.main_worktree_root()?;
-    execute_post_merge_commands(
-        &main_worktree_path,
-        &repo,
-        &config,
-        &current_branch,
-        &target_branch,
-        force,
-    )?;
+    // Get primary worktree path before cleanup (while we can still run git commands)
+    let primary_worktree_dir = repo.main_worktree_root()?;
 
     // Finish worktree unless --keep was specified
     if !keep {
         crate::output::progress(format!("🔄 {CYAN}Cleaning up worktree...{CYAN:#}"))?;
-
-        // Get primary worktree path before finishing (while we can still run git commands)
-        let primary_worktree_dir = repo.main_worktree_root()?;
 
         let result = handle_remove(None)?;
 
@@ -151,6 +139,19 @@ pub fn handle_merge(
         crate::output::progress("")?;
         handle_merge_summary_output(None)?;
     }
+
+    // Execute post-merge commands in the main worktree
+    // This runs after cleanup so the context is clear to the user
+    // Create a fresh Repository instance at the primary worktree (the old repo may be invalid)
+    let primary_repo = Repository::at(&primary_worktree_dir);
+    execute_post_merge_commands(
+        &primary_worktree_dir,
+        &primary_repo,
+        &config,
+        &current_branch,
+        &target_branch,
+        force,
+    )?;
 
     Ok(())
 }
@@ -346,25 +347,34 @@ fn run_pre_merge_commands(
         return Ok(());
     };
 
-    let ctx = CommandContext::new(repo, config, current_branch, worktree_path, force);
+    let repo_root = repo.main_worktree_root()?;
+    let ctx = CommandContext::new(
+        repo,
+        config,
+        current_branch,
+        worktree_path,
+        &repo_root,
+        force,
+    );
     let commands = prepare_project_commands(
         pre_merge_config,
-        "cmd",
         &ctx,
         false,
         &[("target", target_branch)],
         "Pre-merge commands",
-        |_, command| {
+        |_name, command| {
             let dim = AnstyleStyle::new().dimmed();
             crate::output::progress(format!("{dim}Skipping pre-merge command: {command}{dim:#}"))
                 .ok();
         },
     )?;
     for prepared in commands {
-        crate::output::progress(format!(
-            "🔄 {CYAN}Running pre-merge command {CYAN_BOLD}{name}{CYAN_BOLD:#}:{CYAN:#}",
-            name = prepared.name
-        ))?;
+        let header = if let Some(name) = &prepared.name {
+            format!("🔄 {CYAN}Running pre-merge command {CYAN_BOLD}{name}{CYAN_BOLD:#}:{CYAN:#}")
+        } else {
+            format!("🔄 {CYAN}Running pre-merge command:{CYAN:#}")
+        };
+        crate::output::progress(header)?;
         crate::output::progress(format_with_gutter(&prepared.expanded, "", None))?;
 
         if let Err(e) = execute_command_in_worktree(worktree_path, &prepared.expanded) {
@@ -380,12 +390,6 @@ fn run_pre_merge_commands(
     Ok(())
 }
 
-/// Load project configuration with proper error conversion
-fn load_project_config(repo: &Repository) -> Result<Option<ProjectConfig>, GitError> {
-    let repo_root = repo.worktree_root()?;
-    ProjectConfig::load(&repo_root).git_context("Failed to load project config")
-}
-
 /// Execute post-merge commands sequentially in the main worktree (blocking)
 fn execute_post_merge_commands(
     main_worktree_path: &std::path::Path,
@@ -397,7 +401,10 @@ fn execute_post_merge_commands(
 ) -> Result<(), GitError> {
     use worktrunk::styling::WARNING;
 
-    let project_config = match load_project_config(repo)? {
+    // Load project config from the main worktree path directly
+    let project_config = match ProjectConfig::load(main_worktree_path)
+        .git_context("Failed to load project config")?
+    {
         Some(cfg) => cfg,
         None => return Ok(()),
     };
@@ -406,15 +413,21 @@ fn execute_post_merge_commands(
         return Ok(());
     };
 
-    let ctx = CommandContext::new(repo, config, branch, main_worktree_path, force);
+    let ctx = CommandContext::new(
+        repo,
+        config,
+        branch,
+        main_worktree_path,
+        main_worktree_path,
+        force,
+    );
     let commands = prepare_project_commands(
         post_merge_config,
-        "cmd",
         &ctx,
         false,
         &[("target", target_branch)],
         "Post-merge commands",
-        |_, command| {
+        |_name, command| {
             let dim = AnstyleStyle::new().dimmed();
             crate::output::progress(format!("{dim}Skipping command: {command}{dim:#}")).ok();
         },
@@ -426,19 +439,24 @@ fn execute_post_merge_commands(
 
     // Execute each command sequentially in the main worktree
     for prepared in commands {
-        crate::output::progress(format!(
-            "🔄 {CYAN}Running post-merge command {CYAN_BOLD}{name}{CYAN_BOLD:#}:{CYAN:#}",
-            name = prepared.name
-        ))?;
+        let header = if let Some(name) = &prepared.name {
+            format!("🔄 {CYAN}Running post-merge command {CYAN_BOLD}{name}{CYAN_BOLD:#}:{CYAN:#}")
+        } else {
+            format!("🔄 {CYAN}Running post-merge command:{CYAN:#}")
+        };
+        crate::output::progress(header)?;
         crate::output::progress(format_with_gutter(&prepared.expanded, "", None))?;
 
         if let Err(e) = execute_command_in_worktree(main_worktree_path, &prepared.expanded) {
             use worktrunk::styling::WARNING_EMOJI;
             let warning_bold = WARNING.bold();
-            crate::output::progress(format!(
-                "{WARNING_EMOJI} {WARNING}Command {warning_bold}{name}{warning_bold:#} failed: {e}{WARNING:#}",
-                name = prepared.name,
-            ))?;
+            let message = match &prepared.name {
+                Some(name) => format!(
+                    "{WARNING_EMOJI} {WARNING}Command {warning_bold}{name}{warning_bold:#} failed: {e}{WARNING:#}"
+                ),
+                None => format!("{WARNING_EMOJI} {WARNING}Command failed: {e}{WARNING:#}"),
+            };
+            crate::output::progress(message)?;
             // Continue with other commands even if one fails
         }
     }

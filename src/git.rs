@@ -23,7 +23,10 @@ pub enum GitError {
     /// Working tree has untracked files
     UntrackedFiles,
     /// Pre-merge command failed
-    PreMergeCommandFailed { command_name: String, error: String },
+    PreMergeCommandFailed {
+        command_name: Option<String>,
+        error: String,
+    },
     /// Working tree has uncommitted changes
     UncommittedChanges,
     /// Branch already exists (when trying to create)
@@ -87,10 +90,16 @@ impl std::fmt::Display for GitError {
                 error,
             } => {
                 let error_bold = ERROR.bold();
-                write!(
-                    f,
-                    "{ERROR_EMOJI} {ERROR}Pre-merge command failed: {error_bold}{command_name}{error_bold:#}{ERROR:#}\n\n{error}\n\n{HINT_EMOJI} {HINT}Use --no-hooks to skip pre-merge commands{HINT:#}"
-                )
+                match command_name {
+                    Some(name) => write!(
+                        f,
+                        "{ERROR_EMOJI} {ERROR}Pre-merge command failed: {error_bold}{name}{error_bold:#}{ERROR:#}\n\n{error}\n\n{HINT_EMOJI} {HINT}Use --no-hooks to skip pre-merge commands{HINT:#}"
+                    ),
+                    None => write!(
+                        f,
+                        "{ERROR_EMOJI} {ERROR}Pre-merge command failed{ERROR:#}\n\n{error}\n\n{HINT_EMOJI} {HINT}Use --no-hooks to skip pre-merge commands{HINT:#}"
+                    ),
+                }
             }
 
             // Uncommitted changes

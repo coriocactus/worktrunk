@@ -7,7 +7,7 @@ use super::command_approval::{approve_command_batch, command_config_to_vec};
 
 #[derive(Debug)]
 pub struct PreparedCommand {
-    pub name: String,
+    pub name: Option<String>,
     pub expanded: String,
 }
 
@@ -16,6 +16,7 @@ pub struct CommandContext<'a> {
     pub config: &'a WorktrunkConfig,
     pub branch: &'a str,
     pub worktree_path: &'a Path,
+    pub repo_root: &'a Path,
     pub force: bool,
 }
 
@@ -25,6 +26,7 @@ impl<'a> CommandContext<'a> {
         config: &'a WorktrunkConfig,
         branch: &'a str,
         worktree_path: &'a Path,
+        repo_root: &'a Path,
         force: bool,
     ) -> Self {
         Self {
@@ -32,6 +34,7 @@ impl<'a> CommandContext<'a> {
             config,
             branch,
             worktree_path,
+            repo_root,
             force,
         }
     }
@@ -39,7 +42,6 @@ impl<'a> CommandContext<'a> {
 
 pub fn prepare_project_commands<F>(
     command_config: &CommandConfig,
-    default_prefix: &str,
     ctx: &CommandContext<'_>,
     auto_trust: bool,
     extra_vars: &[(&str, &str)],
@@ -47,15 +49,15 @@ pub fn prepare_project_commands<F>(
     mut on_skip: F,
 ) -> Result<Vec<PreparedCommand>, GitError>
 where
-    F: FnMut(&str, &str),
+    F: FnMut(Option<&str>, &str),
 {
-    let commands = command_config_to_vec(command_config, default_prefix);
+    let commands = command_config_to_vec(command_config);
     if commands.is_empty() {
         return Ok(Vec::new());
     }
 
     let project_id = ctx.repo.project_identifier()?;
-    let repo_root = ctx.repo.main_worktree_root()?;
+    let repo_root = ctx.repo_root;
     let repo_name = repo_root
         .file_name()
         .and_then(|n| n.to_str())
@@ -86,7 +88,7 @@ where
         )?
     {
         for (name, command) in &commands {
-            on_skip(name, command);
+            on_skip(name.as_deref(), command);
         }
         return Err(GitError::CommandNotApproved);
     }
