@@ -23,8 +23,9 @@ fn format_switch_message(result: &SwitchResult, branch: &str) -> String {
 
 /// Format message for remove operation (includes emoji and color for consistency)
 fn format_remove_message(result: &RemoveResult) -> String {
-    use worktrunk::styling::{GREEN, SUCCESS_EMOJI};
+    use worktrunk::styling::{AnstyleStyle, GREEN, SUCCESS_EMOJI};
     let green_bold = GREEN.bold();
+    let dim = AnstyleStyle::new().dimmed();
 
     match result {
         RemoveResult::AlreadyOnDefault(branch) => {
@@ -34,7 +35,7 @@ fn format_remove_message(result: &RemoveResult) -> String {
         }
         RemoveResult::RemovedWorktree { primary_path } => {
             format!(
-                "{SUCCESS_EMOJI} {GREEN}Removed worktree, returned to primary at {}{GREEN:#}",
+                "{SUCCESS_EMOJI} {GREEN}Removed worktree, returned to primary at {dim}{}{dim:#}{GREEN:#}",
                 primary_path.display()
             )
         }

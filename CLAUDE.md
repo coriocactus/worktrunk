@@ -192,6 +192,18 @@ println!("Switched to worktree: {bold}{branch}{bold:#}");
 
 Tables (`wt list`) use conditional styling for branch names to indicate worktree state (current/primary/other), not bold.
 
+**CRITICAL: Avoid nested style resets** - When composing styles, apply all attributes to a single style object rather than nesting different styles. Nested resets can leak colors:
+
+```rust
+// ❌ BAD - nested reset can leak color
+"{WARNING}Text with {bold}nested{bold:#} styles{WARNING:#}"
+// When {bold:#} resets, it also resets WARNING color!
+
+// ✅ GOOD - compose styles together
+let warning_bold = WARNING.bold();
+"{WARNING}Text with {warning_bold}composed{warning_bold:#} styles{WARNING:#}"
+```
+
 ### Information Hierarchy & Path Styling
 
 **Principle: Bold what answers the user's question, dim what provides context.**
@@ -242,6 +254,17 @@ Colors automatically adjust based on environment:
 - Auto-detects TTY (colors only on terminals)
 
 All handled automatically by `anstream` macros.
+
+**CRITICAL: Always use styled print macros** - Import `print`, `println`, `eprint`, `eprintln` from `worktrunk::styling`, NOT the standard library versions. The styled versions use `anstream` for proper color detection and reset handling. Using standard macros bypasses color management and can cause leaks:
+
+```rust
+// ❌ BAD - uses standard library macro, bypasses anstream
+eprintln!("{}", styled_text);
+
+// ✅ GOOD - import and use anstream-wrapped version
+use worktrunk::styling::eprintln;
+eprintln!("{}", styled_text);
+```
 
 ### Design Principles
 

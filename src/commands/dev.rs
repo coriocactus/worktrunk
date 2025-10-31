@@ -1,6 +1,6 @@
 use worktrunk::config::{ProjectConfig, WorktrunkConfig};
 use worktrunk::git::{GitError, GitResultExt, Repository};
-use worktrunk::styling::{AnstyleStyle, HINT, HINT_EMOJI};
+use worktrunk::styling::{HINT, HINT_EMOJI};
 
 use super::merge::{
     execute_post_merge_commands, run_pre_commit_commands, run_pre_merge_commands,
@@ -99,12 +99,12 @@ fn load_project_config(repo: &Repository) -> Result<ProjectConfig, GitError> {
         Some(cfg) => Ok(cfg),
         None => {
             // No project config found - show helpful error
-            let bold = AnstyleStyle::new().bold();
             use worktrunk::styling::ERROR;
             use worktrunk::styling::ERROR_EMOJI;
+            let hint_bold = HINT.bold();
             eprintln!("{ERROR_EMOJI} {ERROR}No project configuration found{ERROR:#}",);
             eprintln!(
-                "{HINT_EMOJI} {HINT}Create a config file at: {bold}{}{bold:#}{HINT:#}",
+                "{HINT_EMOJI} {HINT}Create a config file at: {hint_bold}{}{hint_bold:#}{HINT:#}",
                 config_path.display()
             );
             Err(GitError::CommandFailed(

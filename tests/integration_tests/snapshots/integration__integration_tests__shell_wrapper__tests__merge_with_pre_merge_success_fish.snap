@@ -24,4 +24,4 @@ expression: output.normalized().as_ref()
 
 ✅ [32mMerged to [1m[32mmain[0m (1 commit, 1 file, [32m+1[0m)  [0m
 🔄 [36mCleaning up worktree...[0m
-✅ [32mReturned to primary at [TMPDIR]/test-repo[0m
+✅ [32mReturned to primary at [2m[TMPDIR]/test-repo[0m[0m

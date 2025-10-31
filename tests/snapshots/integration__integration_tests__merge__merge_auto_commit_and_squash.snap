@@ -13,13 +13,12 @@ info:
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
     GIT_CONFIG_GLOBAL: /dev/null
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
     WORKTRUNK_COMMIT_GENERATION__ARGS: "fix: update file 1 content"
     WORKTRUNK_COMMIT_GENERATION__COMMAND: echo
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpGIeJXC/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpY82I6F/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -46,6 +45,6 @@ exit_code: 0
 ✅ [32mMerged to [1m[32mmain[0m (1 commit, 2 files, [32m+2[0m)  [0m
 🔄 [36mCleaning up worktree...[0m
 
-✅ [32mReturned to primary at [REPO][0m
+✅ [32mReturned to primary at [2m[REPO][0m[0m
 
 ----- stderr -----

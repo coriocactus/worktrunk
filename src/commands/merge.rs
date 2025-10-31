@@ -161,12 +161,13 @@ pub fn handle_merge(
 
 /// Format the merge summary message (includes emoji and color for consistency)
 fn format_merge_summary(primary_path: Option<&std::path::Path>) -> String {
-    use worktrunk::styling::{GREEN, SUCCESS_EMOJI};
+    use worktrunk::styling::{AnstyleStyle, GREEN, SUCCESS_EMOJI};
+    let dim = AnstyleStyle::new().dimmed();
 
     // Show where we ended up
     if let Some(path) = primary_path {
         format!(
-            "{SUCCESS_EMOJI} {GREEN}Returned to primary at {}{GREEN:#}",
+            "{SUCCESS_EMOJI} {GREEN}Returned to primary at {dim}{}{dim:#}{GREEN:#}",
             path.display()
         )
     } else {

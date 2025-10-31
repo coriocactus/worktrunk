@@ -5,7 +5,7 @@
 use worktrunk::config::{ApprovedCommand, CommandConfig, WorktrunkConfig};
 use worktrunk::git::{GitError, GitResultExt};
 use worktrunk::styling::{
-    AnstyleStyle, HINT_EMOJI, WARNING, WARNING_EMOJI, eprintln, format_bash_with_gutter,
+    AnstyleStyle, HINT_EMOJI, WARNING, WARNING_EMOJI, eprint, eprintln, format_bash_with_gutter,
 };
 
 /// Convert CommandConfig to a vector of `(name, command)` pairs.
@@ -99,12 +99,13 @@ fn prompt_for_batch_approval(
     let project_name = project_id.split('/').next_back().unwrap_or(project_id);
     let bold = AnstyleStyle::new().bold();
     let dim = AnstyleStyle::new().dimmed();
+    let warning_bold = WARNING.bold();
     let count = commands.len();
     let plural = if count == 1 { "" } else { "s" };
 
     eprintln!();
     eprintln!(
-        "{WARNING_EMOJI} {WARNING}Permission required to execute {bold}{count}{bold:#} command{plural}{WARNING:#}",
+        "{WARNING_EMOJI} {WARNING}Permission required to execute {warning_bold}{count}{warning_bold:#} command{plural}{WARNING:#}",
     );
     eprintln!();
     eprintln!("{bold}{project_name}{bold:#} ({dim}{project_id}{dim:#}) wants to execute:");
