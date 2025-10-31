@@ -682,3 +682,53 @@ fn test_complete_remove_shows_branches() {
     assert!(branches.iter().any(|b| b.contains("feature/new")));
     assert!(branches.iter().any(|b| b.contains("hotfix/bug")));
 }
+
+#[test]
+fn test_complete_dev_run_hook_shows_hook_types() {
+    let temp = TestRepo::new();
+    temp.commit("initial");
+
+    // Test completion for dev run-hook
+    let mut cmd = Command::cargo_bin("wt").unwrap();
+    let output = cmd
+        .current_dir(temp.root_path())
+        .args(["complete", "wt", "dev", "run-hook", ""])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let hooks: Vec<&str> = stdout.lines().collect();
+
+    // Should include all hook types
+    assert!(hooks.contains(&"post-create"), "Missing post-create");
+    assert!(hooks.contains(&"post-start"), "Missing post-start");
+    assert!(hooks.contains(&"pre-commit"), "Missing pre-commit");
+    assert!(hooks.contains(&"pre-squash"), "Missing pre-squash");
+    assert!(hooks.contains(&"pre-merge"), "Missing pre-merge");
+    assert!(hooks.contains(&"post-merge"), "Missing post-merge");
+    assert_eq!(hooks.len(), 6, "Should have exactly 6 hook types");
+}
+
+#[test]
+fn test_complete_dev_run_hook_with_partial_input() {
+    let temp = TestRepo::new();
+    temp.commit("initial");
+
+    // Test completion with partial input
+    let mut cmd = Command::cargo_bin("wt").unwrap();
+    let output = cmd
+        .current_dir(temp.root_path())
+        .args(["complete", "wt", "dev", "run-hook", "po"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let hooks: Vec<&str> = stdout.lines().collect();
+
+    // Should still show all hook types (filtering happens in the shell)
+    assert!(hooks.contains(&"post-create"));
+    assert!(hooks.contains(&"post-start"));
+    assert!(hooks.contains(&"post-merge"));
+}
