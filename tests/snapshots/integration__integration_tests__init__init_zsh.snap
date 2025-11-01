@@ -16,7 +16,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpG3qBik/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpwPTuOe/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -261,6 +261,7 @@ _arguments "${_arguments_options[@]}" : \
 json\:"JSON format with colored unicode display fields"))' \
 '--branches[Also display branches that don'\''t have worktrees]' \
 '--ci[Fetch CI status from GitHub/GitLab PRs/MRs]' \
+'--full[Show all information (CI status + conflict detection)]' \
 '-v[Enable verbose output (show git commands and debug info)]' \
 '--verbose[Enable verbose output (show git commands and debug info)]' \
 '-h[Print help (see more with '\''--help'\'')]' \

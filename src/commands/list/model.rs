@@ -34,6 +34,7 @@ pub struct WorktreeInfo {
     pub upstream: UpstreamStatus,
     pub worktree_state: Option<String>,
     pub pr_status: Option<PrStatus>,
+    pub has_conflicts: bool,
 
     // Display fields for json-pretty format (with ANSI colors)
     #[serde(flatten)]
@@ -55,6 +56,7 @@ pub struct BranchInfo {
     #[serde(flatten)]
     pub upstream: UpstreamStatus,
     pub pr_status: Option<PrStatus>,
+    pub has_conflicts: bool,
 
     // Display fields for json-pretty format (with ANSI colors)
     #[serde(flatten)]
@@ -244,6 +246,13 @@ impl ListItem {
             ListItem::Branch(info) => info.pr_status.as_ref(),
         }
     }
+
+    pub fn has_conflicts(&self) -> bool {
+        match self {
+            ListItem::Worktree(info) => info.has_conflicts,
+            ListItem::Branch(info) => info.has_conflicts,
+        }
+    }
 }
 
 impl BranchInfo {
@@ -253,6 +262,7 @@ impl BranchInfo {
         repo: &Repository,
         primary_branch: Option<&str>,
         fetch_ci: bool,
+        check_conflicts: bool,
     ) -> Result<Self, GitError> {
         // Get the commit SHA for this branch
         let head = repo.run_command(&["rev-parse", branch])?.trim().to_string();
@@ -268,6 +278,16 @@ impl BranchInfo {
             None
         };
 
+        let has_conflicts = if check_conflicts {
+            if let Some(base) = primary_branch {
+                repo.has_merge_conflicts(base, &head)?
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         Ok(BranchInfo {
             name: branch.to_string(),
             head,
@@ -276,6 +296,7 @@ impl BranchInfo {
             branch_diff,
             upstream,
             pr_status,
+            has_conflicts,
             display: DisplayFields::default(),
         })
     }
@@ -287,6 +308,7 @@ impl WorktreeInfo {
         wt: &worktrunk::git::Worktree,
         primary: &worktrunk::git::Worktree,
         fetch_ci: bool,
+        check_conflicts: bool,
     ) -> Result<Self, GitError> {
         let wt_repo = Repository::at(&wt.path);
         let is_primary = wt.path == primary.path;
@@ -310,6 +332,16 @@ impl WorktreeInfo {
             None
         };
 
+        let has_conflicts = if check_conflicts {
+            if let Some(base) = base_branch {
+                wt_repo.has_merge_conflicts(base, &wt.head)?
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         Ok(WorktreeInfo {
             worktree: wt.clone(),
             commit,
@@ -320,6 +352,7 @@ impl WorktreeInfo {
             upstream,
             worktree_state,
             pr_status,
+            has_conflicts,
             display: DisplayFields::default(),
             working_diff_display: None,
         })
@@ -331,6 +364,7 @@ pub fn gather_list_data(
     repo: &Repository,
     show_branches: bool,
     fetch_ci: bool,
+    check_conflicts: bool,
 ) -> Result<Option<ListData>, GitError> {
     let worktrees = repo.list_worktrees()?;
 
@@ -347,7 +381,7 @@ pub fn gather_list_data(
     // Gather enhanced information for all worktrees in parallel
     let worktree_results: Vec<Result<WorktreeInfo, GitError>> = worktrees
         .par_iter()
-        .map(|wt| WorktreeInfo::from_worktree(wt, &primary, fetch_ci))
+        .map(|wt| WorktreeInfo::from_worktree(wt, &primary, fetch_ci, check_conflicts))
         .collect();
 
     // Build list of items to display (worktrees + optional branches)
@@ -372,7 +406,13 @@ pub fn gather_list_data(
         let branch_results: Vec<(String, Result<BranchInfo, GitError>)> = available_branches
             .par_iter()
             .map(|branch| {
-                let result = BranchInfo::from_branch(branch, repo, primary_branch, fetch_ci);
+                let result = BranchInfo::from_branch(
+                    branch,
+                    repo,
+                    primary_branch,
+                    fetch_ci,
+                    check_conflicts,
+                );
                 (branch.clone(), result)
             })
             .collect();

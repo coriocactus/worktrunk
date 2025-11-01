@@ -74,12 +74,13 @@ pub fn handle_list(
     format: crate::OutputFormat,
     show_branches: bool,
     fetch_ci: bool,
+    check_conflicts: bool,
 ) -> Result<(), GitError> {
     let repo = Repository::current();
     let Some(ListData {
         items,
         current_worktree_path,
-    }) = gather_list_data(&repo, show_branches, fetch_ci)?
+    }) = gather_list_data(&repo, show_branches, fetch_ci, check_conflicts)?
     else {
         return Ok(());
     };

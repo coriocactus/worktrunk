@@ -283,6 +283,7 @@ pub fn format_header_line(layout: &LayoutConfig) {
         positions.branch_diff,
         dim,
     );
+    push_header_at(&mut line, "⚠️", widths.conflicts, positions.conflicts, dim);
     push_header_at(&mut line, "State", widths.states, positions.states, dim);
     push_header_at(&mut line, "Path", widths.path, positions.path, dim);
     push_header_at(
@@ -423,6 +424,19 @@ pub fn format_list_item_line(
             push_diff(&mut line, branch_diff.0, branch_diff.1, &widths.branch_diff);
         } else {
             push_blank(&mut line, widths.branch_diff.total);
+        }
+    }
+
+    // Conflicts indicator
+    if widths.conflicts > 0 {
+        line.pad_to(positions.conflicts);
+        if item.has_conflicts() {
+            line.push_styled(
+                "⚠️".to_string(),
+                Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow))),
+            );
+        } else {
+            push_blank(&mut line, widths.conflicts);
         }
     }
 

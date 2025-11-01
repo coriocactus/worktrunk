@@ -143,6 +143,15 @@ enum Commands {
         /// WARNING: Slow! Adds ~0.5-2s per branch (makes network requests).
         #[arg(long)]
         ci: bool,
+
+        /// Show all information (CI status + conflict detection)
+        ///
+        /// Enables both --ci and conflict detection. Shows ⚠️ indicator for branches
+        /// that would have merge conflicts with main.
+        ///
+        /// WARNING: Slow! Runs git merge-tree for every branch to detect conflicts.
+        #[arg(long)]
+        full: bool,
     },
 
     /// Switch to a worktree
@@ -412,7 +421,12 @@ fn main() {
             format,
             branches,
             ci,
-        } => handle_list(format, branches, ci),
+            full,
+        } => {
+            let fetch_ci = ci || full;
+            let check_conflicts = full;
+            handle_list(format, branches, fetch_ci, check_conflicts)
+        }
         Commands::Switch {
             branch,
             create,

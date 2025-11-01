@@ -722,6 +722,28 @@ impl Repository {
         Ok(output.trim().to_owned())
     }
 
+    /// Check if merging head into base would result in conflicts.
+    ///
+    /// Uses `git merge-tree` to simulate a merge without touching the working tree.
+    /// Returns true if conflicts would occur, false for a clean merge.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use worktrunk::git::Repository;
+    ///
+    /// let repo = Repository::current();
+    /// let has_conflicts = repo.has_merge_conflicts("main", "feature-branch")?;
+    /// # Ok::<(), worktrunk::git::GitError>(())
+    /// ```
+    pub fn has_merge_conflicts(&self, base: &str, head: &str) -> Result<bool, GitError> {
+        let merge_base = self.merge_base(base, head)?;
+
+        // git merge-tree exits with 0 for clean merge, 1 for conflicts
+        // run_command_check returns true for exit 0, false otherwise
+        let clean_merge = self.run_command_check(&["merge-tree", &merge_base, base, head])?;
+        Ok(!clean_merge)
+    }
+
     /// Get commit subjects (first line of commit message) from a range.
     pub fn commit_subjects(&self, range: &str) -> Result<Vec<String>, GitError> {
         let output = self.run_command(&["log", "--format=%s", range])?;

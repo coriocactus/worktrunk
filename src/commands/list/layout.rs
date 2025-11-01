@@ -58,6 +58,7 @@ pub struct ColumnWidths {
     pub branch: usize,
     pub time: usize,
     pub ci_status: usize,
+    pub conflicts: usize,
     pub message: usize,
     pub ahead_behind: DiffWidths,
     pub working_diff: DiffWidths,
@@ -75,6 +76,7 @@ pub struct ColumnPositions {
     pub working_diff: usize,
     pub ahead_behind: usize,
     pub branch_diff: usize,
+    pub conflicts: usize,
     pub states: usize,
     pub path: usize,
     pub upstream: usize,
@@ -210,10 +212,15 @@ pub fn calculate_column_widths(items: &[ListItem]) -> ColumnWidths {
     let has_ci_status = items.iter().any(|item| item.pr_status().is_some());
     let ci_status_width = if has_ci_status { 2 } else { 0 };
 
+    // Conflicts column: Always 2 chars wide if any item has conflicts
+    let has_conflicts = items.iter().any(|item| item.has_conflicts());
+    let conflicts_width = if has_conflicts { 2 } else { 0 };
+
     ColumnWidths {
         branch: max_branch,
         time: max_time,
         ci_status: ci_status_width,
+        conflicts: conflicts_width,
         message: max_message,
         ahead_behind: DiffWidths {
             total: ahead_behind_total,
@@ -273,14 +280,16 @@ pub fn calculate_responsive_layout(items: &[ListItem]) -> LayoutConfig {
     // 2. working_diff - uncommitted changes (CRITICAL: do I need to commit?)
     // 3. ahead_behind - commits difference (CRITICAL: am I ahead/behind?)
     // 4. branch_diff - line diff in commits (work volume in those commits)
-    // 5. states - special states like [rebasing] (rare but urgent when present)
-    // 6. path - location (where is this?)
-    // 7. upstream - tracking configuration (sync context)
-    // 8. time - recency (nice-to-have context)
-    // 9. commit - hash (reference info, rarely needed)
-    // 10. message - description (nice-to-have, space-hungry)
+    // 5. conflicts - merge conflicts with main (CRITICAL: will merge fail?)
+    // 6. states - special states like [rebasing] (rare but urgent when present)
+    // 7. path - location (where is this?)
+    // 8. upstream - tracking configuration (sync context)
+    // 9. time - recency (nice-to-have context)
+    // 10. ci_status - CI/PR status (contextual when available)
+    // 11. commit - hash (reference info, rarely needed)
+    // 12. message - description (nice-to-have, space-hungry)
     //
-    // Note: ahead_behind and branch_diff are adjacent (both describe commits vs main)
+    // Note: ahead_behind, branch_diff, and conflicts are adjacent (all describe commits vs main and mergeability)
     // Each column is shown if it has any data (ideal_width > 0) and fits in remaining space.
     // All columns participate in priority allocation - nothing is "essential".
 
@@ -289,6 +298,7 @@ pub fn calculate_responsive_layout(items: &[ListItem]) -> LayoutConfig {
         branch: 0,
         time: 0,
         ci_status: 0,
+        conflicts: 0,
         message: 0,
         ahead_behind: DiffWidths::zero(),
         working_diff: DiffWidths::zero(),
@@ -334,6 +344,9 @@ pub fn calculate_responsive_layout(items: &[ListItem]) -> LayoutConfig {
     if allocated_width > 0 {
         widths.branch_diff = ideal_widths.branch_diff;
     }
+
+    // Conflicts column (merge conflicts indicator - critical for mergeability)
+    widths.conflicts = try_allocate(&mut remaining, ideal_widths.conflicts, spacing, false);
 
     // States column (rare but urgent when present)
     widths.states = try_allocate(&mut remaining, ideal_widths.states, spacing, false);
@@ -402,6 +415,7 @@ pub fn calculate_responsive_layout(items: &[ListItem]) -> LayoutConfig {
         working_diff: advance(widths.working_diff.total),
         ahead_behind: advance(widths.ahead_behind.total),
         branch_diff: advance(widths.branch_diff.total),
+        conflicts: advance(widths.conflicts),
         states: advance(widths.states),
         path: advance(widths.path),
         upstream: advance(widths.upstream.total),
@@ -455,6 +469,7 @@ mod tests {
             upstream: UpstreamStatus::from_parts(Some("origin".to_string()), 4, 0),
             worktree_state: None,
             pr_status: None,
+            has_conflicts: false,
             display: DisplayFields::default(),
             working_diff_display: None,
         };
@@ -526,6 +541,7 @@ mod tests {
             upstream: UpstreamStatus::from_parts(Some("origin".to_string()), 4, 2),
             worktree_state: None,
             pr_status: None,
+            has_conflicts: false,
             display: DisplayFields::default(),
             working_diff_display: None,
         };
@@ -608,6 +624,7 @@ mod tests {
             upstream: UpstreamStatus::default(),
             worktree_state: None,
             pr_status: None,
+            has_conflicts: false,
             display: DisplayFields::default(),
             working_diff_display: None,
         };
@@ -670,6 +687,7 @@ mod tests {
             upstream: UpstreamStatus::default(), // Hidden: no upstream
             worktree_state: None,      // Hidden: no state
             pr_status: None,
+            has_conflicts: false,
             display: DisplayFields::default(),
             working_diff_display: None,
         };
