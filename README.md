@@ -1,57 +1,243 @@
 # Worktrunk
 
-Git worktrees solve a real problem: working on multiple branches without stashing or switching contexts. But the vanilla `git worktree` command is cumbersome. Worktrunk makes worktrees fast and seamless.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Git worktree lifecycle automation. Built for running multiple AI coding agents without conflicts.
+
+<!-- Add after publishing to crates.io:
+[![Crates.io](https://img.shields.io/crates/v/worktrunk.svg)](https://crates.io/crates/worktrunk)
+-->
+
+Git worktrees let multiple agents work on one repo without colliding—each gets a separate directory sharing history. But creating worktrees, tracking paths, and cleaning up afterward is manual. Worktrunk automates the lifecycle: create, switch, clean up—your shell stays put.
+
+Running ten agents on different features? `wt switch --create feature-a`, `wt switch --create feature-b`, and they're isolated. Agent finishes? `wt remove feature-a` cleans up automatically. No path juggling, no stale directories.
 
 ## What It Does
 
-Worktrunk wraps git worktrees with shell integration that makes them feel native. Switching to a worktree automatically changes the shell directory. The `wt remove` command returns to the original location.
+Automates the full lifecycle: create worktree, work, merge back, remove worktree.
 
 ```bash
-# Create and switch to a new worktree in one command
-$ wt switch --create fix-auth-bug
-✅ Created fix-auth-bug
-  Path: /Users/you/projects/myapp.fix-auth-bug
+$ wt switch --create fix-auth
+# Shell now in ../repo.fix-auth/
 
-# Your shell is already in the new worktree
-$ pwd
-/Users/you/projects/myapp.fix-auth-bug
-
-# When done, remove the worktree and return to primary
-$ wt remove
-✅ Removed worktree: fix-auth-bug
-  Returned to: /Users/you/projects/myapp
+# Agent works, makes changes, then:
+$ wt merge main --squash
+🔄 Switching to main...
+🔄 Staging changes (3 modified)...
+🔄 Merging fix-auth → main...
+✅ Merged and pushed
+✅ Removed worktree
+# Shell back in main
 ```
 
-## Why Worktrees Matter
-
-Traditional git workflows present painful tradeoffs:
-- Stash work and switch branches (lose environment state)
-- Make hasty commits just to check something else
-- Clone the repo multiple times (waste disk space, create sync issues)
-
-Worktrees enable multiple branches checked out simultaneously. Each worktree is an independent working directory sharing the same git history. Git's native interface for managing them is verbose and requires manual directory navigation.
-
-Worktrunk provides shell integration that makes `wt switch` actually change directories. No manual `cd` commands or path tracking required.
-
-## Philosophy
-
-Worktrunk is an opinionated tool that automates the feature branch workflow:
-
-1. **Short-lived worktrees**: Create → work → merge → auto-cleanup
-2. **Linear history**: Fast-forward only, squash when needed
-3. **Automation over control**: Hooks run by default, changes are staged automatically
-4. **LLM integration**: Optional AI-generated commit messages
-
-If you prefer manual control over every git operation, standard `git worktree` commands may be a better fit. Worktrunk optimizes for the 90% case where you want to work on a feature, merge it, and move on.
+Shell integration means directories change automatically. Merge handles staging, committing, merging, pushing, cleanup. One command.
 
 ## Installation
 
 ```bash
-cargo build --release
-# Copy target/release/wt to somewhere in your PATH
+cargo install worktrunk
+wt configure-shell  # Sets up shell integration
 ```
 
-Shell integration requires adding one line to your shell config:
+## Three Commands
+
+**Create workspace:**
+```bash
+wt switch --create feature-name
+```
+
+**Finish and merge:**
+```bash
+wt merge main --squash
+```
+
+**See active worktrees:**
+```bash
+wt list
+```
+
+## Automation Features
+
+**LLM commits** - AI generates merge commits from diff and history:
+```bash
+wt merge main --squash
+wt config help  # Setup guide
+```
+
+**Project hooks** - Auto-run tests, install deps:
+```toml
+# .config/wt.toml
+[pre-merge-command]
+"test" = "npm test"
+```
+
+**Shell integration** - Bash, Zsh, Fish, Nushell, PowerShell, Elvish, Xonsh, Oil.
+
+## Design Philosophy
+
+Worktrunk is opinionated. The choices optimize for AI agent workflows:
+
+1. **Merge does everything** - Staging, committing, merging, pushing, cleanup in one command
+2. **Squash by default** - Linear history, configurable
+3. **Automatic shell navigation** - No manual `cd` commands
+4. **Fail-fast hooks** - Tests block bad merges
+
+These trade manual control for automation. For fine-grained control, use `git worktree` directly.
+
+## All Commands
+
+- `wt switch [branch]` - Switch to existing worktree
+- `wt switch --create [branch]` - Create and switch
+- `wt remove` - Remove current, return to main
+- `wt merge [target]` - Merge, push, cleanup
+- `wt push [target]` - Move changes to another branch
+- `wt list` - Show all worktrees
+- `wt config` - Manage configuration
+
+See `wt --help` for details.
+
+## Configuration
+
+```bash
+wt config list  # Show all config files and locations
+wt config init  # Create global config with examples
+wt config help  # Show LLM setup guide
+```
+
+<details>
+<summary>Configuration details</summary>
+
+Global config at `~/.config/worktrunk/config.toml`:
+
+```toml
+worktree-path = "../{main-worktree}.{branch}"
+
+[llm]
+command = "llm"
+args = ["-m", "claude-3-7-sonnet-20250219"]
+```
+
+Project config at `.config/wt.toml` in the repository root (see Project Automation above).
+
+Worktree path defaults: `../repo.branch/` (siblings to main repo). Variables: `{main-worktree}`, `{branch}`, `{repo}`.
+
+</details>
+
+## Advanced Features
+
+### LLM-Powered Commit Messages
+
+During merge operations, worktrunk can generate commit messages using an LLM. The LLM analyzes the staged diff and recent commit history to write messages matching the project's style.
+
+```bash
+# Merge with LLM-generated commit message
+$ wt merge main --squash
+
+# Provide custom guidance
+$ wt merge main --squash -m "Focus on the authentication changes"
+```
+
+Set up LLM integration: `wt config help` shows the setup guide, `wt config init` creates example config.
+
+<details>
+<summary>Manual configuration</summary>
+
+Edit `~/.config/worktrunk/config.toml`:
+
+```toml
+[llm]
+command = "llm"  # or "claude", "gpt", etc.
+args = ["-m", "claude-haiku-4-5-20251001"]
+```
+
+If the LLM is unavailable or fails, worktrunk falls back to a deterministic message.
+
+</details>
+
+### Project Automation
+
+Automate common tasks by creating `.config/wt.toml` in your repository root. Run tests before merging, install dependencies when creating worktrees, start dev servers automatically.
+
+```toml
+# Install deps when creating a worktree
+[post-create-command]
+"install" = "npm install --frozen-lockfile"
+
+# Start dev server automatically
+[post-start-command]
+"dev" = "npm run dev"
+
+# Run tests before merging
+[pre-merge-command]
+"test" = "npm test"
+"lint" = "npm run lint"
+```
+
+<details>
+<summary>All available hooks</summary>
+
+| Hook | When It Runs | Execution | Failure Behavior |
+|------|--------------|-----------|------------------|
+| **post-create-command** | After `git worktree add` completes | Sequential, blocking | Logs warning, continues with remaining commands |
+| **post-start-command** | After post-create completes | Parallel, non-blocking (background processes) | Logs warning, doesn't affect switch result |
+| **pre-commit-command** | Before committing changes during `wt merge` (when not squashing) | Sequential, blocking, fail-fast | Terminates merge immediately |
+| **pre-squash-command** | Before squashing commits during `wt merge --squash` | Sequential, blocking, fail-fast | Terminates merge immediately |
+| **pre-merge-command** | Before any commits/rebasing during `wt merge` | Sequential, blocking, fail-fast | Terminates merge immediately |
+| **post-merge-command** | After successful merge and push to target branch, before cleanup | Sequential, blocking | Logs warning, continues with remaining commands |
+
+**Template variables:** `{repo}`, `{branch}`, `{worktree}`, `{repo_root}`, `{target}`
+
+**Skipping hooks:** `wt switch --no-hooks` or `wt merge --no-hooks`
+
+**Security:** Commands require approval on first run. Use `--force` to bypass.
+
+</details>
+
+### Worktree Paths
+
+By default, worktrees live as siblings to the main repo:
+
+```
+myapp/               # primary worktree
+myapp.feature-x/     # secondary worktree
+myapp.bugfix-y/      # secondary worktree
+```
+
+Customize the pattern in `~/.config/worktrunk/config.toml`:
+
+```toml
+# Inside the repo (keeps everything contained)
+worktree-path = ".worktrees/{branch}"
+
+# Shared directory with multiple repos
+worktree-path = "../worktrees/{main-worktree}/{branch}"
+```
+
+### Fast Branch Switching
+
+Push changes from the current worktree directly to another branch without committing or merging. Useful for moving work-in-progress code.
+
+```bash
+# Push current changes to another branch
+$ wt push feature-experiment
+```
+
+Worktrunk stages the changes, creates a commit, and pushes it to the target branch's worktree if it exists.
+
+### Shell Integration Details
+
+Worktrunk automatically configures your shell:
+
+```bash
+wt configure-shell
+```
+
+This adds shell integration to your config files (supports Bash, Zsh, Fish, Nushell, PowerShell, Elvish, Xonsh, Oil). The integration enables `wt switch` to change directories and `wt remove` to return to the previous location.
+
+<details>
+<summary>Manual setup (if you prefer)</summary>
+
+Add one line to your shell config:
 
 **Bash** (`~/.bashrc`):
 ```bash
@@ -98,220 +284,8 @@ execx($(wt init xonsh))
 eval "$(wt init oil)"
 ```
 
-## LLM-Powered Commit Messages
+</details>
 
-Worktrunk can generate commit messages using an LLM during merge operations. The LLM analyzes the staged diff and recent commit history to write messages matching the project's style.
+## Status
 
-```bash
-# Merge with LLM-generated commit message
-$ wt merge main --squash
-
-# Provide custom guidance
-$ wt merge main --squash -m "Focus on the authentication changes"
-```
-
-Configure the LLM command in `~/.config/worktrunk/config.toml`:
-
-```toml
-[llm]
-command = "llm"  # or "claude", "gpt", etc.
-args = ["-m", "claude-3-7-sonnet-20250219"]
-```
-
-The LLM receives the staged diff and recent commit messages, then generates a message following project conventions. If the LLM is unavailable or fails, worktrunk falls back to a deterministic message.
-
-## Project Automation
-
-Projects can define commands that run automatically when creating or switching to worktrees. Create `.config/wt.toml` in the repository root:
-
-```toml
-# Run sequentially after worktree creation (blocking)
-[post-create-command]
-"npm install" = "npm install --frozen-lockfile"
-"build" = "npm run build"
-
-# Run in parallel after switching (non-blocking)
-[post-start-command]
-"dev server" = "npm run dev"
-"type check" = "npm run type-check -- --watch"
-
-# Validation before committing changes (blocking, fail-fast)
-[pre-commit-command]
-"format" = "cargo fmt -- --check"
-
-# Validation before squashing commits (blocking, fail-fast)
-[pre-squash-command]
-"tests" = "cargo test"
-
-# Validation before merging (blocking, fail-fast)
-[pre-merge-command]
-"tests" = "npm test"
-"lint" = "npm run lint"
-
-# Run after successful merge in main worktree (blocking)
-[post-merge-command]
-"install" = "cargo install --path ."
-"deploy" = "scripts/deploy.sh"
-```
-
-**Hook Types:**
-
-- **`post-create-command`**: Runs **sequentially** and **blocks** until complete after creating a worktree. The `wt switch` command won't return until these finish. Use for essential setup tasks like installing dependencies or building assets. Commands execute one after another in the new worktree directory.
-
-- **`post-start-command`**: Runs in **parallel** as **background processes** (non-blocking) after switching to a worktree. The `wt switch` command returns immediately while these run in the background. Use for dev servers, file watchers, and other long-running tasks. Output is logged to `~/.cache/worktrunk/logs/{repo}/{branch}/{command}.log`.
-
-- **`pre-merge-command`**: Runs first, before any other hooks or git operations during `wt merge`. All commands must succeed for the merge to proceed. Use for validation (tests, lints) that must pass regardless of merge strategy.
-
-- **`pre-commit-command`**: Runs after pre-merge but before committing uncommitted changes (when not using `--squash`). All commands must succeed for the commit to proceed. Use for format checks and quick validations.
-
-- **`pre-squash-command`**: Runs after pre-merge but before squashing commits (when using `--squash`). All commands must succeed for the squash to proceed. Use for tests that should pass before creating the final squashed commit.
-
-- **`post-merge-command`**: Runs sequentially in the main worktree after a successful merge and push. Use for deployment, notifications, or updating global state.
-
-Template variables expand at runtime:
-- `{repo}` - Repository name
-- `{branch}` - Current branch
-- `{worktree}` - Absolute path to worktree
-- `{repo_root}` - Absolute path to repository root
-- `{target}` - Target branch (pre-squash-command, pre-merge-command, and post-merge-command only)
-
-### Available Hooks
-
-Worktrunk provides six lifecycle hooks for project automation:
-
-| Hook | When It Runs | Execution | Failure Behavior |
-|------|--------------|-----------|------------------|
-| **post-create-command** | After `git worktree add` completes | Sequential, blocking | Logs warning, continues with remaining commands |
-| **post-start-command** | After post-create completes | Parallel, non-blocking (background processes) | Logs warning, doesn't affect switch result |
-| **pre-commit-command** | Before committing changes during `wt merge` (when not squashing) | Sequential, blocking, fail-fast | Terminates merge immediately |
-| **pre-squash-command** | Before squashing commits during `wt merge --squash` | Sequential, blocking, fail-fast | Terminates merge immediately |
-| **pre-merge-command** | Before any commits/rebasing during `wt merge` | Sequential, blocking, fail-fast | Terminates merge immediately |
-| **post-merge-command** | After successful merge and push to target branch, before cleanup | Sequential, blocking | Logs warning, continues with remaining commands |
-
-**Skipping hooks:**
-- Use `--no-hooks` to skip all project hooks
-- `wt switch --no-hooks` skips post-create and post-start
-- `wt merge --no-hooks` skips pre-commit, pre-squash, and pre-merge commands
-
-**Security:**
-Commands require approval on first run. Approved commands are saved globally per project. Use `--force` to bypass approval prompts.
-
-## Customization
-
-### Worktree Paths
-
-By default, worktrees live as siblings to the main repo:
-
-```
-myapp/               # primary worktree
-myapp.feature-x/     # secondary worktree
-myapp.bugfix-y/      # secondary worktree
-```
-
-Customize the pattern in `~/.config/worktrunk/config.toml`:
-
-```toml
-# Inside the repo (keeps everything contained)
-worktree-path = ".worktrees/{branch}"
-
-# Shared directory with multiple repos
-worktree-path = "../worktrees/{main-worktree}/{branch}"
-```
-
-### Fast Branch Switching
-
-Push changes from the current worktree directly to another branch without committing or merging. Useful for moving work-in-progress code.
-
-```bash
-# Push current changes to another branch
-$ wt push feature-experiment
-```
-
-Worktrunk stages the changes, creates a commit, and pushes it to the target branch's worktree if it exists.
-
-## How Shell Integration Works
-
-Worktrunk uses a directive protocol. Running `wt switch --internal my-branch` outputs:
-
-```
-__WORKTRUNK_CD__/path/to/worktree
-Switched to worktree: my-branch
-```
-
-The shell wrapper parses this output. Lines starting with `__WORKTRUNK_CD__` trigger directory changes. Other lines print normally. This separation keeps the Rust binary focused on git logic while the shell handles environment changes.
-
-This pattern is proven by tools like zoxide, starship, and direnv. The `--internal` flag is hidden from help output—end users never interact with it directly.
-
-## Commands
-
-**List worktrees:**
-```bash
-wt list
-wt list --branches  # also show branches without worktrees
-```
-
-**Switch or create:**
-```bash
-wt switch feature-branch
-wt switch --create new-feature
-wt switch --create new-feature --base develop
-wt switch feature-branch --no-hooks  # skip post-create and post-start hooks
-```
-
-**Run command after switching:**
-```bash
-wt switch feature-x --execute "npm test" --force
-```
-
-**Remove current worktree:**
-```bash
-wt remove
-```
-
-**Push changes between worktrees:**
-```bash
-wt push target-branch
-```
-
-**Merge into another branch:**
-```bash
-wt merge main                # merge commits as-is
-wt merge main --squash       # squash all commits
-wt merge main --keep         # keep worktree after merging
-wt merge main -m "Custom message instruction"
-wt merge main --no-hooks     # skip pre-merge-command hook
-```
-
-## Configuration
-
-Global config at `~/.config/worktrunk/config.toml`:
-
-```toml
-worktree-path = "../{main-worktree}.{branch}"
-
-[llm]
-command = "llm"
-args = ["-m", "claude-3-7-sonnet-20250219"]
-```
-
-Project config at `.config/wt.toml` in the repository root (see Project Automation above).
-
-## Design Principles
-
-**Progressive Enhancement**: Works without shell integration. Better with it.
-
-**One Canonical Path**: No configuration flags for behavior that should just work. When there's a better way to do something, worktrunk does it that way by default.
-
-**Fast**: Shell integration overhead is minimal. The binary shells out to git but adds negligible latency.
-
-**Stateless**: The binary maintains no state between invocations. Shell and git are the source of truth.
-
-## Development Status
-
-This project is pre-release. Breaking changes are expected and acceptable. The best technical solution wins over backward compatibility.
-
-## License
-
-MIT
-# Test
-# Test
+Worktrunk is in active development. The core features are stable and ready for use. While the project is pre-1.0, the CLI interface and major features are unlikely to change significantly.

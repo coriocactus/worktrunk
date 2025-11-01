@@ -1,4 +1,33 @@
 //! Directive output mode for shell integration
+//!
+//! # How Shell Integration Works
+//!
+//! Worktrunk uses a directive protocol to enable shell integration. When running with
+//! `--internal` flag (invoked by shell wrapper), commands output directives that the
+//! shell wrapper parses and executes.
+//!
+//! ## Protocol
+//!
+//! Running `wt switch --internal my-branch` outputs:
+//!
+//! ```text
+//! __WORKTRUNK_CD__/path/to/worktree\0
+//! Switched to worktree: my-branch\0
+//! ```
+//!
+//! The shell wrapper parses this output:
+//! - Lines starting with `__WORKTRUNK_CD__` trigger directory changes
+//! - Lines starting with `__WORKTRUNK_EXEC__` trigger command execution
+//! - Other lines print normally to the user
+//! - All messages are NUL-terminated for reliable parsing
+//!
+//! This separation keeps the Rust binary focused on git logic while the shell
+//! handles environment changes (cd, exec).
+//!
+//! ## Pattern
+//!
+//! This pattern is proven by tools like zoxide, starship, and direnv. The `--internal`
+//! flag is hidden from help output—end users never interact with it directly.
 
 use std::io::{self, Write};
 use std::path::Path;
@@ -6,6 +35,8 @@ use std::path::Path;
 /// Directive output mode for shell integration
 ///
 /// Outputs NUL-terminated directives for shell wrapper to parse and execute.
+///
+/// See module-level documentation for protocol details.
 pub struct DirectiveOutput;
 
 impl DirectiveOutput {
