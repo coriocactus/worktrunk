@@ -186,20 +186,20 @@ pub fn format_all_states(info: &WorktreeInfo) -> String {
 
 pub fn format_header_line(layout: &LayoutConfig) {
     let widths = &layout.widths;
-    let dim = Style::new().dimmed();
+    let style = Style::new();
     let mut line = StyledLine::new();
 
-    push_optional_header(&mut line, "Branch", widths.branch, dim);
-    push_optional_header(&mut line, "WT +/-", widths.working_diff.total, dim);
-    push_optional_header(&mut line, "Commits", widths.ahead_behind.total, dim);
-    push_optional_header(&mut line, "Branch +/-", widths.branch_diff.total, dim);
-    push_optional_header(&mut line, "State", widths.states, dim);
-    push_optional_header(&mut line, "Path", widths.path, dim);
-    push_optional_header(&mut line, "Remote", widths.upstream.total, dim);
-    push_optional_header(&mut line, "Age", widths.time, dim);
-    push_optional_header(&mut line, "CI", widths.ci_status, dim);
-    push_optional_header(&mut line, "Commit", widths.commit, dim);
-    push_optional_header(&mut line, "Message", widths.message, dim);
+    push_optional_header(&mut line, "Branch", widths.branch, style);
+    push_optional_header(&mut line, "WT +/-", widths.working_diff.total, style);
+    push_optional_header(&mut line, "Commits", widths.ahead_behind.total, style);
+    push_optional_header(&mut line, "Branch +/-", widths.branch_diff.total, style);
+    push_optional_header(&mut line, "State", widths.states, style);
+    push_optional_header(&mut line, "Path", widths.path, style);
+    push_optional_header(&mut line, "Remote", widths.upstream.total, style);
+    push_optional_header(&mut line, "Age", widths.time, style);
+    push_optional_header(&mut line, "CI", widths.ci_status, style);
+    push_optional_header(&mut line, "Commit", widths.commit, style);
+    push_optional_header(&mut line, "Message", widths.message, style);
 
     println!("{}", line.render());
 }
