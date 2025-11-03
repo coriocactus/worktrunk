@@ -327,8 +327,8 @@ fn bench_sequential_vs_parallel(c: &mut Criterion) {
 
     let profile = &PROFILES[1]; // typical profile
 
-    // Test both sequential and parallel implementations across different worktree counts
-    for num_worktrees in [1, 2, 3, 4, 6, 8] {
+    // Test at 3 data points to minimize overhead while still showing the comparison
+    for num_worktrees in [1, 4, 8] {
         let temp = create_realistic_repo(profile.commits, profile.files);
         let repo_path = temp.path().join("main");
 
