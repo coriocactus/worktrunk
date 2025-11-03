@@ -3,6 +3,7 @@ name = "worktrunk"
 version = "0.1.0"
 edition = "2024"
 build = "build.rs"
+repository = "https://github.com/max-sixty/worktrunk"
 
 [package.metadata.release]
 # Allow releases from any branch (GitHub Actions uses detached HEAD)
@@ -72,3 +73,8 @@ harness = false
 
 [lints.rust]
 unsafe_code = "forbid"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
