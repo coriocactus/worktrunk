@@ -1,5 +1,5 @@
 ---
-source: src/config_template_test.rs
+source: src/config/test.rs
 expression: results
 ---
 - - spaces

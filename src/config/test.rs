@@ -3,7 +3,7 @@
 //! These tests target potential shell injection vulnerabilities and
 //! edge cases in template variable substitution.
 
-use crate::config::expand_template;
+use super::expand_template;
 use std::collections::HashMap;
 
 #[test]
@@ -30,78 +30,74 @@ fn test_expand_template_branch_with_slashes() {
 
 #[test]
 fn test_expand_template_branch_with_spaces() {
-    // FIXED: Branch names with spaces are now shell-escaped
+    // Branch names with spaces are shell-escaped
     let extras = HashMap::new();
     let result = expand_template("echo {branch}", "myrepo", "feature name", &extras);
 
-    // New behavior: shell-escaped with single quotes
+    // Shell-escaped with single quotes
     assert_eq!(result, "echo 'feature name'");
-    // This correctly executes: echo 'feature name' (1 argument)
 }
 
 #[test]
 fn test_expand_template_branch_with_special_shell_chars() {
-    // FIXED: Special shell characters are now escaped
+    // Special shell characters are escaped
     let extras = HashMap::new();
     let result = expand_template("echo {branch}", "myrepo", "feature$(whoami)", &extras);
 
-    // New behavior: shell-escaped, prevents command substitution
+    // Shell-escaped, prevents command substitution
     assert_eq!(result, "echo 'feature$(whoami)'");
     // Shell executes: echo 'feature$(whoami)' (literal string, no command execution)
 }
 
 #[test]
 fn test_expand_template_branch_with_backticks() {
-    // FIXED: Backticks are now escaped
+    // Backticks are escaped
     let extras = HashMap::new();
     let result = expand_template("echo {branch}", "myrepo", "feature`id`", &extras);
 
     assert_eq!(result, "echo 'feature`id`'");
-    // Shell executes: echo 'feature`id`' (literal, no command execution)
 }
 
 #[test]
 fn test_expand_template_branch_with_quotes() {
-    // FIXED: Quotes in branch names are handled properly
+    // Quotes are shell-escaped to prevent injection
     let extras = HashMap::new();
     let result = expand_template("echo '{branch}'", "myrepo", "feature'test", &extras);
 
-    // shell_escape uses single quotes, so single quotes inside are escaped
+    // Shell escapes single quotes as '\''
     assert_eq!(result, "echo ''feature'\\''test''");
-    // This properly escapes the embedded single quotes
 }
 
 #[test]
 fn test_expand_template_extra_vars_with_spaces() {
-    // FIXED: Extra variables with spaces are now escaped
+    // Extra variables with spaces are shell-escaped
     let mut extras = HashMap::new();
     extras.insert("worktree", "/path with spaces/to/worktree");
     let result = expand_template("cd {worktree}", "myrepo", "main", &extras);
 
     assert_eq!(result, "cd '/path with spaces/to/worktree'");
-    // Shell correctly executes: cd '/path with spaces/to/worktree'
 }
 
 #[test]
 fn test_expand_template_extra_vars_with_dollar_sign() {
-    // FIXED: Dollar signs are now escaped
+    // Dollar signs are shell-escaped to prevent variable expansion
     let mut extras = HashMap::new();
     extras.insert("worktree", "/path/$USER/worktree");
     let result = expand_template("cd {worktree}", "myrepo", "main", &extras);
 
     assert_eq!(result, "cd '/path/$USER/worktree'");
-    // Shell executes literal path (no $USER expansion)
+    // Shell-escaped, prevents $USER from being expanded
 }
 
 #[test]
 fn test_expand_template_extra_vars_with_command_substitution() {
-    // FIXED: Command injection is now prevented
+    // Special shell characters are shell-escaped to prevent injection
     let mut extras = HashMap::new();
     extras.insert("target", "main; rm -rf /");
     let result = expand_template("git merge {target}", "myrepo", "feature", &extras);
 
     assert_eq!(result, "git merge 'main; rm -rf /'");
-    // Shell executes: git merge 'main; rm -rf /' (literal branch name, no command execution)
+    // Shell-escaped, prevents semicolon from being executed as command separator
 }
 
 #[test]
@@ -146,17 +142,17 @@ fn test_expand_template_empty_branch() {
     let extras = HashMap::new();
     let result = expand_template("echo {branch}", "myrepo", "", &extras);
 
-    // Empty string is escaped as ''
+    // Empty string is shell-escaped to ''
     assert_eq!(result, "echo ''");
 }
 
 #[test]
 fn test_expand_template_unicode_in_branch() {
-    // Unicode characters in branch name
+    // Unicode characters in branch name are shell-escaped
     let extras = HashMap::new();
     let result = expand_template("echo {branch}", "myrepo", "feature-🚀", &extras);
 
-    // Unicode is preserved but quoted due to emoji
+    // Unicode is preserved but quoted for shell safety
     assert_eq!(result, "echo 'feature-🚀'");
 }
 

@@ -45,6 +45,9 @@ use toml;
 #[cfg(not(test))]
 use etcetera::base_strategy::{BaseStrategy, choose_base_strategy};
 
+#[cfg(test)]
+mod test;
+
 /// User-level configuration for worktree path formatting and LLM integration.
 ///
 /// This config is stored at `~/.config/worktrunk/config.toml` (or platform equivalent)

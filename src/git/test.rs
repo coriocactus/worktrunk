@@ -3,7 +3,7 @@
 //! These tests target edge cases and error conditions in git output parsing
 //! that are likely to reveal bugs in real-world usage.
 
-use crate::git::{
+use super::{
     GitError, parse_local_default_branch, parse_numstat, parse_remote_default_branch,
     parse_worktree_list,
 };
