@@ -509,6 +509,22 @@ impl Repository {
         parse_numstat(&stdout)
     }
 
+    /// Get formatted diff stats summary for display.
+    ///
+    /// Returns a vector of formatted strings like ["3 files", "+45", "-12"].
+    /// Returns empty vector if diff command fails or produces no output.
+    ///
+    /// This method combines git diff --shortstat, parsing, and formatting into a single call.
+    pub fn diff_stats_summary(&self, args: &[&str]) -> Vec<String> {
+        self.run_command(args)
+            .ok()
+            .map(|output| {
+                use crate::git::parse_diff_shortstat;
+                parse_diff_shortstat(&output).format_summary()
+            })
+            .unwrap_or_default()
+    }
+
     /// Get all branch names (local branches only).
     pub fn all_branches(&self) -> Result<Vec<String>, GitError> {
         let stdout = self.run_command(&["branch", "--format=%(refname:short)"])?;
@@ -554,13 +570,6 @@ impl Repository {
         Ok(output.lines().map(String::from).collect())
     }
 
-    /// Check if there are staged changes.
-    pub fn has_staged_changes(&self) -> Result<bool, GitError> {
-        // exit code 0 = no changes, 1 = has changes
-        let no_changes = self.run_command_check(&["diff", "--cached", "--quiet", "--exit-code"])?;
-        Ok(!no_changes)
-    }
-
     /// List all worktrees for this repository.
     ///
     /// Returns a WorktreeList that automatically filters out bare repositories
@@ -576,6 +585,7 @@ impl Repository {
         let worktrees = self.list_worktrees()?;
 
         Ok(worktrees
+            .worktrees
             .iter()
             .find(|wt| wt.branch.as_deref() == Some(branch))
             .map(|wt| wt.path.clone()))
@@ -588,6 +598,7 @@ impl Repository {
 
         // Collect branches that have worktrees
         let branches_with_worktrees: std::collections::HashSet<String> = worktrees
+            .worktrees
             .iter()
             .filter_map(|wt| wt.branch.clone())
             .collect();

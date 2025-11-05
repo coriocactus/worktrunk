@@ -102,7 +102,7 @@
 
 use std::path::PathBuf;
 use worktrunk::config::{CommandPhase, ProjectConfig, WorktrunkConfig};
-use worktrunk::git::{GitError, GitResultExt, Repository, parse_diff_shortstat};
+use worktrunk::git::{GitError, GitResultExt, Repository};
 use worktrunk::styling::{CYAN, CYAN_BOLD, GREEN, GREEN_BOLD, WARNING, format_bash_with_gutter};
 
 use super::command_executor::{CommandContext, prepare_project_commands};
@@ -318,7 +318,7 @@ fn remove_current_worktree(
             .current_branch()?
             .ok_or_else(|| GitError::CommandFailed("Not on a branch".to_string()))?;
         let worktrees = repo.list_worktrees()?;
-        let primary_worktree_dir = worktrees.primary().path.clone();
+        let primary_worktree_dir = worktrees.worktrees[0].path.clone();
 
         // Return paths - deletion will happen in output handler after cd directive is emitted
         Ok(RemoveResult::RemovedWorktree {
@@ -383,7 +383,7 @@ fn remove_worktree_by_name(
     let (primary_path, changed_directory) = if removing_current {
         // Removing current worktree - will cd to primary worktree
         let worktrees = repo.list_worktrees()?;
-        (worktrees.primary().path.clone(), true)
+        (worktrees.worktrees[0].path.clone(), true)
     } else {
         // Removing different worktree - stay in current location
         (repo.worktree_root()?, false)
@@ -679,10 +679,10 @@ pub fn handle_push(
     let commit_count = repo.count_commits(&target_branch, "HEAD")?;
 
     // Get diff statistics BEFORE push (will be needed for success message later)
-    let diff_shortstat = if commit_count > 0 {
-        repo.run_command(&["diff", "--shortstat", &format!("{}..HEAD", target_branch)])?
+    let stats_summary = if commit_count > 0 {
+        repo.diff_stats_summary(&["diff", "--shortstat", &format!("{}..HEAD", target_branch)])
     } else {
-        String::new()
+        Vec::new()
     };
 
     // Build and show consolidated message with squash/rebase info
@@ -774,14 +774,12 @@ pub fn handle_push(
     // Show success message after push completes
     if commit_count > 0 {
         // Use the diff statistics captured earlier (before push)
-        let stats = parse_diff_shortstat(&diff_shortstat);
-
         let mut summary_parts = vec![format!(
             "{} commit{}",
             commit_count,
             if commit_count == 1 { "" } else { "s" }
         )];
-        summary_parts.extend(stats.format_summary());
+        summary_parts.extend(stats_summary);
 
         crate::output::success(format!(
             "{GREEN}{verb} {GREEN_BOLD}{target_branch}{GREEN_BOLD:#}{GREEN:#} ({})",

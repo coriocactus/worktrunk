@@ -671,7 +671,7 @@ fn main() {
                     let mut others = Vec::new();
                     let mut current = None;
 
-                    for worktree_name in worktrees.iter() {
+                    for worktree_name in &worktrees {
                         // Resolve "@" to current branch (fail fast on errors like detached HEAD)
                         let resolved = repo.resolve_worktree_name(worktree_name)?;
 

@@ -1,6 +1,6 @@
 use worktrunk::HookType;
 use worktrunk::config::{Command, CommandPhase, ProjectConfig, WorktrunkConfig};
-use worktrunk::git::{GitError, GitResultExt, Repository, parse_diff_shortstat};
+use worktrunk::git::{GitError, GitResultExt, Repository};
 use worktrunk::styling::{
     AnstyleStyle, CYAN, CYAN_BOLD, ERROR, ERROR_EMOJI, HINT, HINT_EMOJI, WARNING,
     format_bash_with_gutter, format_with_gutter,
@@ -233,7 +233,7 @@ pub fn handle_merge(
 
     // Get primary worktree path before cleanup (while we can still run git commands)
     let worktrees = repo.list_worktrees()?;
-    let primary_worktree_dir = worktrees.primary().path.clone();
+    let primary_worktree_dir = worktrees.worktrees[0].path.clone();
 
     // Finish worktree unless --no-remove was specified
     if !no_remove {
@@ -370,11 +370,7 @@ pub fn commit_staged_changes(
     let repo = Repository::current();
 
     // Get diff stats for staged changes
-    let diff_shortstat = repo
-        .run_command(&["diff", "--staged", "--shortstat"])
-        .unwrap_or_default();
-    let stats = parse_diff_shortstat(&diff_shortstat);
-    let stats_parts = stats.format_summary();
+    let stats_parts = repo.diff_stats_summary(&["diff", "--staged", "--shortstat"]);
 
     // Format progress message based on whether we're using LLM or fallback
     let action = if commit_generation_config.is_configured() {

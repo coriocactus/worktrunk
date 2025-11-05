@@ -547,19 +547,19 @@ pub fn gather_list_data(
 ) -> Result<Option<ListData>, GitError> {
     let worktrees = repo.list_worktrees()?;
 
-    if worktrees.is_empty() {
+    if worktrees.worktrees.is_empty() {
         return Ok(None);
     }
 
     // Get primary worktree - clone it for use in closure
-    let primary = worktrees.primary().clone();
+    let primary = worktrees.worktrees[0].clone();
 
     // Get current worktree to identify active one
     let current_worktree_path = repo.worktree_root().ok();
 
     // Gather enhanced information for all worktrees in parallel
     let worktree_results: Vec<Result<WorktreeInfo, GitError>> = worktrees
-        .all()
+        .worktrees
         .par_iter()
         .map(|wt| WorktreeInfo::from_worktree(wt, &primary, fetch_ci, check_conflicts))
         .collect();

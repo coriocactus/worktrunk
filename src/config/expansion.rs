@@ -3,8 +3,6 @@
 //! Provides functions for expanding template variables in paths and commands with
 //! proper shell escaping to prevent injection vulnerabilities.
 
-use std::path::PathBuf;
-
 /// Expand template variables in a string
 ///
 /// All templates support:
@@ -48,22 +46,6 @@ pub fn expand_template(
     }
 
     result
-}
-
-/// Expand tilde in file paths to home directory (cross-platform)
-///
-/// Uses shellexpand for proper tilde expansion following shell conventions.
-///
-/// # Examples
-/// ```
-/// use worktrunk::config::expand_tilde;
-///
-/// let path = expand_tilde("~/config/file.txt");
-/// // Unix: /home/user/config/file.txt
-/// // Windows: C:\Users\user\config\file.txt
-/// ```
-pub fn expand_tilde(path: &str) -> PathBuf {
-    PathBuf::from(shellexpand::tilde(path).as_ref())
 }
 
 /// Expand command template variables

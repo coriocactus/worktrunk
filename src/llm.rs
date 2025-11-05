@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{self, Stdio};
 use worktrunk::config::CommitGenerationConfig;
 use worktrunk::git::{GitError, Repository};
@@ -114,7 +114,7 @@ fn build_commit_prompt(
     let template = match (&config.template, &config.template_file) {
         (Some(inline), None) => inline.clone(),
         (None, Some(path)) => {
-            let expanded_path = worktrunk::config::expand_tilde(path);
+            let expanded_path = PathBuf::from(shellexpand::tilde(path).as_ref());
             std::fs::read_to_string(&expanded_path).map_err(|e| {
                 format!(
                     "Failed to read template-file '{}': {}",
@@ -160,7 +160,7 @@ fn build_squash_prompt(
     let template = match (&config.squash_template, &config.squash_template_file) {
         (Some(inline), None) => inline.clone(),
         (None, Some(path)) => {
-            let expanded_path = worktrunk::config::expand_tilde(path);
+            let expanded_path = PathBuf::from(shellexpand::tilde(path).as_ref());
             std::fs::read_to_string(&expanded_path).map_err(|e| {
                 format!(
                     "Failed to read squash-template-file '{}': {}",

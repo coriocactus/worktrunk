@@ -1,6 +1,6 @@
 use worktrunk::HookType;
 use worktrunk::config::{ProjectConfig, WorktrunkConfig};
-use worktrunk::git::{GitError, GitResultExt, Repository, parse_diff_shortstat};
+use worktrunk::git::{GitError, GitResultExt, Repository};
 use worktrunk::styling::{
     AnstyleStyle, CYAN, CYAN_BOLD, HINT, HINT_EMOJI, eprintln, format_with_gutter,
 };
@@ -192,8 +192,10 @@ pub fn handle_dev_squash(
     // Count commits since merge base
     let commit_count = repo.count_commits(&merge_base, "HEAD")?;
 
-    // Check if there are staged changes
-    let has_staged = repo.has_staged_changes()?;
+    // Check if there are staged changes (git diff --cached returns 0 if no changes, 1 if changes exist)
+    let no_staged_changes =
+        repo.run_command_check(&["diff", "--cached", "--quiet", "--exit-code"])?;
+    let has_staged = !no_staged_changes;
 
     // Handle different scenarios
     if commit_count == 0 && !has_staged {
@@ -218,11 +220,7 @@ pub fn handle_dev_squash(
     // Either multiple commits OR single commit with staged changes - squash them
     // Get diff stats early for display in progress message
     let range = format!("{}..HEAD", merge_base);
-    let diff_shortstat = repo
-        .run_command(&["diff", "--shortstat", &range])
-        .unwrap_or_default();
-    let stats = parse_diff_shortstat(&diff_shortstat);
-    let stats_parts = stats.format_summary();
+    let stats_parts = repo.diff_stats_summary(&["diff", "--shortstat", &range]);
 
     let commit_text = if commit_count == 1 {
         "commit"
@@ -278,7 +276,9 @@ pub fn handle_dev_squash(
         .git_context("Failed to reset to merge base")?;
 
     // Check if there are actually any changes to commit
-    if !repo.has_staged_changes()? {
+    let no_staged_changes =
+        repo.run_command_check(&["diff", "--cached", "--quiet", "--exit-code"])?;
+    if no_staged_changes {
         let dim = AnstyleStyle::new().dimmed();
         crate::output::info(format!(
             "{dim}No changes after squashing {commit_count} {commit_text} (commits resulted in no net changes){dim:#}"

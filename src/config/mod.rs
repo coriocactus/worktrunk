@@ -45,7 +45,7 @@ mod user;
 
 // Re-export public types
 pub use commands::{Command, CommandConfig, CommandPhase};
-pub use expansion::{expand_command_template, expand_template, expand_tilde};
+pub use expansion::{expand_command_template, expand_template};
 pub use project::ProjectConfig;
 pub use user::{CommitGenerationConfig, UserProjectConfig, WorktrunkConfig, get_config_path};
 
@@ -651,22 +651,6 @@ task2 = "echo 'Task 2 running' > task2.txt"
             &extra,
         );
         assert_eq!(result, "/path/to/repo/target -> /path/to/worktree/target");
-    }
-
-    #[test]
-    fn test_expand_tilde_with_home() {
-        // Test that paths starting with ~/ get HOME prepended if HOME is set
-        // We can't set HOME in tests (no unsafe allowed), but we can test the logic
-        let result = expand_tilde("~/config/file.txt");
-        // If HOME is set, result should start with it. If not, it's just the path.
-        // Either way is valid behavior.
-        assert!(result.to_str().unwrap().contains("config/file.txt"));
-    }
-
-    #[test]
-    fn test_expand_tilde_without_tilde() {
-        let result = expand_tilde("/absolute/path");
-        assert_eq!(result, std::path::PathBuf::from("/absolute/path"));
     }
 
     #[test]

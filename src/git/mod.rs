@@ -51,11 +51,11 @@ pub struct Worktree {
 ///
 /// This type ensures:
 /// - Bare worktrees are filtered out (only worktrees with working trees are included)
-/// - The primary worktree is always identifiable (first non-bare worktree)
+/// - The primary worktree is always identifiable (first non-bare worktree at index 0)
 /// - Construction fails if no valid worktrees exist
 #[derive(Debug, Clone)]
 pub struct WorktreeList {
-    worktrees: Vec<Worktree>,
+    pub worktrees: Vec<Worktree>,
 }
 
 impl WorktreeList {
@@ -68,31 +68,6 @@ impl WorktreeList {
         }
 
         Ok(Self { worktrees })
-    }
-
-    /// Get the primary worktree (first non-bare worktree).
-    pub fn primary(&self) -> &Worktree {
-        &self.worktrees[0]
-    }
-
-    /// Get all worktrees (non-bare only).
-    pub fn all(&self) -> &[Worktree] {
-        &self.worktrees
-    }
-
-    /// Number of worktrees.
-    pub fn len(&self) -> usize {
-        self.worktrees.len()
-    }
-
-    /// Check if empty (should never be true for successfully constructed instances).
-    pub fn is_empty(&self) -> bool {
-        self.worktrees.is_empty()
-    }
-
-    /// Iterate over worktrees.
-    pub fn iter(&self) -> impl Iterator<Item = &Worktree> {
-        self.worktrees.iter()
     }
 }
 
@@ -187,10 +162,9 @@ mod tests {
 
         let list = WorktreeList::from_raw(worktrees).unwrap();
 
-        assert_eq!(list.len(), 2);
-        assert_eq!(list.all().len(), 2);
-        assert_eq!(list.all()[0].branch, Some("main".to_string()));
-        assert_eq!(list.all()[1].branch, Some("feature".to_string()));
+        assert_eq!(list.worktrees.len(), 2);
+        assert_eq!(list.worktrees[0].branch, Some("main".to_string()));
+        assert_eq!(list.worktrees[1].branch, Some("feature".to_string()));
     }
 
     #[test]
@@ -218,8 +192,8 @@ mod tests {
 
         let list = WorktreeList::from_raw(worktrees).unwrap();
 
-        assert_eq!(list.primary().branch, Some("main".to_string()));
-        assert_eq!(list.primary().path, PathBuf::from("/repo/main"));
+        assert_eq!(list.worktrees[0].branch, Some("main".to_string()));
+        assert_eq!(list.worktrees[0].path, PathBuf::from("/repo/main"));
     }
 
     #[test]
@@ -270,7 +244,11 @@ mod tests {
 
         let list = WorktreeList::from_raw(worktrees).unwrap();
 
-        let branches: Vec<_> = list.iter().filter_map(|wt| wt.branch.as_ref()).collect();
+        let branches: Vec<_> = list
+            .worktrees
+            .iter()
+            .filter_map(|wt| wt.branch.as_ref())
+            .collect();
         assert_eq!(branches, vec!["main", "feature"]);
 
         let branches_owned: Vec<_> = list.into_iter().filter_map(|wt| wt.branch).collect();
