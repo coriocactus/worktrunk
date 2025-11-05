@@ -22,6 +22,9 @@
 //! Paths are canonicalized to handle platform differences (especially macOS symlinks
 //! like /var -> /private/var). This ensures snapshot filters work correctly.
 
+// Test utilities are Unix-only since integration tests are Unix-only
+#![cfg(unix)]
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -474,14 +477,14 @@ pub fn setup_snapshot_settings(repo: &TestRepo) -> insta::Settings {
         .ok()
         .and_then(|p| std::path::PathBuf::from(p).canonicalize().ok());
     if let Some(root) = project_root {
-        settings.add_filter(root.to_str().unwrap(), "[PROJECT_ROOT]");
+        settings.add_filter(&regex::escape(root.to_str().unwrap()), "[PROJECT_ROOT]");
     }
 
-    // Normalize paths
-    settings.add_filter(repo.root_path().to_str().unwrap(), "[REPO]");
+    // Normalize paths (escape for regex to handle Windows backslashes)
+    settings.add_filter(&regex::escape(repo.root_path().to_str().unwrap()), "[REPO]");
     for (name, path) in &repo.worktrees {
         settings.add_filter(
-            path.to_str().unwrap(),
+            &regex::escape(path.to_str().unwrap()),
             format!("[WORKTREE_{}]", name.to_uppercase().replace('-', "_")),
         );
     }
