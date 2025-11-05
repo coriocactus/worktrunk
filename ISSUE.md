@@ -563,7 +563,7 @@ We need external research to help answer:
 
 Current `wt list` output:
 ```
-Branch    Status  Working ±  Main ↕  State         Path
+Branch    Status  HEAD±      main↕  State         Path
 main                                               ./worktrunk
 skim      !+      +528  -12                        ./worktrunk.skim
 refactor  !        +57 -108                        ./worktrunk.refactor

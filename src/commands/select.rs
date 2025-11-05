@@ -15,12 +15,12 @@ use crate::output::handle_switch_output;
 /// Each mode shows a different aspect of the worktree:
 /// 1. WorkingTree: Uncommitted changes (git diff HEAD --stat)
 /// 2. History: Commit history since diverging from main (git log with merge-base)
-/// 3. BranchDiff: Line diffs in commits ahead of main (git diff --stat main...)
+/// 3. BranchDiff: Line diffs in commits ahead of main (git diff --stat main…)
 ///
 /// Loosely aligned with `wt list` columns, though not a perfect match:
-/// - Mode 1 corresponds to "Working ±" column
-/// - Mode 2 shows commits (related to "Main ↕" counts)
-/// - Mode 3 corresponds to "Main ± (--full)" column
+/// - Mode 1 corresponds to "HEAD±" column
+/// - Mode 2 shows commits (related to "main↕" counts)
+/// - Mode 3 corresponds to "main…± (--full)" column
 ///
 /// Note: Order of modes 2 & 3 could potentially be swapped
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,7 +84,7 @@ impl SkimItem for WorktreeSkimItem {
 
 impl WorktreeSkimItem {
     /// Render Mode 1: Working tree preview (uncommitted changes vs HEAD)
-    /// Matches `wt list` "Working ±" column
+    /// Matches `wt list` "HEAD±" column
     fn render_working_tree_preview(&self) -> String {
         let mut output = String::new();
         let repo = Repository::current();
@@ -110,7 +110,7 @@ impl WorktreeSkimItem {
     }
 
     /// Render Mode 3: Branch diff preview (line diffs in commits ahead of main)
-    /// Matches `wt list` "Main ± (--full)" column
+    /// Matches `wt list` "main…± (--full)" column
     fn render_branch_diff_preview(&self) -> String {
         let mut output = String::new();
         let repo = Repository::current();

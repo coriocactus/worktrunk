@@ -129,11 +129,11 @@ const COMMIT_HASH_WIDTH: usize = 8;
 /// Both layout calculations and rendering use these constants.
 pub const HEADER_BRANCH: &str = "Branch";
 pub const HEADER_STATUS: &str = "Status";
-pub const HEADER_WORKING_DIFF: &str = "Working ±";
-pub const HEADER_AHEAD_BEHIND: &str = "Main ↕";
-pub const HEADER_BRANCH_DIFF: &str = "Main ±";
+pub const HEADER_WORKING_DIFF: &str = "HEAD±";
+pub const HEADER_AHEAD_BEHIND: &str = "main↕";
+pub const HEADER_BRANCH_DIFF: &str = "main…±";
 pub const HEADER_PATH: &str = "Path";
-pub const HEADER_UPSTREAM: &str = "Remote ↕";
+pub const HEADER_UPSTREAM: &str = "Remote↕";
 pub const HEADER_AGE: &str = "Age";
 pub const HEADER_CI: &str = "CI";
 pub const HEADER_COMMIT: &str = "Commit";
@@ -700,34 +700,34 @@ mod tests {
         let (widths, _data_flags) =
             calculate_column_widths(&[super::ListItem::Worktree(info1)], false);
 
-        // "↑3 ↓2" has format "↑3 ↓2" = 1+1+1+1+1 = 5, but header "Main ↕" is 6
+        // "↑3 ↓2" has format "↑3 ↓2" = 1+1+1+1+1 = 5, header "main↕" is also 5
         assert_eq!(
-            widths.ahead_behind.total, 6,
-            "Ahead/behind column should fit header 'Main ↕' (width 6)"
+            widths.ahead_behind.total, 5,
+            "Ahead/behind column should fit header 'main↕' (width 5)"
         );
         assert_eq!(widths.ahead_behind.added_digits, 1, "3 has 1 digit");
         assert_eq!(widths.ahead_behind.deleted_digits, 1, "2 has 1 digit");
 
-        // "+100 -50" has width 8, but header "Working ±" is 9, so column width is 9
+        // "+100 -50" has width 8, but header "HEAD±" is 5, so column width is 8
         assert_eq!(
-            widths.working_diff.total, 9,
-            "Working diff column should fit header 'Working ±' (width 9)"
+            widths.working_diff.total, 8,
+            "Working diff column should fit header 'HEAD±' (width 5)"
         );
         assert_eq!(widths.working_diff.added_digits, 3, "100 has 3 digits");
         assert_eq!(widths.working_diff.deleted_digits, 2, "50 has 2 digits");
 
-        // "+200 -30" has width 8, but header "Main ±" is 6, so column width is 8
+        // "+200 -30" has width 8, header "main…±" is 6, so column width is 8
         assert_eq!(
             widths.branch_diff.total, 8,
-            "Branch diff column should fit header 'Main ±' (width 6)"
+            "Branch diff column should fit header 'main…±' (width 6)"
         );
         assert_eq!(widths.branch_diff.added_digits, 3, "200 has 3 digits");
         assert_eq!(widths.branch_diff.deleted_digits, 2, "30 has 2 digits");
 
-        // Upstream: "↑4 ↓0" = "↑" (1) + "4" (1) + " " (1) + "↓" (1) + "0" (1) = 5, but header "Remote ↕" = 8
+        // Upstream: "↑4 ↓0" = "↑" (1) + "4" (1) + " " (1) + "↓" (1) + "0" (1) = 5, but header "Remote↕" = 7
         assert_eq!(
-            widths.upstream.total, 8,
-            "Upstream column should fit header 'Remote ↕' (width 8)"
+            widths.upstream.total, 7,
+            "Upstream column should fit header 'Remote↕' (width 7)"
         );
         assert_eq!(widths.upstream.added_digits, 1, "4 has 1 digit");
         assert_eq!(widths.upstream.deleted_digits, 1, "0 has 1 digit");

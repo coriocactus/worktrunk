@@ -17,9 +17,9 @@ info:
 success: true
 exit_code: 0
 ----- stdout -----
-Branch   Status  Working ±  Main ↕  Path                 Commit    Age
-feature                             ./test-repo.feature  72413a3b  10 months ago
-main     ∅↓                    ↓1   ./test-repo.main     6c3da842  10 months ago
+Branch   Status  HEAD±  main↕  Path                 Commit    Age
+feature                        ./test-repo.feature  72413a3b  10 months ago
+main     ∅↓                ↓1  ./test-repo.main     6c3da842  10 months ago
 
 ⚪ Showing 2 worktrees, 1 behind, 1 column hidden
 

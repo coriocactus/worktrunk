@@ -63,10 +63,10 @@ impl ColumnPositions {
         if let Some(byte_pos) = header.find("Main-Cmt") {
             positions.cmts = Some(byte_to_display_pos(byte_pos));
         }
-        if let Some(byte_pos) = header.find("Main ↕") {
+        if let Some(byte_pos) = header.find("main↕") {
             positions.cmt_diff = Some(byte_to_display_pos(byte_pos));
         }
-        if let Some(byte_pos) = header.find("Working ±") {
+        if let Some(byte_pos) = header.find("HEAD±") {
             positions.wt_diff = Some(byte_to_display_pos(byte_pos));
         }
         if let Some(byte_pos) = header.find("Remote") {

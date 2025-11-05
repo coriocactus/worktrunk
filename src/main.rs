@@ -180,11 +180,11 @@ enum Commands {
 COLUMNS:
   Branch: Branch name
   Status: Quick status symbols (see STATUS SYMBOLS below)
-  Working ±: Uncommitted changes vs HEAD (+added -deleted lines, staged + unstaged)
-  Main ↕: Commit count ahead↑/behind↓ relative to main (commits in HEAD vs main)
-  Main ± (--full): Line diffs in commits ahead of main (+added -deleted)
+  HEAD±: Uncommitted changes vs HEAD (+added -deleted lines, staged + unstaged)
+  main↕: Commit count ahead↑/behind↓ relative to main (commits in HEAD vs main)
+  main…± (--full): Line diffs in commits ahead of main (+added -deleted)
   Path: Worktree directory location
-  Remote ↕: Commits ahead↑/behind↓ relative to tracking branch (e.g. origin/branch)
+  Remote↕: Commits ahead↑/behind↓ relative to tracking branch (e.g. origin/branch)
   CI (--full): CI pipeline status (tries PR/MR checks first, falls back to branch workflows)
     ● passed (green) - All checks passed
     ● running (blue) - Checks in progress
@@ -229,7 +229,7 @@ Rows are dimmed when no unique work (≡ matches main OR ∅ no commits).")]
 
         /// Show CI status, conflict detection, and complete diff statistics
         ///
-        /// Adds columns: CI (pipeline status), Main ± (line diffs).
+        /// Adds columns: CI (pipeline status), main…± (line diffs).
         /// Enables conflict detection (shows "=" symbol in Status column).
         /// Requires network requests and git merge-tree operations.
         #[arg(long, verbatim_doc_comment)]
