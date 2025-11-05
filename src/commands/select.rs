@@ -1,8 +1,10 @@
 use skim::prelude::*;
 use std::borrow::Cow;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::process::{Command, Stdio};
+use std::sync::{Arc, OnceLock};
 use worktrunk::config::WorktrunkConfig;
 use worktrunk::git::{GitError, GitResultExt, Repository};
 
@@ -54,6 +56,161 @@ impl PreviewMode {
     }
 }
 
+/// Cached pager configuration to avoid repeated detection
+static PAGER_CONFIG: OnceLock<Option<String>> = OnceLock::new();
+
+/// Get cached pager configuration, detecting on first call
+fn get_pager_config() -> &'static Option<String> {
+    PAGER_CONFIG.get_or_init(detect_pager)
+}
+
+/// Detect configured diff renderer (colorizer) for preview output
+///
+/// Respects user's git pager configuration, but treats the tool as a
+/// non-interactive renderer (not a pager) in the preview context.
+///
+/// Priority order:
+/// 1. GIT_PAGER environment variable (git's own preference)
+/// 2. git config pager.diff or core.pager
+/// 3. PAGER environment variable (system default)
+/// 4. None (fallback to plain colored output)
+///
+/// Returns the renderer command string to be executed via shell
+fn detect_pager() -> Option<String> {
+    let repo = Repository::current();
+
+    // 1. Check GIT_PAGER (highest priority - user's explicit choice)
+    if let Ok(git_pager) = std::env::var("GIT_PAGER") {
+        let trimmed = git_pager.trim();
+        if !trimmed.is_empty() && trimmed != "cat" {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    // 2. Check git config (pager.diff is more specific than core.pager)
+    if let Ok(pager_diff) = repo.run_command(&["config", "--get", "pager.diff"]) {
+        let trimmed = pager_diff.trim();
+        if !trimmed.is_empty() && trimmed != "cat" {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    if let Ok(core_pager) = repo.run_command(&["config", "--get", "core.pager"]) {
+        let trimmed = core_pager.trim();
+        if !trimmed.is_empty() && trimmed != "cat" {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    // 3. Check PAGER environment variable
+    if let Ok(pager) = std::env::var("PAGER") {
+        let trimmed = pager.trim();
+        if !trimmed.is_empty() && trimmed != "cat" {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    // 4. No renderer configured - return None to use plain colored output
+    None
+}
+
+/// Run git diff through configured renderer (colorizer), or fall back to --color=always
+///
+/// The renderer is run in non-interactive mode (via environment variables) suitable
+/// for embedding in a TUI preview pane. Interactive paging features are disabled.
+fn run_diff_with_pager(repo: &Repository, args: &[&str]) -> Result<String, GitError> {
+    // First get git output with color
+    let mut git_args = args.to_vec();
+    git_args.push("--color=always");
+    let git_output = repo.run_command(&git_args)?;
+
+    // Try to pipe through configured renderer
+    // This is synchronous (no threading) to avoid concurrency issues
+    let result = match get_pager_config() {
+        Some(pager_cmd) => {
+            log::debug!("Invoking renderer: {}", pager_cmd);
+
+            // SECURITY NOTE: Using sh -c to invoke renderer inherits git's security model.
+            // Git itself uses sh -c for pagers (for shell features like pipes, aliases, etc.)
+            // Users who can control GIT_PAGER/PAGER can already execute arbitrary commands
+            // via normal git operations, so this doesn't introduce new attack surface.
+            // The renderer command comes from trusted sources (user's own env vars and git config).
+
+            let mut cmd = Command::new("sh");
+            cmd.arg("-c")
+                .arg(pager_cmd)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null());
+
+            // Set environment variables to disable interactive paging features.
+            // This works generically across all renderers without needing tool-specific flags.
+            // Environment variable precedence (tools check in this order):
+            // - Delta: DELTA_PAGER → BAT_PAGER → PAGER
+            // - Bat: BAT_PAGER → PAGER
+            // - Less/others: PAGER
+            cmd.env("PAGER", "cat") // Generic fallback for all tools
+                .env("DELTA_PAGER", "cat") // Delta-specific (highest priority for delta)
+                .env("BAT_PAGER", ""); // Bat-specific (empty string disables paging)
+
+            // Spawn and immediately wait - synchronous execution
+            match cmd.spawn() {
+                Ok(mut child) => {
+                    // Write git output to renderer's stdin and explicitly close it
+                    if let Some(mut stdin) = child.stdin.take() {
+                        let _ = stdin.write_all(git_output.as_bytes());
+                        // Explicitly drop stdin to close the pipe
+                        // This signals EOF to the renderer so it knows to process and exit
+                        drop(stdin);
+                    }
+
+                    // Wait for renderer to complete (synchronous)
+                    // Note: If renderer hangs indefinitely, this will block. However:
+                    // - We only invoke this after verifying non-empty stat output
+                    // - We explicitly close stdin (drop above) to signal EOF
+                    // - Renderers like delta/bat are designed to process and exit quickly
+                    // - This is same behavior as git's pager invocation
+                    match child.wait_with_output() {
+                        Ok(output) if output.status.success() => {
+                            log::debug!("Renderer succeeded, output len={}", output.stdout.len());
+                            // Success - return renderer output
+                            String::from_utf8(output.stdout).unwrap_or(git_output.clone())
+                        }
+                        Ok(output) => {
+                            log::debug!(
+                                "Renderer failed with status={:?}, falling back",
+                                output.status
+                            );
+                            // Renderer failed - fall back to plain colored output
+                            git_output.clone()
+                        }
+                        Err(e) => {
+                            log::debug!("Renderer wait error: {}, falling back", e);
+                            // Wait failed - fall back to plain colored output
+                            // Note: child process is consumed by wait_with_output(),
+                            // so we can't kill it from here. The OS will clean it up
+                            // when the parent process exits.
+                            git_output.clone()
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::debug!("Renderer spawn failed: {}, falling back", e);
+                    // Spawn failed - fall back to plain colored output
+                    git_output.clone()
+                }
+            }
+        }
+        None => {
+            log::debug!("No renderer configured, using git output directly");
+            // No renderer configured - return git output directly
+            git_output
+        }
+    };
+
+    Ok(result)
+}
+
 /// Wrapper to implement SkimItem for ListItem
 struct WorktreeSkimItem {
     display_text: String,
@@ -97,11 +254,18 @@ impl WorktreeSkimItem {
         let path_str = wt_info.worktree.path.display().to_string();
 
         // Show working tree changes as --stat (uncommitted changes)
-        if let Ok(diff_stat) =
-            repo.run_command(&["-C", &path_str, "diff", "HEAD", "--stat", "--color=always"])
+        // Check without color first to see if there's any content
+        if let Ok(diff_stat) = repo.run_command(&["-C", &path_str, "diff", "HEAD", "--stat"])
             && !diff_stat.trim().is_empty()
         {
             output.push_str(&diff_stat);
+            output.push('\n');
+            output.push('\n'); // Visual separator
+
+            // Show full diff below the stat summary (with renderer if configured)
+            if let Ok(diff) = run_diff_with_pager(&repo, &["-C", &path_str, "diff", "HEAD"]) {
+                output.push_str(&diff);
+            }
         } else {
             output.push_str("No uncommitted changes\n");
         }
@@ -119,10 +283,18 @@ impl WorktreeSkimItem {
         if counts.ahead > 0 {
             let head = self.item.head();
             let merge_base = format!("main...{}", head);
-            if let Ok(diff_stat) =
-                repo.run_command(&["diff", "--stat", "--color=always", &merge_base])
+            // Check without color first to see if there's any content
+            if let Ok(diff_stat) = repo.run_command(&["diff", "--stat", &merge_base])
+                && !diff_stat.trim().is_empty()
             {
                 output.push_str(&diff_stat);
+                output.push('\n');
+                output.push('\n'); // Visual separator
+
+                // Show full diff below the stat summary (with renderer if configured)
+                if let Ok(diff) = run_diff_with_pager(&repo, &["diff", &merge_base]) {
+                    output.push_str(&diff);
+                }
             } else {
                 output.push_str("No changes vs main\n");
             }
@@ -294,7 +466,7 @@ pub fn handle_select() -> Result<(), GitError> {
             "ctrl-d:preview-page-down".to_string(),
         ])
         .header(Some(
-            "1: working | 2: commits | 3: diff | ctrl-u/d: scroll | ctrl-/: toggle".to_string(),
+            "1: working | 2: history | 3: diff | ctrl-u/d: scroll | ctrl-/: toggle".to_string(),
         ))
         .build()
         .map_err(|e| GitError::CommandFailed(format!("Failed to build skim options: {}", e)))?;
