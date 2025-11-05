@@ -86,7 +86,7 @@ impl DirectiveOutput {
     /// Format a switch success message for directive mode
     ///
     /// In directive mode, the shell wrapper will actually change directories,
-    /// so we can say "changed directory to {path}"
+    /// so we indicate the path with ": {path}"
     pub fn format_switch_success(
         &self,
         branch: &str,

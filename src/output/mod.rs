@@ -78,7 +78,7 @@ use std::path::Path;
 ///
 /// The message format differs between interactive and directive modes:
 /// - Interactive: "Created new worktree for {branch} from {base} at {path}"
-/// - Directive: "Created new worktree for {branch} from {base}, changed directory to {path}"
+/// - Directive: "Created new worktree for {branch} from {base}: {path}"
 pub(crate) fn format_switch_success_message(
     branch: &str,
     path: &Path,
@@ -97,11 +97,7 @@ pub(crate) fn format_switch_success_message(
     let base_suffix = base_branch
         .map(|b| format!(" from {green_bold}{b}{green_bold:#}{GREEN}"))
         .unwrap_or_default();
-    let location = if use_past_tense {
-        ", changed directory to"
-    } else {
-        " at"
-    };
+    let location = if use_past_tense { ":" } else { " at" };
 
     format!(
         "{SUCCESS_EMOJI} {GREEN}{action} {green_bold}{branch}{green_bold:#}{GREEN}{base_suffix}{location} {green_bold}{}{green_bold:#}{GREEN:#}",

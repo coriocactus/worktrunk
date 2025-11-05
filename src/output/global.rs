@@ -140,7 +140,7 @@ pub fn terminate_output() -> io::Result<()> {
 /// Format a switch success message (mode-specific)
 ///
 /// In interactive mode: "at {path}" (can't actually change directory)
-/// In directive mode: "changed directory to {path}" (shell will change it)
+/// In directive mode: ": {path}" (shell will change it)
 pub fn format_switch_success(
     branch: &str,
     path: &Path,
