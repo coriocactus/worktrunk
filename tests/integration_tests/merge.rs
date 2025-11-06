@@ -2216,3 +2216,126 @@ fn test_merge_race_condition_commit_after_push() {
         "Branch should still exist after failed deletion"
     );
 }
+
+#[test]
+fn test_merge_to_non_default_target() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.setup_remote("main");
+
+    // Switch back to main and add a commit there
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["switch", "main"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to switch to main");
+
+    std::fs::write(repo.root_path().join("main-file.txt"), "main content")
+        .expect("Failed to write main file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "main-file.txt"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to add main file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Add main-specific file"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to commit to main");
+
+    // Create a staging branch from BEFORE the main commit
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    let output = cmd
+        .args(["rev-parse", "HEAD~1"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to get parent commit");
+    let base_commit = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["switch", "-c", "staging", &base_commit])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to create staging branch");
+
+    // Add a commit to staging to make it different from main
+    std::fs::write(repo.root_path().join("staging-file.txt"), "staging content")
+        .expect("Failed to write staging file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "staging-file.txt"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to add staging file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Add staging-specific file"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to commit to staging");
+
+    // Create a worktree for staging
+    let staging_wt = repo
+        .root_path()
+        .parent()
+        .unwrap()
+        .join("test-repo.staging-wt");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["worktree", "add", staging_wt.to_str().unwrap(), "staging"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to add staging worktree");
+
+    // Create a feature worktree from the base commit (before both main and staging diverged)
+    let feature_wt = repo
+        .root_path()
+        .parent()
+        .unwrap()
+        .join("test-repo.feature-for-staging");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args([
+        "worktree",
+        "add",
+        feature_wt.to_str().unwrap(),
+        "-b",
+        "feature-for-staging",
+        &base_commit,
+    ])
+    .current_dir(repo.root_path())
+    .output()
+    .expect("Failed to add feature worktree");
+
+    std::fs::write(feature_wt.join("feature.txt"), "feature content")
+        .expect("Failed to write feature file");
+
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "feature.txt"])
+        .current_dir(&feature_wt)
+        .output()
+        .expect("Failed to add feature file");
+
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Add feature for staging"])
+        .current_dir(&feature_wt)
+        .output()
+        .expect("Failed to commit feature");
+
+    // Merge to staging explicitly (NOT to main)
+    // This should rebase onto staging (which has staging-file.txt)
+    // NOT onto main (which has main-file.txt)
+    snapshot_merge(
+        "merge_to_non_default_target",
+        &repo,
+        &["staging"],
+        Some(&feature_wt),
+    );
+}
