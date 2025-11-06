@@ -570,44 +570,6 @@ pub fn make_snapshot_cmd(
     make_snapshot_cmd_with_global_flags(repo, subcommand, args, cwd, &[])
 }
 
-/// Run a command and capture combined stdout+stderr output for snapshot testing
-///
-/// This mimics real terminal usage where stdout and stderr are interleaved (like `2>&1`).
-/// Returns the combined output as a String with exit code information.
-pub fn run_with_combined_output(
-    repo: &TestRepo,
-    subcommand: &str,
-    args: &[&str],
-    cwd: Option<&Path>,
-) -> String {
-    use std::process::Stdio;
-
-    // Build the command with all arguments
-    let wt_bin = insta_cmd::get_cargo_bin("wt");
-    let mut cmd_parts = vec![wt_bin.to_str().unwrap(), subcommand];
-    cmd_parts.extend(args.iter());
-
-    // Run through shell with 2>&1 to get true interleaved output
-    let cmd_str = cmd_parts.join(" ");
-    let shell_cmd = format!("{} 2>&1", cmd_str);
-
-    let mut cmd = Command::new("sh");
-    repo.clean_cli_env(&mut cmd);
-    cmd.arg("-c")
-        .arg(&shell_cmd)
-        .current_dir(cwd.unwrap_or(repo.root_path()))
-        .stdout(Stdio::piped());
-
-    let output = cmd.output().expect("Failed to execute command");
-    let combined = String::from_utf8_lossy(&output.stdout).to_string();
-
-    format!(
-        "Exit code: {}\n{}",
-        output.status.code().unwrap_or(-1),
-        combined
-    )
-}
-
 /// Resolve the actual git directory path from a worktree path
 ///
 /// In worktrees, `.git` is a file containing `gitdir: /path/to/git/dir`,

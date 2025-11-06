@@ -35,6 +35,7 @@ use crate::common::TestRepo;
 use insta::assert_snapshot;
 use insta_cmd::get_cargo_bin;
 use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::LazyLock;
 
@@ -749,6 +750,102 @@ approved-commands = [
         // Shell-specific snapshot - output ordering varies due to PTY buffering
         assert_snapshot!(
             format!("merge_with_pre_merge_failure_{}", shell),
+            output.normalized()
+        );
+    }
+
+    /// Test merge with pre-merge commands that output to both stdout and stderr
+    /// Verifies that interleaved stdout/stderr appears in correct temporal order
+    /// Note: fish disabled due to flaky PTY buffering race conditions
+    #[rstest]
+    #[case("bash")]
+    #[case("zsh")]
+    // #[case("fish")] // TODO: Fish shell has non-deterministic PTY output ordering
+    fn test_wrapper_merge_with_mixed_stdout_stderr(#[case] shell: &str) {
+        let mut repo = TestRepo::new();
+        repo.commit("Initial commit");
+        repo.setup_remote("main");
+
+        // Get path to the test fixture script
+        let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+        let script_path = fixtures_dir.join("mixed-output.sh");
+
+        // Create project config with pre-merge commands that output to both stdout and stderr
+        let config_dir = repo.root_path().join(".config");
+        fs::create_dir_all(&config_dir).expect("Failed to create .config dir");
+        fs::write(
+            config_dir.join("wt.toml"),
+            format!(
+                r#"[pre-merge-command]
+check1 = "{} check1 3"
+check2 = "{} check2 3"
+"#,
+                script_path.display(),
+                script_path.display()
+            ),
+        )
+        .expect("Failed to write config");
+
+        repo.commit("Add pre-merge validation with mixed output");
+
+        // Create a main worktree
+        let main_wt = repo.root_path().parent().unwrap().join("test-repo.main-wt");
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.args(["worktree", "add", main_wt.to_str().unwrap(), "main"])
+            .current_dir(repo.root_path())
+            .output()
+            .expect("Failed to add main worktree");
+
+        // Create feature worktree with a commit
+        let feature_wt = repo.add_worktree("feature", "feature");
+        fs::write(feature_wt.join("feature.txt"), "feature content").expect("Failed to write file");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.args(["add", "feature.txt"])
+            .current_dir(&feature_wt)
+            .output()
+            .expect("Failed to add file");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.args(["commit", "-m", "Add feature"])
+            .current_dir(&feature_wt)
+            .output()
+            .expect("Failed to commit");
+
+        // Pre-approve commands
+        fs::write(
+            repo.test_config_path(),
+            format!(
+                r#"worktree-path = "../{{main-worktree}}.{{branch}}"
+
+[projects."test-repo"]
+approved-commands = [
+    "{} check1 3",
+    "{} check2 3",
+]
+"#,
+                script_path.display(),
+                script_path.display()
+            ),
+        )
+        .expect("Failed to write user config");
+
+        // Run merge from the feature worktree
+        let output =
+            exec_through_wrapper_from(shell, &repo, "merge", &["main", "--force"], &feature_wt);
+
+        assert_eq!(output.exit_code, 0, "{}: Merge should succeed", shell);
+        output.assert_no_directive_leaks();
+
+        // Verify output shows proper temporal ordering:
+        // header1 → all check1 output (interleaved stdout/stderr) → header2 → all check2 output
+        // This ensures that stdout/stderr from child processes properly stream through
+        // to the terminal in real-time, maintaining correct ordering
+        assert_snapshot!(
+            format!("merge_with_mixed_stdout_stderr_{}", shell),
             output.normalized()
         );
     }
