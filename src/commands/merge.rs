@@ -137,14 +137,8 @@ pub fn handle_merge(
     // Get target branch (default to default branch if not provided)
     let target_branch = repo.resolve_target_branch(target)?;
 
-    // Check if already on target branch
-    if current_branch == target_branch {
-        use worktrunk::styling::GREEN;
-        crate::output::success(format!(
-            "{GREEN}Already on {GREEN_BOLD}{target_branch}{GREEN_BOLD:#}{GREEN}, nothing to merge{GREEN:#}"
-        ))?;
-        return Ok(());
-    }
+    // When current == target, force --no-remove (can't remove the worktree we're on)
+    let no_remove_effective = no_remove || current_branch == target_branch;
 
     // Collect and approve all commands upfront for batch permission request
     let (all_commands, project_id) = MergeCommandCollector {
@@ -235,7 +229,7 @@ pub fn handle_merge(
     let primary_worktree_dir = worktrees.worktrees[0].path.clone();
 
     // Finish worktree unless --no-remove was specified
-    if !no_remove {
+    if !no_remove_effective {
         // STEP 1: Check for uncommitted changes before attempting cleanup
         // This prevents showing "Cleaning up worktree..." before failing
         repo.ensure_clean_working_tree()?;
