@@ -1,112 +1,43 @@
-use crate::common::{TestRepo, wt_command};
+use crate::common::{TestRepo, list_snapshots, wt_command};
 use insta::Settings;
 use insta_cmd::assert_cmd_snapshot;
+use std::path::Path;
 use std::process::Command;
 
-/// Helper to create snapshot with normalized paths and SHAs
 fn snapshot_list(test_name: &str, repo: &TestRepo) {
-    snapshot_list_from_dir(test_name, repo, repo.root_path());
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command(repo, repo.root_path()),
+    );
 }
 
-/// Helper to create snapshot with normalized paths and SHAs from a specific directory
-fn snapshot_list_from_dir(test_name: &str, repo: &TestRepo, cwd: &std::path::Path) {
-    let mut settings = Settings::clone_current();
-    settings.set_snapshot_path("../snapshots");
-
-    // Normalize paths - replace absolute paths with semantic names
-    settings.add_filter(repo.root_path().to_str().unwrap(), "[REPO]");
-    for (name, path) in &repo.worktrees {
-        settings.add_filter(
-            path.to_str().unwrap(),
-            format!("[WORKTREE_{}]", name.to_uppercase().replace('-', "_")),
-        );
-    }
-
-    // Normalize git SHAs (7-40 hex chars) to [SHA] padded to 8 chars
-    settings.add_filter(r"\b[0-9a-f]{7,40}\b", "[SHA]   ");
-
-    // Normalize Windows paths to Unix style
-    settings.add_filter(r"\\", "/");
-
-    settings.bind(|| {
-        let mut cmd = wt_command();
-        // Clean environment to avoid interference from global git config
-        repo.clean_cli_env(&mut cmd);
-        cmd.arg("list").current_dir(cwd);
-
-        assert_cmd_snapshot!(test_name, cmd);
-    });
+fn snapshot_list_from_dir(test_name: &str, repo: &TestRepo, cwd: &Path) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command(repo, cwd),
+    );
 }
 
-/// Helper to create snapshot for JSON output with normalized paths, SHAs, and timestamps
 fn snapshot_list_json(test_name: &str, repo: &TestRepo) {
-    let mut settings = Settings::clone_current();
-    settings.set_snapshot_path("../snapshots");
-
-    // Normalize paths - replace absolute paths with semantic names
-    settings.add_filter(repo.root_path().to_str().unwrap(), "[REPO]");
-    for (name, path) in &repo.worktrees {
-        settings.add_filter(
-            path.to_str().unwrap(),
-            format!("[WORKTREE_{}]", name.to_uppercase().replace('-', "_")),
-        );
-    }
-
-    // Normalize git SHAs (40 hex chars in JSON)
-    settings.add_filter(r#""head": "[0-9a-f]{40}""#, r#""head": "[SHA]""#);
-
-    // Normalize timestamps to fixed value
-    settings.add_filter(r#""timestamp": \d+"#, r#""timestamp": 0"#);
-
-    // Normalize ANSI escape codes to readable placeholders
-    settings.add_filter(r"\\u001b\[32m", "[GREEN]"); // ADDITION color
-    settings.add_filter(r"\\u001b\[31m", "[RED]"); // DELETION color
-    settings.add_filter(r"\\u001b\[2m", "[DIM]"); // Dimming
-    settings.add_filter(r"\\u001b\[0m", "[RESET]"); // Style reset
-
-    // Normalize Windows paths to Unix style
-    settings.add_filter(r"\\\\", "/");
-
-    settings.bind(|| {
-        let mut cmd = wt_command();
-        // Clean environment to avoid interference from global git config
-        repo.clean_cli_env(&mut cmd);
-        cmd.arg("list")
-            .arg("--format=json")
-            .current_dir(repo.root_path());
-
-        assert_cmd_snapshot!(test_name, cmd);
-    });
+    run_snapshot(
+        list_snapshots::json_settings(repo),
+        test_name,
+        list_snapshots::command_json(repo),
+    );
 }
 
-/// Helper to create snapshot with --branches flag
 fn snapshot_list_with_branches(test_name: &str, repo: &TestRepo) {
-    let mut settings = Settings::clone_current();
-    settings.set_snapshot_path("../snapshots");
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_branches(repo),
+    );
+}
 
-    // Normalize paths - replace absolute paths with semantic names
-    settings.add_filter(repo.root_path().to_str().unwrap(), "[REPO]");
-    for (name, path) in &repo.worktrees {
-        settings.add_filter(
-            path.to_str().unwrap(),
-            format!("[WORKTREE_{}]", name.to_uppercase().replace('-', "_")),
-        );
-    }
-
-    // Normalize git SHAs (7-40 hex chars) to [SHA] padded to 8 chars
-    settings.add_filter(r"\b[0-9a-f]{7,40}\b", "[SHA]   ");
-
-    // Normalize Windows paths to Unix style
-    settings.add_filter(r"\\", "/");
-
+fn run_snapshot(settings: Settings, test_name: &str, mut cmd: Command) {
     settings.bind(|| {
-        let mut cmd = wt_command();
-        // Clean environment to avoid interference from global git config
-        repo.clean_cli_env(&mut cmd);
-        cmd.arg("list")
-            .arg("--branches")
-            .current_dir(repo.root_path());
-
         assert_cmd_snapshot!(test_name, cmd);
     });
 }

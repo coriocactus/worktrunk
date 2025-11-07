@@ -25,6 +25,9 @@
 // Test utilities are Unix-only since integration tests are Unix-only
 #![cfg(unix)]
 
+pub mod list_snapshots;
+pub mod shell;
+
 use insta_cmd::get_cargo_bin;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

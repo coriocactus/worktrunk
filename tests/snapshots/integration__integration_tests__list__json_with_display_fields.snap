@@ -1,5 +1,6 @@
 ---
 source: tests/integration_tests/list.rs
+assertion_line: 41
 info:
   program: wt
   args:
@@ -12,11 +13,10 @@ info:
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
     GIT_CONFIG_GLOBAL: /dev/null
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpPNsmM7/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpCCQixx/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -105,10 +105,10 @@ exit_code: 0
       "upstream_divergence": "",
       "working_tree": "?!"
     },
-    "commits_display": "[GREEN]↑2[RESET] [DIM][RED]↓2[RESET]",
-    "branch_diff_display": "[GREEN]+1[RESET]",
+    "commits_display": "/u001b[32m↑2/u001b[0m /u001b[2m/u001b[31m↓2/u001b[0m",
+    "branch_diff_display": "/u001b[32m+1/u001b[0m",
     "status_display": "    ↕ ?!",
-    "working_diff_display": "[GREEN]+1[RESET] [RED]-1[RESET]"
+    "working_diff_display": "/u001b[32m+1/u001b[0m /u001b[31m-1/u001b[0m"
   },
   {
     "type": "worktree",
@@ -149,7 +149,7 @@ exit_code: 0
       "upstream_divergence": "",
       "working_tree": ""
     },
-    "commits_display": "[DIM][RED]↓2[RESET]",
+    "commits_display": "/u001b[2m/u001b[31m↓2/u001b[0m",
     "status_display": " ∅  ↓"
   }
 ]
