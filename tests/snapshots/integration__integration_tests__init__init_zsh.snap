@@ -16,7 +16,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpdfMHP8/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmp5Os0LO/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -182,7 +182,7 @@ _arguments "${_arguments_options[@]}" : \
 '--verbose[Enable verbose output (show git commands and debug info)]' \
 '-h[Print help]' \
 '--help[Print help]' \
-':shell -- Shell to generate code for:(bash elvish fish nushell oil powershell xonsh zsh)' \
+':shell -- Shell to generate code for:(bash fish zsh)' \
 && ret=0
 ;;
 (config)
@@ -231,7 +231,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (shell)
 _arguments "${_arguments_options[@]}" : \
-'--shell=[Specific shell to configure (default\: all shells with existing config files)]:SHELL:(bash elvish fish nushell oil powershell xonsh zsh)' \
+'--shell=[Specific shell to configure (default\: all shells with existing config files)]:SHELL:(bash fish zsh)' \
 '--command-name=[Command name to use (defaults to '\''wt'\'')]:COMMAND_NAME:_default' \
 '-C+[Run as if worktrunk was started in <path> instead of the current working directory]:path:_files' \
 '-f[Skip confirmation prompt]' \

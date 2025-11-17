@@ -2,15 +2,29 @@ use askama::Template;
 use std::path::PathBuf;
 
 /// Supported shells
+///
+/// Tier 1 shells (bash, fish, zsh) are fully supported and tested.
+/// Tier 2 shells (elvish, nushell, oil, powershell, xonsh) are works in progress.
+/// TODO: Get tier-2 shells working - currently have test failures and compatibility issues
 #[derive(Debug, Clone, Copy, clap::ValueEnum, strum::Display, strum::EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum Shell {
     Bash,
+    /// TODO: Elvish support - currently disabled due to test failures
+    #[value(skip)]
     Elvish,
     Fish,
+    /// TODO: Nushell support - currently disabled due to test failures
+    #[value(skip)]
     Nushell,
+    /// TODO: Oil support - currently disabled due to test failures
+    #[value(skip)]
     Oil,
+    /// TODO: PowerShell support - currently disabled due to test failures
+    #[value(skip)]
     Powershell,
+    /// TODO: Xonsh support - currently disabled due to test failures
+    #[value(skip)]
     Xonsh,
     Zsh,
 }

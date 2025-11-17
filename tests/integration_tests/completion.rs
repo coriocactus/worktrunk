@@ -781,15 +781,16 @@ fn test_complete_init_shows_shells() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let shells = value_suggestions(&stdout);
 
-    // Should show all shell types
+    // Should show tier 1 shell types (bash, fish, zsh)
+    // Tier 2 shells (elvish, nushell, oil, powershell, xonsh) are hidden until fully working
     assert!(shells.contains(&"bash"));
     assert!(shells.contains(&"fish"));
     assert!(shells.contains(&"zsh"));
-    assert!(shells.contains(&"elvish"));
-    assert!(shells.contains(&"nushell"));
-    assert!(shells.contains(&"oil"));
-    assert!(shells.contains(&"powershell"));
-    assert!(shells.contains(&"xonsh"));
+    assert!(!shells.contains(&"elvish"));
+    assert!(!shells.contains(&"nushell"));
+    assert!(!shells.contains(&"oil"));
+    assert!(!shells.contains(&"powershell"));
+    assert!(!shells.contains(&"xonsh"));
 }
 
 #[test]
@@ -825,10 +826,12 @@ fn test_complete_init_with_source_flag() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let shells = value_suggestions(&stdout);
 
-    // Should show all shell types, same as without --source
+    // Should show tier 1 shell types, same as without --source
     assert!(shells.contains(&"bash"));
     assert!(shells.contains(&"fish"));
     assert!(shells.contains(&"zsh"));
+    assert!(!shells.contains(&"elvish"));
+    assert!(!shells.contains(&"nushell"));
 }
 
 #[test]
@@ -867,10 +870,12 @@ fn test_complete_config_shell_flag_with_source() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let shells = value_suggestions(&stdout);
 
-    // Should show all shell types, same as without --source
+    // Should show tier 1 shell types, same as without --source
     assert!(shells.contains(&"bash"));
     assert!(shells.contains(&"fish"));
     assert!(shells.contains(&"zsh"));
+    assert!(!shells.contains(&"elvish"));
+    assert!(!shells.contains(&"nushell"));
 }
 
 #[test]

@@ -484,7 +484,7 @@ Worktrunk can automatically configure your shell:
 wt config shell
 ```
 
-This adds shell integration to your config files (supports Bash, Zsh, Fish, Nushell, PowerShell, Elvish, Xonsh, Oil). The integration enables `wt switch` to change directories and `wt remove` to return to the previous location.
+This adds shell integration to your config files (supports Bash, Zsh, and Fish). The integration enables `wt switch` to change directories and `wt remove` to return to the previous location.
 
 For manual setup instructions, see `wt config shell --help`.
 

@@ -16,7 +16,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpwOlI4n/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmppHjR06/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -480,7 +480,7 @@ _wt() {
             fi
             case "${prev}" in
                 --shell)
-                    COMPREPLY=($(compgen -W "bash elvish fish nushell oil powershell xonsh zsh" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "bash fish zsh" -- "${cur}"))
                     return 0
                     ;;
                 --command-name)
@@ -499,7 +499,7 @@ _wt() {
             return 0
             ;;
         wt__init)
-            opts="-C -v -h --command-name --verbose --help bash elvish fish nushell oil powershell xonsh zsh"
+            opts="-C -v -h --command-name --verbose --help bash fish zsh"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

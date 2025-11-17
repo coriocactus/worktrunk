@@ -13,11 +13,11 @@ use std::time::Duration;
 // zsh removed - too similar to bash
 #[case("bash")]
 #[case("fish")]
-// Tier 2: Shells requiring extra setup
-// TODO: Fix non-core shells - same issues as e2e_shell.rs
+// TODO: Tier 2 shells (elvish, nushell, oil, powershell, xonsh) - would like to get these working
+// Currently disabled due to test failures and platform compatibility issues
 // #[cfg_attr(feature = "tier-2-integration-tests", case("elvish"))]
 // #[cfg_attr(feature = "tier-2-integration-tests", case("nushell"))]
-#[cfg_attr(feature = "tier-2-integration-tests", case("oil"))]
+// #[cfg_attr(feature = "tier-2-integration-tests", case("oil"))]
 // #[cfg_attr(feature = "tier-2-integration-tests", case("xonsh"))]
 fn test_e2e_post_start_background_command(#[case] shell: &str) {
     let repo = TestRepo::new();

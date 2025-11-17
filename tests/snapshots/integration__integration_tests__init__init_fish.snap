@@ -16,7 +16,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpsRi5vV/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmp0zq2ID/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -215,12 +215,7 @@ complete -c wt -n "__fish_wt_using_subcommand config; and __fish_seen_subcommand
 complete -c wt -n "__fish_wt_using_subcommand config; and __fish_seen_subcommand_from refresh-cache" -s v -l verbose -d 'Enable verbose output (show git commands and debug info)'
 complete -c wt -n "__fish_wt_using_subcommand config; and __fish_seen_subcommand_from refresh-cache" -s h -l help -d 'Print help'
 complete -c wt -n "__fish_wt_using_subcommand config; and __fish_seen_subcommand_from shell" -l shell -d 'Specific shell to configure (default: all shells with existing config files)' -r -f -a "bash\t''
-elvish\t''
 fish\t''
-nushell\t''
-oil\t''
-powershell\t''
-xonsh\t''
 zsh\t''"
 complete -c wt -n "__fish_wt_using_subcommand config; and __fish_seen_subcommand_from shell" -l command-name -d 'Command name to use (defaults to \'wt\')' -r
 complete -c wt -n "__fish_wt_using_subcommand config; and __fish_seen_subcommand_from shell" -s C -d 'Run as if worktrunk was started in <path> instead of the current working directory' -r -F
