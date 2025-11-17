@@ -16,7 +16,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpLFo230/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpsNHhir/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -61,7 +61,8 @@ exit_code: 0
       "worktree_attrs": "",
       "main_divergence": "",
       "upstream_divergence": "",
-      "working_tree": ""
+      "working_tree": "",
+      "user_status": null
     }
   },
   {
@@ -99,11 +100,12 @@ exit_code: 0
       "worktree_attrs": "",
       "main_divergence": "↕",
       "upstream_divergence": "",
-      "working_tree": "?!"
+      "working_tree": "?!",
+      "user_status": null
     },
     "commits_display": "/u001b[32m↑2/u001b[0m /u001b[2m/u001b[31m↓2/u001b[0m",
     "branch_diff_display": "/u001b[32m+1/u001b[0m",
-    "status_display": "    ↕ ?!",
+    "status_display": "    ↕ ?! ",
     "working_diff_display": "/u001b[32m+1/u001b[0m /u001b[31m-1/u001b[0m"
   },
   {
@@ -141,10 +143,11 @@ exit_code: 0
       "worktree_attrs": "",
       "main_divergence": "↓",
       "upstream_divergence": "",
-      "working_tree": ""
+      "working_tree": "",
+      "user_status": null
     },
     "commits_display": "/u001b[2m/u001b[31m↓2/u001b[0m",
-    "status_display": " ∅  ↓  "
+    "status_display": " ∅  ↓   "
   }
 ]
 

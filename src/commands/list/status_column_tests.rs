@@ -4,22 +4,20 @@
 //!
 //! ## Grid-Based Rendering Model
 //!
-//! - Each symbol type has a fixed position (0a, 0b, 0c, 0d, 1, 2, 3)
+//! - Each symbol type has a fixed position (0a, 0b, 0c, 0d, 1, 2, 3, 4)
+//! - Position 4 is user-defined status (custom labels, emoji)
 //! - Only positions used by at least one row are included (position mask)
 //! - Rendering creates a grid: first position in mask = column 0
 //! - Each position maps to exactly one column
 //! - **Multiple symbols from the same position** appear together in that column (e.g., "?!+" all at position 3)
 //! - Symbols fill their position's column, empty positions get spaces
-//! - Example: mask [0b, 3] creates 2-column grid:
-//!   - Row with ≡ at 0b: "≡ " (≡ at col 0, space at col 1)
-//!   - Row with ! at 3:  " !" (space at col 0, ! at col 1)
-//!   - Row with ≡!+ at 0b and 3: "≡!+" (≡ at col 0, !+ at col 1)
+//! - Example: mask [0b, 3, 4] creates 3-column grid:
+//!   - Row with ≡ at 0b: "≡  " (≡ at col 0, space at col 1 and 2)
+//!   - Row with ! at 3:  " ! " (space at col 0, ! at col 1, space at col 2)
+//!   - Row with 🤖 at 4: "  🤖" (space at col 0 and 1, 🤖 at col 2)
 //!
-//! ## User Status Alignment
-//!
-//! User status rendering happens in the rendering layer (`render.rs`), not in `StatusSymbols`.
-//! User status aligns at column position `max_git_symbols_width` for both worktrees and branches.
-//! Integration tests verify user status behavior (see `with_user_status.snap`).
+//! User status is now part of the unified grid system (Position 4) and aligns vertically
+//! with all other status indicators. Integration tests verify user status behavior.
 //!
 //! Each test specifies the exact expected output to make the target behavior explicit.
 

@@ -2,77 +2,59 @@
 //!
 //! # Status Column Structure
 //!
-//! The Status column combines two subcolumns without a 2-space column gap:
+//! The Status column uses a unified position-based grid system for all status
+//! indicators including user-defined status:
 //!
 //! ```text
-//! Status Column = [Git Status Symbols] + [User Status]
-//!                 ↑                       ↑
-//!                 Variable width          Aligned subcolumn
-//!                 (position mask)         (fixed position)
+//! Status Column = Dynamic Grid [Position 0a...Position 4]
 //! ```
 //!
-//! ## Git Status Symbols (Variable Width)
+//! ## Unified Position Grid
 //!
-//! Git status symbols use position-based alignment with selective rendering:
-//! - Only positions used by at least one row are included (position mask)
+//! All status indicators use position-based alignment with selective rendering:
+//! - Position 0a: Conflicts (=)
+//! - Position 0b: Branch state (≡, ∅)
+//! - Position 0c: Git operation (↻, ⋈)
+//! - Position 0d: Worktree attributes (◇, ⊠, ⚠)
+//! - Position 1: Main divergence (↑, ↓, ↕)
+//! - Position 2: Upstream divergence (⇡, ⇣, ⇅)
+//! - Position 3: Working tree (?, !, +, », ✘)
+//! - Position 4: User status (custom labels, emoji)
+//!
+//! Only positions used by at least one row are included (position mask):
 //! - Within those positions, symbols align vertically for scannability
-//! - Empty positions between symbols get spacing for alignment
+//! - Empty positions render as single space for grid alignment
 //! - No leading spaces before the first symbol
 //!
-//! Example with positions 0b (≡) and 3 (?!) used:
+//! Example with positions 0b, 3, and 4 used:
 //! ```text
-//! Row 1: "≡ "     (position 0b filled, position 3 empty → space)
-//! Row 2: "≡?"     (position 0b filled, position 3 filled)
-//! ```
-//!
-//! ## User Status Subcolumn (Aligned)
-//!
-//! User-defined status aligns at a fixed position within the Status column:
-//! - Starts immediately after max git symbols width (no extra gap)
-//! - All user statuses align vertically regardless of git symbols
-//! - Creates visual separation between git state and user labels
-//!
-//! Example:
-//! ```text
-//! Git Symbols  User Status
-//! ≡            ⏸            (git symbols padded to max width)
-//! ≡?           🤖           (user status aligns at fixed position)
-//! ↓!+                       (no user status)
+//! Row 1: "≡   🤖"   (0b=≡, 3=space, 4=🤖)
+//! Row 2: "≡?!   "   (0b=≡, 3=?!, 4=space)
+//! Row 3: "  💬"     (0b=space, 3=space, 4=💬)
 //! ```
 //!
 //! ## Width Calculation
 //!
 //! ```text
-//! status_width = max_git_symbols_width + max_user_status_width
+//! status_width = max(rendered_width_across_all_items)
 //! ```
 //!
-//! Where:
-//! - `max_git_symbols_width` = maximum rendered width using position mask
-//! - `max_user_status_width` = maximum width of user-defined status strings
+//! The width is calculated by rendering each item's status with the position
+//! mask and taking the maximum width.
 //!
 //! ## Why This Design?
 //!
+//! **Single canonical system:**
+//! - One alignment mechanism for all status indicators
+//! - User status treated consistently with git symbols
+//!
 //! **Eliminates wasted space:**
 //! - Position mask removes columns for symbols that appear in zero rows
-//! - No 2-space column gap between git and user status
+//! - User status only takes space when present
 //!
 //! **Maintains alignment:**
-//! - Git symbols align at their positions (vertical scannability)
-//! - User status aligns in its own subcolumn (visual consistency)
-//!
-//! **Example comparison:**
-//!
-//! BAD (no alignment):
-//! ```text
-//! ≡⏸
-//! ≡?🤖
-//! ```
-//!
-//! GOOD (aligned subcolumns):
-//! ```text
-//! ≡ ⏸
-//! ≡?🤖
-//! ```
+//! - All symbols align vertically at their positions (vertical scannability)
+//! - Grid adapts to minimize width based on active positions
 //!
 //! # Priority System Design
 //!
@@ -319,8 +301,6 @@ pub struct LayoutMetadata {
     pub widths: ColumnWidths,
     pub data_flags: ColumnDataFlags,
     pub status_position_mask: super::model::PositionMask,
-    /// Maximum width of git status symbols (for padding before user status subcolumn)
-    pub max_git_symbols_width: usize,
 }
 
 const EMPTY_PENALTY: u8 = 10;
@@ -418,8 +398,6 @@ pub struct LayoutConfig {
     pub max_message_len: usize,
     pub hidden_nonempty_count: usize,
     pub status_position_mask: super::model::PositionMask,
-    /// Maximum width of git status symbols (for padding before user status subcolumn)
-    pub max_git_symbols_width: usize,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -592,36 +570,36 @@ pub fn calculate_column_widths(items: &[ListItem], fetch_ci: bool) -> LayoutMeta
         max_upstream_behind_digits,
     );
 
-    // Calculate Status column width: git symbols + user status (as aligned subcolumns)
-    // Git symbols width: maximum rendered width using position mask (variable per row)
-    let max_git_symbols = items
-        .iter()
-        .filter_map(|item| item.worktree_info())
-        .map(|info| {
-            info.status_symbols
-                .render_with_mask(&status_position_mask)
-                .width()
-        })
-        .max()
-        .unwrap_or(0);
-
-    // User status width: maximum user-defined status width (for alignment subcolumn)
-    let max_user_status = items
+    // Calculate Status column width: maximum rendered width across all items
+    // Now that user_status is Position 4 in the grid, render_with_mask() includes it
+    let status_data_width = items
         .iter()
         .filter_map(|item| {
             if let Some(info) = item.worktree_info() {
-                info.user_status.as_ref().map(|s| s.width())
+                // Worktrees: render all symbols including user_status
+                Some(
+                    info.status_symbols
+                        .render_with_mask(&status_position_mask)
+                        .width(),
+                )
             } else if let ListItem::Branch(branch_info) = item {
-                branch_info.user_status.as_ref().map(|s| s.width())
+                // Branches: create minimal StatusSymbols with just user_status
+                branch_info.user_status.as_ref().map(|user_status| {
+                    use crate::commands::list::model::StatusSymbols;
+                    let branch_symbols = StatusSymbols {
+                        user_status: Some(user_status.clone()),
+                        ..Default::default()
+                    };
+                    branch_symbols
+                        .render_with_mask(&status_position_mask)
+                        .width()
+                })
             } else {
                 None
             }
         })
         .max()
         .unwrap_or(0);
-
-    // Total Status width = git symbols + user status (no extra gap between them)
-    let status_data_width = max_git_symbols + max_user_status;
 
     // For Status column: always fit header to prevent header overflow
     // Even though we want narrow columns, we can't make them narrower than the header
@@ -658,7 +636,6 @@ pub fn calculate_column_widths(items: &[ListItem], fetch_ci: bool) -> LayoutMeta
         widths,
         data_flags,
         status_position_mask,
-        max_git_symbols_width: max_git_symbols,
     }
 }
 
@@ -680,7 +657,6 @@ pub fn calculate_responsive_layout(
     let ideal_widths = metadata.widths;
     let data_flags = metadata.data_flags;
     let status_position_mask = metadata.status_position_mask;
-    let max_git_symbols_width = metadata.max_git_symbols_width;
 
     // Calculate actual maximum path width (after common prefix removal)
     let path_data_width = items
@@ -825,7 +801,6 @@ pub fn calculate_responsive_layout(
         max_message_len,
         hidden_nonempty_count,
         status_position_mask,
-        max_git_symbols_width,
     }
 }
 
@@ -870,7 +845,6 @@ mod tests {
             pr_status: None,
             has_conflicts: false,
             status_symbols: StatusSymbols::default(),
-            user_status: None,
             display: DisplayFields::default(),
             working_diff_display: None,
         };
@@ -946,7 +920,6 @@ mod tests {
             pr_status: None,
             has_conflicts: false,
             status_symbols: StatusSymbols::default(),
-            user_status: None,
             display: DisplayFields::default(),
             working_diff_display: None,
         };
@@ -1021,7 +994,6 @@ mod tests {
             pr_status: None,
             has_conflicts: false,
             status_symbols: StatusSymbols::default(),
-            user_status: None,
             display: DisplayFields::default(),
             working_diff_display: None,
         };
@@ -1087,7 +1059,6 @@ mod tests {
             pr_status: None,
             has_conflicts: false,
             status_symbols: StatusSymbols::default(),
-            user_status: None,
             display: DisplayFields::default(),
             working_diff_display: None,
         };

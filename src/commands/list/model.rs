@@ -94,11 +94,8 @@ pub struct WorktreeInfo {
 
     // Status
     pub pr_status: Option<PrStatus>,
-    /// Git status symbols (=, ↑, ↓, ⇡, ⇣, ?, !, +, », ✘) indicating working tree state
+    /// Git status symbols (=, ↑, ↓, ⇡, ⇣, ?, !, +, », ✘) including user-defined status
     pub status_symbols: StatusSymbols,
-    /// User-defined status from worktrunk.status git config
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_status: Option<String>,
 
     // Display fields for json-pretty format (with ANSI colors)
     #[serde(flatten)]
@@ -541,11 +538,11 @@ impl serde::Serialize for GitOperation {
 /// This allows the Status column to only allocate space for positions that
 /// have data, rather than reserving space for all possible positions.
 ///
-/// Uses a bit array for compact representation (7 positions = 7 bits).
+/// Uses a bit array for compact representation (8 positions = 8 bits).
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PositionMask {
-    /// Bit array: [0a, 0b, 0c, 0d, 1, 2, 3]
-    positions: [bool; 7],
+    /// Bit array: [0a, 0b, 0c, 0d, 1, 2, 3, 4]
+    positions: [bool; 8],
 }
 
 impl PositionMask {
@@ -556,10 +553,11 @@ impl PositionMask {
     const POS_1_MAIN_DIVERGENCE: usize = 4;
     const POS_2_UPSTREAM_DIVERGENCE: usize = 5;
     const POS_3_WORKING_TREE: usize = 6;
+    const POS_4_USER_STATUS: usize = 7;
 
     /// Full mask with all positions enabled (for JSON output)
     pub const FULL: Self = Self {
-        positions: [true; 7],
+        positions: [true; 8],
     };
 
     /// Merge this mask with another, keeping positions that are used in either
@@ -584,7 +582,8 @@ impl PositionMask {
 /// - Position 0d: Worktree attributes (◇, ⊠, ⚠)
 /// - Position 1: Main branch divergence (↑, ↓, ↕)
 /// - Position 2: Remote/upstream divergence (⇡, ⇣, ⇅)
-/// - Position 3+: Working tree symbols (?, !, +, », ✘)
+/// - Position 3: Working tree symbols (?, !, +, », ✘)
+/// - Position 4: User status (custom labels, emoji)
 ///
 /// ## Mutual Exclusivity
 ///
@@ -627,6 +626,10 @@ pub struct StatusSymbols {
     /// Working tree changes: ?, !, +, », ✘
     /// Position 3+ - NOT mutually exclusive (can have "?!+" etc.)
     pub(crate) working_tree: String,
+
+    /// User-defined status annotation
+    /// Position 4 - Custom labels (e.g., 💬, 🤖)
+    pub(crate) user_status: Option<String>,
 }
 
 impl StatusSymbols {
@@ -648,7 +651,8 @@ impl StatusSymbols {
     /// - Position 0d: Worktree attributes (◇⊠⚠ or space)
     /// - Position 1: Main divergence (↑, ↓, ↕, or space)
     /// - Position 2: Upstream divergence (⇡, ⇣, ⇅, or space)
-    /// - Position 3+: Working tree symbols (?, !, +, », ✘)
+    /// - Position 3: Working tree symbols (?, !, +, », ✘)
+    /// - Position 4: User status (custom labels, emoji)
     ///
     /// This ensures vertical scannability - each symbol type appears at the same
     /// column position across all rows, while minimizing wasted space.
@@ -696,6 +700,11 @@ impl StatusSymbols {
                 &self.working_tree,
                 !self.working_tree.is_empty(),
             ),
+            (
+                PositionMask::POS_4_USER_STATUS,
+                self.user_status.as_deref().unwrap_or(""),
+                self.user_status.is_some(),
+            ),
         ];
 
         // Grid-based rendering: each position in mask gets exactly one column
@@ -719,7 +728,7 @@ impl StatusSymbols {
 
     /// Derive a position mask that tracks which symbol slots contain data.
     pub fn position_mask(&self) -> PositionMask {
-        let mut positions = [false; 7];
+        let mut positions = [false; 8];
         positions[PositionMask::POS_0A_CONFLICTS] = self.has_conflicts;
         positions[PositionMask::POS_0B_BRANCH_STATE] = self.branch_state != BranchState::None;
         positions[PositionMask::POS_0C_GIT_OPERATION] = self.git_operation != GitOperation::None;
@@ -729,6 +738,7 @@ impl StatusSymbols {
         positions[PositionMask::POS_2_UPSTREAM_DIVERGENCE] =
             self.upstream_divergence != UpstreamDivergence::None;
         positions[PositionMask::POS_3_WORKING_TREE] = !self.working_tree.is_empty();
+        positions[PositionMask::POS_4_USER_STATUS] = self.user_status.is_some();
         PositionMask { positions }
     }
 
@@ -741,6 +751,7 @@ impl StatusSymbols {
             && self.main_divergence == MainDivergence::None
             && self.upstream_divergence == UpstreamDivergence::None
             && self.working_tree.is_empty()
+            && self.user_status.is_none()
     }
 }
 
@@ -962,16 +973,12 @@ impl WorktreeInfo {
             symbols.worktree_attrs.push('⚠');
         }
 
-        // Read user-defined status from git config (worktree-specific or branch-keyed)
-        let user_status = wt_repo.user_status(wt.branch.as_deref());
+        // Add user-defined status from git config to symbols (Position 4)
+        symbols.user_status = wt_repo.user_status(wt.branch.as_deref());
 
         // Create display fields with rendered status
-        let status_display = if !symbols.is_empty() || user_status.is_some() {
-            let mut rendered = symbols.render();
-            if let Some(ref user) = user_status {
-                rendered.push_str(user);
-            }
-            Some(rendered)
+        let status_display = if !symbols.is_empty() {
+            Some(symbols.render())
         } else {
             None
         };
@@ -1002,7 +1009,6 @@ impl WorktreeInfo {
             upstream,
             pr_status,
             status_symbols: symbols,
-            user_status,
             display,
             working_diff_display: None,
         })

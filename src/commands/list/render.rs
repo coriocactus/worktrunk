@@ -235,7 +235,6 @@ impl LayoutConfig {
             column.render_cell(
                 &ctx,
                 &self.status_position_mask,
-                self.max_git_symbols_width,
                 &self.common_prefix,
                 self.max_message_len,
             )
@@ -322,7 +321,6 @@ impl ColumnLayout {
         &self,
         ctx: &ListRowContext,
         status_mask: &PositionMask,
-        max_git_symbols_width: usize,
         common_prefix: &Path,
         max_message_len: usize,
     ) -> StyledLine {
@@ -341,19 +339,18 @@ impl ColumnLayout {
                 let mut cell = StyledLine::new();
 
                 if let Some(info) = ctx.worktree_info {
-                    let git_symbols_start = cell.width();
+                    // Render all status symbols including user status (Position 4)
                     cell.push_raw(info.status_symbols.render_with_mask(status_mask));
-
-                    if let Some(ref user_status) = info.user_status {
-                        cell.pad_to(git_symbols_start + max_git_symbols_width);
-                        cell.push_raw(user_status.clone());
-                    }
                 } else if let ListItem::Branch(branch_info) = ctx.item
                     && let Some(ref user_status) = branch_info.user_status
                 {
-                    let git_symbols_start = cell.width();
-                    cell.pad_to(git_symbols_start + max_git_symbols_width);
-                    cell.push_raw(user_status.clone());
+                    // For branches, create a minimal StatusSymbols with just user_status
+                    use crate::commands::list::model::StatusSymbols;
+                    let branch_symbols = StatusSymbols {
+                        user_status: Some(user_status.clone()),
+                        ..Default::default()
+                    };
+                    cell.push_raw(branch_symbols.render_with_mask(status_mask));
                 }
 
                 cell
