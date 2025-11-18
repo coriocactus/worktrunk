@@ -39,8 +39,8 @@ Keep flag and argument descriptions brief—aim for 3-5 words maximum. Use paren
 **Good examples:**
 - `/// Skip approval prompts`
 - `/// Show CI, conflicts, and full diffs`
-- `/// Target branch (default: default branch)`
-- `/// Branch, path, '@' (HEAD), or '-' (previous)`
+- `/// Target branch (defaults to default branch)`
+- `/// Branch, path, '@' (HEAD), '-' (previous), or '^' (main)`
 
 **Bad examples (too verbose):**
 - `/// Auto-approve project commands without saving approvals.`

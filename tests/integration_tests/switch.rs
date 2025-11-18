@@ -500,3 +500,38 @@ fn test_switch_previous_branch_with_worktrunk_history() {
         &["-"],
     );
 }
+
+#[test]
+fn test_switch_main_branch() {
+    use std::process::Command;
+
+    let repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Create a feature branch
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["branch", "feature-a"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to create feature-a");
+
+    // Switch to feature-a first
+    snapshot_switch("switch_main_branch_to_feature", &repo, &["feature-a"]);
+
+    // Now wt switch ^ should resolve to main
+    snapshot_switch("switch_main_branch", &repo, &["^"]);
+}
+
+#[test]
+fn test_create_with_base_main() {
+    let repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Create new branch from main using ^
+    snapshot_switch(
+        "create_with_base_main",
+        &repo,
+        &["--create", "new-feature", "--base", "^"],
+    );
+}

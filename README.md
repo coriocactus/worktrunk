@@ -257,9 +257,9 @@ Now `wsl new-feature` creates a branch, sets up the worktree, runs initializatio
 
 ## All Commands
 
-- `wt switch [branch]` - Switch to existing worktree
-- `wt switch --create [branch]` - Create and switch (supports `--base=@` to branch from current HEAD)
-- `wt remove [branch]` - Remove worktree (use `@` for current)
+- `wt switch [branch]` - Switch to existing worktree (use `@` for current, `-` for previous, `^` for main)
+- `wt switch --create [branch]` - Create and switch (use `--base=^` for main, `--base=@` for current HEAD)
+- `wt remove [branch]` - Remove worktree (use `@` for current, `-` for previous, `^` for main)
 - `wt merge [target]` - Merge, push, cleanup
 - `wt list` - Show all worktrees
 - `wt config` - Manage configuration

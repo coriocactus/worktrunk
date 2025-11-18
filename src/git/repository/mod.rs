@@ -283,18 +283,20 @@ impl Repository {
             })
     }
 
-    /// Resolve a worktree name, expanding "@" to the current branch and "-" to the previous branch.
+    /// Resolve a worktree name, expanding "@" to current, "-" to previous, and "^" to main.
     ///
     /// # Arguments
     /// * `name` - The worktree name to resolve:
     ///   - "@" for current HEAD
     ///   - "-" for previous branch (via worktrunk.history)
+    ///   - "^" for main/default branch
     ///   - any other string is returned as-is
     ///
     /// # Returns
-    /// - `Ok(name)` if not "@" or "-"
+    /// - `Ok(name)` if not a special symbol
     /// - `Ok(current_branch)` if "@" and on a branch
     /// - `Ok(previous_branch)` if "-" and worktrunk.history has a previous branch
+    /// - `Ok(default_branch)` if "^"
     /// - `Err(DetachedHead)` if "@" and in detached HEAD state
     /// - `Err` if "-" but no previous branch in history
     pub fn resolve_worktree_name(&self, name: &str) -> Result<String, GitError> {
@@ -311,6 +313,7 @@ impl Repository {
                         )
                     })
             }
+            "^" => self.default_branch(),
             _ => Ok(name.to_string()),
         }
     }

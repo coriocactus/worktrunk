@@ -138,7 +138,7 @@ pub enum StandaloneCommand {
 
     /// Squash commits with LLM-generated message
     Squash {
-        /// Target branch (default: default branch)
+        /// Target branch (defaults to default branch)
         #[arg(add = crate::completion::branch_value_completer())]
         target: Option<String>,
 
@@ -156,7 +156,7 @@ pub enum StandaloneCommand {
     /// Automatically stashes non-conflicting edits in the target worktree before
     /// the push and restores them afterward so other agents' changes stay intact.
     Push {
-        /// Target branch (default: default branch)
+        /// Target branch (defaults to default branch)
         #[arg(add = crate::completion::branch_value_completer())]
         target: Option<String>,
 
@@ -167,7 +167,7 @@ pub enum StandaloneCommand {
 
     /// Rebase current branch onto target branch
     Rebase {
-        /// Target branch (default: default branch)
+        /// Target branch (defaults to default branch)
         #[arg(add = crate::completion::branch_value_completer())]
         target: Option<String>,
     },
@@ -376,12 +376,14 @@ Skip hooks during creation:
 
 SHORTCUTS:
 
-Use '@' to refer to your current HEAD (following git's convention):
+Use '@' for current HEAD, '-' for previous, '^' for main:
   wt switch @                              # Switch to current branch's worktree
-  wt switch --create new-feature --base=@  # Branch from current HEAD
+  wt switch -                              # Switch to previous worktree
+  wt switch --create new-feature --base=^  # Branch from main (default)
+  wt switch --create bugfix --base=@       # Branch from current HEAD
   wt remove @                              # Remove current worktree"#)]
     Switch {
-        /// Branch, path, '@' (HEAD), or '-' (previous)
+        /// Branch, path, '@' (HEAD), '-' (previous), or '^' (main)
         #[arg(add = crate::completion::worktree_branch_completer())]
         branch: String,
 
@@ -389,7 +391,7 @@ Use '@' to refer to your current HEAD (following git's convention):
         #[arg(short = 'c', long)]
         create: bool,
 
-        /// Base branch (with --create)
+        /// Base branch (defaults to default branch)
         #[arg(short = 'b', long, add = crate::completion::branch_value_completer())]
         base: Option<String>,
 
@@ -515,7 +517,7 @@ Keep worktree after merging:
 Skip pre-merge commands:
   wt merge --no-verify"#)]
     Merge {
-        /// Target branch (default: default branch)
+        /// Target branch (defaults to default branch)
         #[arg(add = crate::completion::branch_value_completer())]
         target: Option<String>,
 

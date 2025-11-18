@@ -16,7 +16,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmp7bMDFm/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpp7A70A/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -273,7 +273,7 @@ complete -c wt -n "__fish_wt_using_subcommand list" -l branches -d 'Include bran
 complete -c wt -n "__fish_wt_using_subcommand list" -l full -d 'Show CI, conflicts, and full diffs'
 complete -c wt -n "__fish_wt_using_subcommand list" -s v -l verbose -d 'Show git commands and debug info'
 complete -c wt -n "__fish_wt_using_subcommand list" -s h -l help -d 'Print help (see more with \'--help\')'
-complete -c wt -n "__fish_wt_using_subcommand switch" -s b -l base -f -d 'Base branch (with --create)' -r
+complete -c wt -n "__fish_wt_using_subcommand switch" -s b -l base -f -d 'Base branch (defaults to default branch)' -r
 complete -c wt -n "__fish_wt_using_subcommand switch" -s x -l execute -d 'Execute command after switching' -r
 complete -c wt -n "__fish_wt_using_subcommand switch" -s C -d 'Change working directory' -r -F
 complete -c wt -n "__fish_wt_using_subcommand switch" -s c -l create -d 'Create a new branch'
