@@ -92,10 +92,18 @@ fn exec_in_pty_with_input(
 
 /// Normalize output for snapshot testing
 fn normalize_output(output: &str) -> String {
+    // Remove platform-specific PTY control sequences
+    // macOS PTYs emit ^D (literal caret-D) followed by backspaces (0x08),
+    // while Linux PTYs don't. Strip these to ensure consistent snapshots.
+    // Use multiline mode to match after user input (e.g., "n\n\n^D\b\b")
+    let output = regex::Regex::new(r"\^D\x08+")
+        .unwrap()
+        .replace_all(output, "");
+
     // Remove repository paths
     let output = regex::Regex::new(r"/[^\s]+\.tmp[^\s/]+")
         .unwrap()
-        .replace_all(output, "[REPO]");
+        .replace_all(&output, "[REPO]");
 
     // Remove config paths
     let output = regex::Regex::new(r"/var/folders/[^\s]+/test-config\.toml")
