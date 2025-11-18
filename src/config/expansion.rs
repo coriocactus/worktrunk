@@ -42,34 +42,24 @@ pub fn expand_template(
     // Sanitize branch name by replacing path separators
     let safe_branch = branch.replace(['/', '\\'], "-");
 
-    // Shell-escape all variables to prevent issues with spaces and special characters
+    // Shell-escape all variables
     let escaped_worktree = escape(Cow::Borrowed(main_worktree)).to_string();
     let escaped_branch = escape(Cow::Borrowed(safe_branch.as_str())).to_string();
 
-    // Collect all escaped extra variables (must be owned to satisfy lifetimes)
-    let mut extra_escaped = Vec::new();
-    for (key, value) in extra {
-        let escaped_value = escape(Cow::Borrowed(*value)).to_string();
-        let key_normalized = key.replace('-', "_");
-        extra_escaped.push((key_normalized, escaped_value));
-    }
-
-    // Build context map with String keys (required by minijinja)
-    let mut context_map = std::collections::BTreeMap::new();
-    context_map.insert(
+    // Build context map with shell-escaped values
+    let mut context = std::collections::HashMap::new();
+    context.insert("branch".to_string(), minijinja::Value::from(escaped_branch));
+    context.insert(
         "main_worktree".to_string(),
-        minijinja::Value::from(escaped_worktree.as_str()),
+        minijinja::Value::from(escaped_worktree.clone()),
     );
-    context_map.insert(
-        "branch".to_string(),
-        minijinja::Value::from(escaped_branch.as_str()),
-    );
-    context_map.insert(
-        "repo".to_string(),
-        minijinja::Value::from(escaped_worktree.as_str()),
-    );
-    for (key, value) in &extra_escaped {
-        context_map.insert(key.clone(), minijinja::Value::from(value.as_str()));
+    context.insert("repo".to_string(), minijinja::Value::from(escaped_worktree));
+
+    for (key, value) in extra {
+        context.insert(
+            key.to_string(),
+            minijinja::Value::from(escape(Cow::Borrowed(*value)).to_string()),
+        );
     }
 
     // Render template with minijinja
@@ -80,7 +70,7 @@ pub fn expand_template(
         .template_from_str(template)
         .map_err(|e| format!("Template syntax error: {}", e))?;
 
-    tmpl.render(minijinja::Value::from_object(context_map))
+    tmpl.render(minijinja::Value::from_object(context))
         .map_err(|e| format!("Template render error: {}", e))
 }
 
