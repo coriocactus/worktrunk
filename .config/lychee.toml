@@ -32,3 +32,8 @@ exclude = [
     "~opensource\\.org",
     "~llm\\.datasette\\.io",
 ]
+
+# Exclude files with relative paths intended for different locations
+exclude_path = [
+    ".claude-plugin/skills/worktrunk/README.md",
+]

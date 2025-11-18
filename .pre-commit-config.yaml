@@ -31,6 +31,7 @@ repos:
       - id: lychee
         name: lychee (PR mode)
         types: [markdown]
+        exclude: ^\.claude-plugin/skills/worktrunk/README\.md$
         args:
           - --include=^(https://(github\.com/worktrunk|worktrunk\.dev)|file://)
           - --no-progress
@@ -39,6 +40,7 @@ repos:
       - id: lychee
         name: lychee-all (comprehensive)
         types: [markdown]
+        exclude: ^\.claude-plugin/skills/worktrunk/README\.md$
         stages: [manual]
         args:
           - --config=.config/lychee.toml

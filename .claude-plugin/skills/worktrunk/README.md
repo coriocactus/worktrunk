@@ -104,7 +104,7 @@ Set up LLM integration: run `wt config --help` to see the setup guide, or `wt co
 
 Worktrunk uses [minijinja templates](https://docs.rs/minijinja/latest/minijinja/syntax/index.html) for commit message prompts. Customize the prompts by setting `template` (inline) or `template-file` (external file) in the `[commit-generation]` section. Use `squash-template` / `squash-template-file` for squash commits.
 
-See [`config.example.toml`](../../../config.example.toml) for complete template examples with all available variables (`git_diff`, `branch`, `recent_commits`, `commits`, `target_branch`, `repo`).
+See [`config.example.toml`](config.example.toml) for complete template examples with all available variables (`git_diff`, `branch`, `recent_commits`, `commits`, `target_branch`, `repo`).
 
 </details>
 
@@ -398,7 +398,7 @@ Claude Code can automatically set/clear emoji status when coding sessions start 
 
 **Easy setup:** The Worktrunk repository includes a `.claude-plugin` directory with pre-configured hooks. If you're working in this repository, the hooks are automatically available.
 
-**Manual setup for other repositories:** Copy the hooks from [`.claude-plugin/hooks/hooks.json`](../../hooks/hooks.json) to your `~/.claude/settings.json`.
+**Manual setup for other repositories:** Copy the hooks from [`.claude-plugin/hooks/hooks.json`](.claude-plugin/hooks/hooks.json) to your `~/.claude/settings.json`.
 
 Now when you use Claude:
 
@@ -448,7 +448,7 @@ git config --worktree --unset worktrunk.status
 
 **Claude Code hooks for per-worktree:**
 
-Copy the hooks from [`.claude-plugin/hooks/hooks.worktree.json`](../../hooks/hooks.worktree.json) to your `~/.claude/settings.json`.
+Copy the hooks from [`.claude-plugin/hooks/hooks.worktree.json`](.claude-plugin/hooks/hooks.worktree.json) to your `~/.claude/settings.json`.
 
 **Priority:** Worktree-specific config takes precedence over branch-keyed config when both exist.
 
