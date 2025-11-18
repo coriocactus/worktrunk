@@ -85,43 +85,12 @@ pub fn execute_shell_script(repo: &TestRepo, shell: &str, script: &str) -> Strin
     }
 
     if !output.status.success() {
-        // If killed by signal with no output, retry once (handles transient failures)
-        if output.status.code().is_none() && output.stdout.is_empty() && output.stderr.is_empty() {
-            eprintln!(
-                "{} script killed by signal with no output - retrying after 150ms",
-                shell
-            );
-            std::thread::sleep(std::time::Duration::from_millis(150));
-
-            let retry_output = build_shell_command(repo, shell, script)
-                .current_dir(repo.root_path())
-                .output()
-                .unwrap_or_else(|e| panic!("Failed to execute {} script on retry: {}", shell, e));
-
-            if !retry_output.status.success() {
-                let exit_info = match retry_output.status.code() {
-                    Some(code) => format!("exit code {}", code),
-                    None => "killed by signal".to_string(),
-                };
-                panic!(
-                    "Shell script failed on retry ({}):\nCommand: cargo run -p dev-detach -- {} [shell-flags...] -c <script>\nstdout: {}\nstderr: {}",
-                    exit_info,
-                    shell,
-                    String::from_utf8_lossy(&retry_output.stdout),
-                    String::from_utf8_lossy(&retry_output.stderr)
-                );
-            }
-
-            return String::from_utf8_lossy(&retry_output.stdout).to_string()
-                + &String::from_utf8_lossy(&retry_output.stderr);
-        }
-
         let exit_info = match output.status.code() {
             Some(code) => format!("exit code {}", code),
             None => "killed by signal".to_string(),
         };
         panic!(
-            "Shell script failed ({}):\nCommand: cargo run -p dev-detach -- {} [shell-flags...] -c <script>\nstdout: {}\nstderr: {}",
+            "Shell script failed ({}):\nCommand: cargo run --manifest-path <workspace>/Cargo.toml -p dev-detach -- {} [shell-flags...] -c <script>\nstdout: {}\nstderr: {}",
             exit_info,
             shell,
             String::from_utf8_lossy(&output.stdout),
