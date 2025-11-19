@@ -80,7 +80,7 @@ mod collect_progressive_impl;
 mod columns;
 mod layout;
 pub mod model;
-mod progressive;
+pub mod progressive;
 mod render;
 
 #[cfg(test)]
@@ -95,21 +95,16 @@ pub fn handle_list(
     format: crate::OutputFormat,
     show_branches: bool,
     show_full: bool,
-    progressive: bool,
-    no_progressive: bool,
-    directive_mode: bool,
+    render_mode: RenderMode,
 ) -> Result<(), GitError> {
     let repo = Repository::current();
 
     let fetch_ci = show_full; // Only fetch CI with --full (expensive)
     let check_conflicts = show_full; // Only check conflicts with --full (expensive)
 
-    // Detect whether to show progress bars (only for table format)
+    // Progressive rendering only for table format with Progressive mode
     let show_progress = match format {
-        crate::OutputFormat::Table => {
-            RenderMode::detect(progressive, no_progressive, directive_mode)
-                == RenderMode::Progressive
-        }
+        crate::OutputFormat::Table => render_mode == RenderMode::Progressive,
         crate::OutputFormat::Json => false, // JSON never shows progress
     };
 

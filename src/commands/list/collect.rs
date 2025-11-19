@@ -112,141 +112,160 @@ pub(super) fn detect_worktree_state(repo: &Repository) -> Option<String> {
     }
 }
 
-/// Compute status symbols from individual components (for progressive rendering).
+/// Compute status symbols for a single item (worktrees and branches).
 ///
-/// This is a simplified version of compute_status_symbols that works with individual fields
-/// rather than StatusInfo struct. Used during progressive rendering when fields arrive separately.
-#[allow(clippy::too_many_arguments)]
-fn compute_status_symbols_from_parts(
-    working_tree_symbols: &str,
-    counts: &AheadBehind,
-    upstream: &UpstreamStatus,
-    has_conflicts: bool,
-    worktree_state: Option<&str>,
-    wt: &Worktree,
-    working_tree_diff: &LineDiff,
-    working_tree_diff_with_main: Option<&LineDiff>,
-    is_primary: bool,
-    base_branch: Option<&str>,
-    user_status: Option<String>,
-) -> StatusSymbols {
-    // Build main divergence
-    let main_divergence = match (counts.ahead, counts.behind) {
-        (0, 0) => MainDivergence::None,
-        (a, 0) if a > 0 => MainDivergence::Ahead,
-        (0, b) if b > 0 => MainDivergence::Behind,
-        _ => MainDivergence::Diverged,
-    };
+/// This is idempotent and can be called multiple times as new data arrives.
+/// It will recompute with the latest available data.
+///
+/// Branches get a subset of status symbols (no working tree, git operation, or worktree attrs).
+fn compute_item_status_symbols(item: &mut ListItem, primary: &Worktree) {
+    // Common fields for both worktrees and branches
+    let default_counts = AheadBehind::default();
+    let default_upstream = UpstreamStatus::default();
+    let counts = item.counts.as_ref().unwrap_or(&default_counts);
+    let upstream = item.upstream.as_ref().unwrap_or(&default_upstream);
+    let has_conflicts = item.has_conflicts.unwrap_or(false);
+    let user_status = item.user_status.clone();
 
-    // Build upstream divergence
-    let (upstream_ahead, upstream_behind) =
-        upstream.active().map(|(_, a, b)| (a, b)).unwrap_or((0, 0));
-    let upstream_divergence = match (upstream_ahead, upstream_behind) {
-        (0, 0) => UpstreamDivergence::None,
-        (a, 0) if a > 0 => UpstreamDivergence::Ahead,
-        (0, b) if b > 0 => UpstreamDivergence::Behind,
-        _ => UpstreamDivergence::Diverged,
-    };
+    match &item.kind {
+        ItemKind::Worktree(data) => {
+            // Full status computation for worktrees
+            let base_branch = primary
+                .branch
+                .as_deref()
+                .filter(|_| data.path != primary.path);
 
-    // Determine branch state (only for non-primary worktrees with base branch)
-    let branch_state = if !is_primary && base_branch.is_some() {
-        // Check for MatchesMain (requires mdiff to confirm working tree matches main's tree)
-        if let Some(mdiff) = working_tree_diff_with_main {
-            if mdiff.added == 0 && mdiff.deleted == 0 && counts.ahead == 0 {
-                BranchState::MatchesMain
-            } else if counts.ahead == 0
-                && working_tree_diff.added == 0
-                && working_tree_diff.deleted == 0
-            {
-                BranchState::NoCommits
+            // Worktree attributes (used directly from data instead of separate Worktree)
+            let mut worktree_attrs = String::new();
+            if data.locked.is_some() {
+                worktree_attrs.push('⊠');
+            }
+            if data.prunable.is_some() {
+                worktree_attrs.push('⚠');
+            }
+
+            // Determine branch state (only for non-primary worktrees with base branch)
+            let branch_state = if !data.is_primary && base_branch.is_some() {
+                // Check for MatchesMain (requires mdiff to confirm working tree matches main's tree)
+                if let Some(mdiff) = data
+                    .working_tree_diff_with_main
+                    .as_ref()
+                    .and_then(|opt| opt.as_ref())
+                {
+                    if mdiff.added == 0 && mdiff.deleted == 0 && counts.ahead == 0 {
+                        BranchState::MatchesMain
+                    } else if counts.ahead == 0
+                        && data
+                            .working_tree_diff
+                            .as_ref()
+                            .map(|d| d.is_empty())
+                            .unwrap_or(true)
+                    {
+                        BranchState::NoCommits
+                    } else {
+                        BranchState::None
+                    }
+                } else {
+                    // mdiff is None (optimization when trees differ)
+                    // Can still determine NoCommits without computing diff
+                    if counts.ahead == 0
+                        && data
+                            .working_tree_diff
+                            .as_ref()
+                            .map(|d| d.is_empty())
+                            .unwrap_or(true)
+                    {
+                        BranchState::NoCommits
+                    } else {
+                        BranchState::None
+                    }
+                }
             } else {
                 BranchState::None
-            }
-        } else {
-            // mdiff is None (optimization when trees differ)
-            // Can still determine NoCommits without computing diff
-            if counts.ahead == 0 && working_tree_diff.added == 0 && working_tree_diff.deleted == 0 {
-                BranchState::NoCommits
-            } else {
-                BranchState::None
-            }
+            };
+
+            // Determine git operation
+            let git_operation = match data.worktree_state.as_deref() {
+                Some("rebase") => GitOperation::Rebase,
+                Some("merge") => GitOperation::Merge,
+                _ => GitOperation::None,
+            };
+
+            // Main divergence
+            let main_divergence = match (counts.ahead, counts.behind) {
+                (0, 0) => MainDivergence::None,
+                (a, 0) if a > 0 => MainDivergence::Ahead,
+                (0, b) if b > 0 => MainDivergence::Behind,
+                _ => MainDivergence::Diverged,
+            };
+
+            // Upstream divergence
+            let (upstream_ahead, upstream_behind) =
+                upstream.active().map(|(_, a, b)| (a, b)).unwrap_or((0, 0));
+            let upstream_divergence = match (upstream_ahead, upstream_behind) {
+                (0, 0) => UpstreamDivergence::None,
+                (a, 0) if a > 0 => UpstreamDivergence::Ahead,
+                (0, b) if b > 0 => UpstreamDivergence::Behind,
+                _ => UpstreamDivergence::Diverged,
+            };
+
+            item.status_symbols = Some(StatusSymbols {
+                has_conflicts,
+                has_potential_conflicts: false,
+                branch_state,
+                git_operation,
+                worktree_attrs,
+                main_divergence,
+                upstream_divergence,
+                working_tree: data
+                    .working_tree_symbols
+                    .as_deref()
+                    .unwrap_or("")
+                    .to_string(),
+                user_status,
+            });
         }
-    } else {
-        BranchState::None
-    };
+        ItemKind::Branch => {
+            // Simplified status computation for branches
+            // Only compute symbols that apply to branches (no working tree, git operation, or worktree attrs)
 
-    // Determine git operation
-    let git_operation = match worktree_state {
-        Some("rebase") => GitOperation::Rebase,
-        Some("merge") => GitOperation::Merge,
-        _ => GitOperation::None,
-    };
+            // Main divergence
+            let main_divergence = match (counts.ahead, counts.behind) {
+                (0, 0) => MainDivergence::None,
+                (a, 0) if a > 0 => MainDivergence::Ahead,
+                (0, b) if b > 0 => MainDivergence::Behind,
+                _ => MainDivergence::Diverged,
+            };
 
-    // Worktree attributes
-    let mut worktree_attrs = String::new();
-    // Note: wt.bare is always false here because WorktreeList filters out bare worktrees
-    // See src/git/mod.rs:88 - bare worktrees are removed before reaching this code
-    if wt.locked.is_some() {
-        worktree_attrs.push('⊠');
-    }
-    if wt.prunable.is_some() {
-        worktree_attrs.push('⚠');
-    }
+            // Upstream divergence
+            let (upstream_ahead, upstream_behind) =
+                upstream.active().map(|(_, a, b)| (a, b)).unwrap_or((0, 0));
+            let upstream_divergence = match (upstream_ahead, upstream_behind) {
+                (0, 0) => UpstreamDivergence::None,
+                (a, 0) if a > 0 => UpstreamDivergence::Ahead,
+                (0, b) if b > 0 => UpstreamDivergence::Behind,
+                _ => UpstreamDivergence::Diverged,
+            };
 
-    StatusSymbols {
-        has_conflicts,
-        has_potential_conflicts: false, // Not computed in fast path
-        branch_state,
-        git_operation,
-        worktree_attrs,
-        main_divergence,
-        upstream_divergence,
-        working_tree: working_tree_symbols.to_string(),
-        user_status,
-    }
-}
+            // Branch state - only compute if we have actual counts data
+            // Branches without worktrees can only show NoCommits (no unique commits) or None
+            let branch_state = match item.counts {
+                Some(ref c) if c.ahead == 0 => BranchState::NoCommits,
+                _ => BranchState::None,
+            };
 
-/// Compute status_symbols for all worktrees after data collection is complete.
-/// Compute status symbols for a single item (worktree only).
-/// Returns true if status was computed, false if item is not a worktree or already has status.
-fn compute_item_status_symbols(
-    item: &mut ListItem,
-    sorted_worktrees: &[Worktree],
-    primary: &Worktree,
-    worktree_idx: usize,
-) -> bool {
-    // Skip if already computed
-    if item.status_symbols.is_some() {
-        return false;
-    }
-
-    if let ItemKind::Worktree(data) = &item.kind {
-        let wt = &sorted_worktrees[worktree_idx];
-        let base_branch = primary
-            .branch
-            .as_deref()
-            .filter(|_| wt.path != primary.path);
-
-        item.status_symbols = Some(compute_status_symbols_from_parts(
-            data.working_tree_symbols.as_deref().unwrap_or(""),
-            item.counts.as_ref().unwrap_or(&AheadBehind::default()),
-            item.upstream.as_ref().unwrap_or(&UpstreamStatus::default()),
-            item.has_conflicts.unwrap_or(false),
-            data.worktree_state.as_deref(),
-            wt,
-            data.working_tree_diff
-                .as_ref()
-                .unwrap_or(&LineDiff::default()),
-            data.working_tree_diff_with_main
-                .as_ref()
-                .and_then(|opt| opt.as_ref()),
-            data.is_primary,
-            base_branch,
-            item.user_status.clone(),
-        ));
-        true
-    } else {
-        false
+            item.status_symbols = Some(StatusSymbols {
+                has_conflicts,
+                has_potential_conflicts: false,
+                branch_state,
+                git_operation: GitOperation::None,
+                worktree_attrs: String::new(),
+                main_divergence,
+                upstream_divergence,
+                working_tree: String::new(),
+                user_status,
+            });
+        }
     }
 }
 
@@ -609,36 +628,21 @@ pub fn collect(
     // Drop the original sender so drain_cell_updates knows when all spawned threads are done
     drop(tx);
 
-    // Track completed cells for footer progress and worktree index for status computation
+    // Track completed cells for footer progress
     let mut completed_cells = 0;
-    let mut worktree_idx_map = vec![None; all_items.len()];
-    {
-        let mut wt_idx = 0;
-        for (item_idx, item) in all_items.iter().enumerate() {
-            if matches!(item.kind, ItemKind::Worktree(_)) {
-                worktree_idx_map[item_idx] = Some(wt_idx);
-                wt_idx += 1;
-            }
-        }
-    }
 
     // Drain cell updates with conditional progressive rendering
     drain_cell_updates(rx, &mut all_items, |item_idx, info| {
+        // Compute/recompute status symbols as data arrives (both modes)
+        // This is idempotent and updates status as new data (like upstream) arrives
+        compute_item_status_symbols(info, &primary);
+
+        // Progressive mode only: update UI
         if show_progress {
             use anstyle::Style;
             let dim = Style::new().dimmed();
 
             completed_cells += 1;
-
-            // Compute status symbols progressively once we have working_tree_symbols
-            // (that indicates we have the core data needed for status computation)
-            if info.status_symbols.is_none()
-                && let (ItemKind::Worktree(data), Some(wt_idx)) =
-                    (&info.kind, worktree_idx_map[item_idx])
-                && data.working_tree_symbols.is_some()
-            {
-                compute_item_status_symbols(info, &sorted_worktrees, &primary, wt_idx);
-            }
 
             // Update footer progress
             if let Some(pb) = footer_pb.as_ref() {
@@ -719,16 +723,7 @@ pub fn collect(
         }
     }
 
-    // Compute status_symbols for any items that didn't get computed during progressive loading
-    // (fallback for buffered mode or if progressive computation was skipped for some reason)
-    {
-        let mut worktree_idx = 0;
-        for item in all_items.iter_mut() {
-            if compute_item_status_symbols(item, &sorted_worktrees, &primary, worktree_idx) {
-                worktree_idx += 1;
-            }
-        }
-    }
+    // Status symbols are now computed during data collection (both modes), no fallback needed
 
     // Compute display fields for all items (used by JSON output and buffered mode)
     // Progressive mode renders from raw data during collection but still populates these for consistency

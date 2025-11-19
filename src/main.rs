@@ -213,14 +213,11 @@ fn main() {
             full,
             progressive,
             no_progressive,
-        } => handle_list(
-            format,
-            branches,
-            full,
-            progressive,
-            no_progressive,
-            cli.internal,
-        ),
+        } => {
+            use commands::list::progressive::RenderMode;
+            let render_mode = RenderMode::detect(progressive, no_progressive, cli.internal);
+            handle_list(format, branches, full, render_mode)
+        }
         Commands::Switch {
             branch,
             create,
