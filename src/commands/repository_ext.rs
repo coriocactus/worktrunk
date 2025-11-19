@@ -32,11 +32,10 @@ pub trait RepositoryCliExt {
         check_conflicts: bool,
     ) -> Result<Option<ListData>, GitError>;
 
-    /// Remove the currently checked-out worktree or switch back to the default branch if invoked
-    /// from the primary repo root.
-    fn remove_current_worktree(&self, no_delete_branch: bool) -> Result<RemoveResult, GitError>;
-
     /// Remove a worktree identified by branch name.
+    ///
+    /// When removing the current worktree from the main repo, automatically checks if
+    /// already on default branch or switches to it first.
     fn remove_worktree_by_name(
         &self,
         branch_name: &str,
@@ -167,47 +166,6 @@ impl RepositoryCliExt for Repository {
         }))
     }
 
-    fn remove_current_worktree(&self, no_delete_branch: bool) -> Result<RemoveResult, GitError> {
-        self.ensure_clean_working_tree()?;
-
-        if self.is_in_worktree()? {
-            let worktree_root = self.worktree_root()?;
-            let current_branch = self
-                .current_branch()?
-                .ok_or_else(|| GitError::message("Not on a branch"))?;
-            let worktrees = self.list_worktrees()?;
-            let primary_worktree_dir = worktrees.worktrees[0].path.clone();
-
-            return Ok(RemoveResult::RemovedWorktree {
-                primary_path: primary_worktree_dir,
-                worktree_path: worktree_root,
-                changed_directory: true,
-                branch_name: current_branch,
-                no_delete_branch,
-                target_branch: None,
-            });
-        }
-
-        let current_branch = self.current_branch()?;
-        let default_branch = self.default_branch()?;
-
-        if current_branch.as_deref() == Some(&default_branch) {
-            return Ok(RemoveResult::AlreadyOnDefault(default_branch));
-        }
-
-        if let Err(err) = self.run_command(&["switch", &default_branch]) {
-            return Err(match err {
-                GitError::CommandFailed(msg) => GitError::SwitchFailed {
-                    branch: default_branch.clone(),
-                    error: msg,
-                },
-                other => other,
-            });
-        }
-
-        Ok(RemoveResult::SwitchedToDefault(default_branch))
-    }
-
     fn remove_worktree_by_name(
         &self,
         branch_name: &str,
@@ -233,6 +191,11 @@ impl RepositoryCliExt for Repository {
 
         let current_worktree = self.worktree_root()?;
         let removing_current = current_worktree == worktree_path;
+
+        // Error if trying to remove main worktree (align with git behavior)
+        if removing_current && !self.is_in_worktree()? {
+            return Err(GitError::CannotRemoveMainWorktree);
+        }
 
         let (primary_path, changed_directory) = if removing_current {
             let worktrees = self.list_worktrees()?;

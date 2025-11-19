@@ -143,8 +143,6 @@ impl SwitchResult {
 
 /// Result of a worktree remove operation
 pub enum RemoveResult {
-    /// Already on default branch, no action taken
-    AlreadyOnDefault(String),
     /// Removed worktree and returned to primary (if needed)
     RemovedWorktree {
         primary_path: PathBuf,
@@ -154,8 +152,6 @@ pub enum RemoveResult {
         no_delete_branch: bool,
         target_branch: Option<String>,
     },
-    /// Switched to default branch in main repo
-    SwitchedToDefault(String),
 }
 
 pub fn handle_switch(
@@ -370,34 +366,21 @@ pub fn handle_switch(
 }
 
 pub fn handle_remove(
-    worktree_name: Option<&str>,
+    worktree_name: &str,
     no_delete_branch: bool,
     background: bool,
 ) -> Result<RemoveResult, GitError> {
     let repo = Repository::current();
 
-    // Resolve "@" to current branch early so progress message shows resolved name
-    let resolved_name = if let Some(name) = worktree_name {
-        Some(repo.resolve_worktree_name(name)?)
-    } else {
-        None
-    };
-
-    // Show progress with resolved name (unless running in background - output handler will show command)
+    // Show progress (unless running in background - output handler will show command)
     if !background {
-        let progress_msg = if let Some(ref b) = resolved_name {
-            format!("{CYAN}Removing worktree for {CYAN_BOLD}{b}{CYAN_BOLD:#}...{CYAN:#}")
-        } else {
-            format!("{CYAN}Removing worktree...{CYAN:#}")
-        };
+        let progress_msg = format!(
+            "{CYAN}Removing worktree for {CYAN_BOLD}{worktree_name}{CYAN_BOLD:#}...{CYAN:#}"
+        );
         crate::output::progress(progress_msg)?;
     }
 
-    // Two modes: remove current worktree vs. remove by name
-    match resolved_name.as_deref() {
-        None => repo.remove_current_worktree(no_delete_branch),
-        Some(name) => repo.remove_worktree_by_name(name, no_delete_branch),
-    }
+    repo.remove_worktree_by_name(worktree_name, no_delete_branch)
 }
 
 impl<'a> CommandContext<'a> {

@@ -85,13 +85,15 @@ fn test_remove_internal_directive() {
             .current_dir(repo.root_path());
 
         assert_cmd_snapshot!(cmd, @r"
-        success: true
-        exit_code: 0
+        success: false
+        exit_code: 1
         ----- stdout -----
+        ❌ [31mCannot remove main worktree[0m
+
+        💡 [2mUse 'wt remove' from a secondary worktree, or 'wt switch' to change branches[0m
 
         ----- stderr -----
-        🔄 [36mRemoving worktree...[0m
-        ✅ [32mAlready on default branch [1m[32mmain[0m[0m
+        🔄 [36mRemoving worktree for [1m[36mmain[0m...[0m
         ");
     });
 }
@@ -111,11 +113,13 @@ fn test_remove_without_internal() {
         cmd.arg("remove").current_dir(repo.root_path());
 
         assert_cmd_snapshot!(cmd, @r"
-        success: true
-        exit_code: 0
+        success: false
+        exit_code: 1
         ----- stdout -----
-        🔄 [36mRemoving worktree...[0m
-        ✅ [32mAlready on default branch [1m[32mmain[0m[0m
+        🔄 [36mRemoving worktree for [1m[36mmain[0m...[0m
+        ❌ [31mCannot remove main worktree[0m
+
+        💡 [2mUse 'wt remove' from a secondary worktree, or 'wt switch' to change branches[0m
 
         ----- stderr -----
         ");

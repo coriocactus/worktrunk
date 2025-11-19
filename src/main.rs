@@ -265,66 +265,56 @@ fn main() {
             worktrees,
             no_delete_branch,
             background,
-        } => {
+        } => (|| -> Result<(), GitError> {
+            let repo = Repository::current();
+
             if worktrees.is_empty() {
                 // No worktrees specified, remove current worktree
-                handle_remove(None, no_delete_branch, background)
-                    .and_then(|result| handle_remove_output(&result, None, false, background))
+                let current_branch = repo.resolve_worktree_name("@")?;
+                let result = handle_remove(&current_branch, no_delete_branch, background)?;
+                handle_remove_output(&result, None, false, background)
             } else {
                 // When removing multiple worktrees, we need to handle the current worktree last
                 // to avoid deleting the directory we're currently in
-                (|| -> Result<(), GitError> {
-                    let repo = Repository::current();
-                    let current_worktree = repo.worktree_root().ok();
+                let current_worktree = repo.worktree_root().ok();
 
-                    // Partition worktrees into current and others
-                    let mut others = Vec::new();
-                    let mut current = None;
+                // Partition worktrees into current and others, storing resolved names
+                let mut others = Vec::new();
+                let mut current = None;
 
-                    for worktree_name in &worktrees {
-                        // Resolve "@" to current branch (fail fast on errors like detached HEAD)
-                        let resolved = repo.resolve_worktree_name(worktree_name)?;
+                for worktree_name in &worktrees {
+                    // Resolve "@" to current branch (fail fast on errors like detached HEAD)
+                    let resolved = repo.resolve_worktree_name(worktree_name)?;
 
-                        // Check if this is the current worktree by comparing branch names
-                        if let Ok(Some(worktree_path)) = repo.worktree_for_branch(&resolved) {
-                            if Some(&worktree_path) == current_worktree.as_ref() {
-                                current = Some(worktree_name);
-                            } else {
-                                others.push(worktree_name);
-                            }
+                    // Check if this is the current worktree by comparing branch names
+                    if let Ok(Some(worktree_path)) = repo.worktree_for_branch(&resolved) {
+                        if Some(&worktree_path) == current_worktree.as_ref() {
+                            current = Some(resolved);
                         } else {
-                            // Worktree doesn't exist or branch not found, will error when we try to remove
-                            others.push(worktree_name);
+                            others.push(resolved);
                         }
+                    } else {
+                        // Worktree doesn't exist or branch not found, will error when we try to remove
+                        others.push(resolved);
                     }
+                }
 
-                    // Remove others first, then current last
-                    // Progress messages shown by handle_remove_output for all cases
-                    for worktree in others.iter() {
-                        let result =
-                            handle_remove(Some(worktree.as_str()), no_delete_branch, background)?;
-                        handle_remove_output(&result, Some(worktree.as_str()), false, background)?;
-                    }
+                // Remove others first, then current last
+                // Progress messages shown by handle_remove_output for all cases
+                for resolved in &others {
+                    let result = handle_remove(resolved, no_delete_branch, background)?;
+                    handle_remove_output(&result, Some(resolved), false, background)?;
+                }
 
-                    // Remove current worktree last (if it was in the list)
-                    if let Some(current_name) = current {
-                        let result = handle_remove(
-                            Some(current_name.as_str()),
-                            no_delete_branch,
-                            background,
-                        )?;
-                        handle_remove_output(
-                            &result,
-                            Some(current_name.as_str()),
-                            false,
-                            background,
-                        )?;
-                    }
+                // Remove current worktree last (if it was in the list)
+                if let Some(resolved) = current {
+                    let result = handle_remove(&resolved, no_delete_branch, background)?;
+                    handle_remove_output(&result, Some(&resolved), false, background)?;
+                }
 
-                    Ok(())
-                })()
+                Ok(())
             }
-        }
+        })(),
         Commands::Merge {
             target,
             no_squash,

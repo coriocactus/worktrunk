@@ -74,6 +74,8 @@ pub enum GitError {
     },
     /// Deleting a branch failed
     BranchDeletionFailed { branch: String, error: String },
+    /// Cannot remove main worktree
+    CannotRemoveMainWorktree,
 }
 
 impl GitError {
@@ -330,6 +332,13 @@ impl std::fmt::Display for GitError {
                     "{ERROR_EMOJI} {ERROR}Failed to delete branch {ERROR_BOLD}{branch}{ERROR_BOLD:#}{ERROR:#}"
                 );
                 write!(f, "{}", format_error_block(header, error))
+            }
+
+            GitError::CannotRemoveMainWorktree => {
+                write!(
+                    f,
+                    "{ERROR_EMOJI} {ERROR}Cannot remove main worktree{ERROR:#}\n\n{HINT_EMOJI} {HINT}Use 'wt remove' from a secondary worktree, or 'wt switch' to change branches{HINT:#}"
+                )
             }
         }
     }

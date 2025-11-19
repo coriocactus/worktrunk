@@ -48,48 +48,40 @@ fn format_remove_message(
     branch: Option<&str>,
     branch_deleted: bool,
 ) -> String {
-    match result {
-        RemoveResult::AlreadyOnDefault(branch) => {
-            format!("{GREEN}Already on default branch {GREEN_BOLD}{branch}{GREEN_BOLD:#}{GREEN:#}")
-        }
-        RemoveResult::RemovedWorktree {
-            primary_path,
-            changed_directory,
-            branch_name,
-            no_delete_branch,
-            ..
-        } => {
-            // Build the action description based on actual outcome
-            let action = if *no_delete_branch || !branch_deleted {
-                "Removed worktree"
-            } else {
-                "Removed worktree & branch"
-            };
+    let RemoveResult::RemovedWorktree {
+        primary_path,
+        changed_directory,
+        branch_name,
+        no_delete_branch,
+        ..
+    } = result;
 
-            let branch_display = branch.or(Some(branch_name));
+    // Build the action description based on actual outcome
+    let action = if *no_delete_branch || !branch_deleted {
+        "Removed worktree"
+    } else {
+        "Removed worktree & branch"
+    };
 
-            if *changed_directory {
-                if let Some(b) = branch_display {
-                    // Re-establish GREEN after each green_bold reset to prevent color leak
-                    format!(
-                        "{GREEN}{action} for {GREEN_BOLD}{b}{GREEN_BOLD:#}{GREEN}, changed directory to {GREEN_BOLD}{}{GREEN_BOLD:#}{GREEN:#}",
-                        primary_path.display()
-                    )
-                } else {
-                    format!(
-                        "{GREEN}{action}, changed directory to {GREEN_BOLD}{}{GREEN_BOLD:#}{GREEN:#}",
-                        primary_path.display()
-                    )
-                }
-            } else if let Some(b) = branch_display {
-                format!("{GREEN}{action} for {GREEN_BOLD}{b}{GREEN_BOLD:#}{GREEN:#}")
-            } else {
-                format!("{GREEN}{action}{GREEN:#}")
-            }
+    let branch_display = branch.or(Some(branch_name));
+
+    if *changed_directory {
+        if let Some(b) = branch_display {
+            // Re-establish GREEN after each green_bold reset to prevent color leak
+            format!(
+                "{GREEN}{action} for {GREEN_BOLD}{b}{GREEN_BOLD:#}{GREEN}, changed directory to {GREEN_BOLD}{}{GREEN_BOLD:#}{GREEN:#}",
+                primary_path.display()
+            )
+        } else {
+            format!(
+                "{GREEN}{action}, changed directory to {GREEN_BOLD}{}{GREEN_BOLD:#}{GREEN:#}",
+                primary_path.display()
+            )
         }
-        RemoveResult::SwitchedToDefault(branch) => {
-            format!("{GREEN}Switched to default branch {GREEN_BOLD}{branch}{GREEN_BOLD:#}{GREEN:#}")
-        }
+    } else if let Some(b) = branch_display {
+        format!("{GREEN}{action} for {GREEN_BOLD}{b}{GREEN_BOLD:#}{GREEN:#}")
+    } else {
+        format!("{GREEN}{action}{GREEN:#}")
     }
 }
 
@@ -182,13 +174,6 @@ pub fn handle_remove_output(
     strict_branch_deletion: bool,
     background: bool,
 ) -> Result<(), GitError> {
-    // For non-worktree removals, show message immediately
-    if !matches!(result, RemoveResult::RemovedWorktree { .. }) {
-        super::success(format_remove_message(result, branch, false))?;
-        super::flush()?;
-        return Ok(());
-    }
-
     let RemoveResult::RemovedWorktree {
         primary_path,
         worktree_path,
@@ -196,10 +181,7 @@ pub fn handle_remove_output(
         branch_name,
         no_delete_branch,
         target_branch,
-    } = result
-    else {
-        unreachable!("Already handled non-RemovedWorktree cases above")
-    };
+    } = result;
 
     // 1. Emit cd directive if needed - shell will execute this immediately
     if *changed_directory {
