@@ -6,7 +6,14 @@ use std::path::PathBuf;
 use std::process::Command;
 
 /// Get path to dev-detach binary, building it once if needed.
+///
 /// Uses file locking to ensure only one concurrent build across test processes.
+/// This prevents cargo lock contention that was causing SIGKILL failures when
+/// multiple test processes invoked `cargo run -p dev-detach` simultaneously.
+///
+/// The lock prevents concurrent builds but does not protect against the binary
+/// being deleted after the lock is released. In practice, this is not an issue
+/// in the test environment.
 fn get_dev_detach_bin() -> PathBuf {
     let manifest_dir = std::env::current_dir().expect("Failed to get current directory");
     let bin_path = manifest_dir.join("target/debug/dev-detach");
@@ -18,10 +25,16 @@ fn get_dev_detach_bin() -> PathBuf {
         .truncate(false)
         .write(true)
         .open(&lock_path)
-        .expect("Failed to create lock file");
+        .unwrap_or_else(|e| panic!("Failed to create lock file at {:?}: {}", lock_path, e));
 
     // Acquire exclusive lock (blocks if another process is building)
-    lock_file.lock_exclusive().expect("Failed to acquire lock");
+    lock_file.lock_exclusive().unwrap_or_else(|e| {
+        panic!(
+            "Failed to acquire exclusive lock on {:?}: {}. \
+             This may indicate a deadlock or filesystem permission issue.",
+            lock_path, e
+        )
+    });
 
     // While holding lock: build if binary doesn't exist
     if !bin_path.exists() {
@@ -35,7 +48,7 @@ fn get_dev_detach_bin() -> PathBuf {
         }
     }
 
-    // Lock is automatically released when lock_file is dropped
+    // Release lock before returning
     drop(lock_file);
 
     bin_path
@@ -81,7 +94,7 @@ fn build_shell_command(repo: &TestRepo, shell: &str, script: &str) -> Command {
     cmd.env_remove("XONSHRC");
     cmd.env_remove("XDG_CONFIG_HOME");
 
-    // Build argument list: cargo run --manifest-path <...> -p dev-detach -- <shell> [shell-flags...] -c <script>
+    // Build argument list: <dev-detach-binary> <shell> [shell-flags...] -c <script>
     cmd.arg(get_shell_binary(shell));
 
     // Add shell-specific no-config flags
