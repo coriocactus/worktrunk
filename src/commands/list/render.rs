@@ -1,7 +1,8 @@
 use crate::display::{format_relative_time, shorten_path, truncate_at_word_boundary};
 use anstyle::{AnsiColor, Color, Style};
 use std::path::Path;
-use worktrunk::styling::{CURRENT, StyledLine, println};
+use unicode_width::UnicodeWidthStr;
+use worktrunk::styling::{CURRENT, StyledLine};
 
 use super::ci_status::{CiSource, CiStatus, PrStatus};
 use super::columns::{ColumnKind, DiffVariant};
@@ -9,7 +10,7 @@ use super::layout::{
     ColumnFormat, ColumnLayout, DiffColumnConfig, DiffDisplayConfig, LayoutConfig,
 };
 use super::model::{
-    AheadBehind, CommitDetails, ListItem, PositionMask, UpstreamStatus, WorktreeInfo,
+    AheadBehind, CommitDetails, ListItem, PositionMask, UpstreamStatus, WorktreeData,
 };
 use worktrunk::git::LineDiff;
 
@@ -97,30 +98,6 @@ impl PrStatus {
         (indicator, style)
     }
 
-    /// Format CI status as plain text with ANSI colors (for json-pretty)
-    pub fn format_plain(&self) -> String {
-        let status_str = match self.ci_status {
-            CiStatus::Passed => "passed",
-            CiStatus::Running => "running",
-            CiStatus::Failed => "failed",
-            CiStatus::Conflicts => "conflicts",
-            CiStatus::NoCI => "no-ci",
-        };
-
-        let (indicator, style) = self.indicator_and_style();
-
-        let text = format!("{} {}", indicator, status_str);
-
-        let content = if let Some(ref url) = self.url {
-            use worktrunk::styling::hyperlink;
-            hyperlink(&text, url)
-        } else {
-            text
-        };
-
-        format!("{}{}{}", style, content, style.render_reset())
-    }
-
     fn render_indicator(&self) -> StyledLine {
         let mut segment = StyledLine::new();
         let (indicator, style) = self.indicator_and_style();
@@ -143,16 +120,9 @@ impl PrStatus {
 }
 
 #[derive(Clone, Copy)]
-enum ValueAlign {
-    Left,
-    Right,
-}
-
-#[derive(Clone, Copy)]
 struct DiffRenderConfig {
     positive_symbol: &'static str,
     negative_symbol: &'static str,
-    align: ValueAlign,
 }
 
 impl DiffVariant {
@@ -161,21 +131,94 @@ impl DiffVariant {
             DiffVariant::Signs => DiffRenderConfig {
                 positive_symbol: "+",
                 negative_symbol: "-",
-                align: ValueAlign::Right,
             },
             DiffVariant::Arrows => DiffRenderConfig {
                 positive_symbol: "↑",
                 negative_symbol: "↓",
-                align: ValueAlign::Left,
             },
         }
     }
 }
 
 impl DiffColumnConfig {
+    /// Check if a value exceeds the allocated digit width
+    fn exceeds_width(value: usize, digits: usize) -> bool {
+        if digits == 0 {
+            return value > 0;
+        }
+        let max_value = 10_usize.pow(digits as u32) - 1;
+        value > max_value
+    }
+
+    /// Check if a subcolumn value should be rendered (non-zero or explicitly showing zeros)
+    fn should_render(value: usize, always_show_zeros: bool) -> bool {
+        value > 0 || (value == 0 && always_show_zeros)
+    }
+
+    /// Format a value using compact notation (C for hundreds, K for thousands)
+    /// Ensures the result never exceeds 2 characters
+    ///
+    /// Note: Uses integer division for approximation (intentional truncation):
+    /// - 648 / 100 = 6 → "6C" (represents ~600)
+    /// - 1999 / 1000 = 1 → "1K" (represents ~1000)
+    ///
+    /// This provides approximate values optimized for readability over precision.
+    ///
+    /// Examples: 5 -> "5", 42 -> "42", 100 -> "1C", 648 -> "6C", 1000 -> "1K", 15000 -> "9K"
+    fn format_overflow(value: usize) -> String {
+        if value >= 10_000 {
+            // Cap at 9K to maintain 2-char limit (indicates "very large")
+            "9K".to_string()
+        } else if value >= 1_000 {
+            format!("{}K", value / 1_000)
+        } else if value >= 100 {
+            format!("{}C", value / 100)
+        } else {
+            value.to_string()
+        }
+    }
+
+    /// Render a subcolumn value with symbol and padding to fixed width
+    /// Numbers are right-aligned on the ones column (e.g., " +2", "+53")
+    /// For overflow, renders bold with C/K suffix (e.g., bold "+6C", bold "+5K")
+    fn render_subcolumn(
+        segment: &mut StyledLine,
+        symbol: &str,
+        value: usize,
+        width: usize,
+        style: Style,
+        overflow: bool,
+    ) {
+        let value_str = if overflow {
+            Self::format_overflow(value)
+        } else {
+            value.to_string()
+        };
+        let content_len = 1 + value_str.len(); // symbol + digits
+        let padding_needed = width.saturating_sub(content_len);
+
+        // Add left padding for right-alignment
+        if padding_needed > 0 {
+            segment.push_raw(" ".repeat(padding_needed));
+        }
+
+        // Add styled content - bold entire value if using compact notation
+        if overflow {
+            // When overflow is true, format_overflow() uses compact notation (C/K suffix)
+            // Make entire value bold to emphasize approximation
+            segment.push_styled(format!("{}{}", symbol, value_str), style.bold());
+        } else {
+            segment.push_styled(format!("{}{}", symbol, value_str), style);
+        }
+    }
+
     fn render_segment(&self, positive: usize, negative: usize) -> StyledLine {
         let render_config = self.display.variant.render_config();
         let mut segment = StyledLine::new();
+
+        // Check for overflow
+        let positive_overflow = Self::exceeds_width(positive, self.digits.added);
+        let negative_overflow = Self::exceeds_width(negative, self.digits.deleted);
 
         if positive == 0 && negative == 0 && !self.display.always_show_zeros {
             segment.push_raw(" ".repeat(self.total_width));
@@ -184,43 +227,47 @@ impl DiffColumnConfig {
 
         let positive_width = 1 + self.digits.added;
         let negative_width = 1 + self.digits.deleted;
-        let content_width = positive_width + 1 + negative_width;
-        let extra_padding = self.total_width.saturating_sub(content_width);
 
-        if matches!(render_config.align, ValueAlign::Right) && extra_padding > 0 {
-            segment.push_raw(" ".repeat(extra_padding));
+        // Fixed content width ensures vertical alignment of subcolumns
+        let content_width = positive_width + 1 + negative_width;
+        let total_padding = self.total_width.saturating_sub(content_width);
+
+        // Add leading padding for right-alignment
+        if total_padding > 0 {
+            segment.push_raw(" ".repeat(total_padding));
         }
 
-        if positive > 0 || (positive == 0 && self.display.always_show_zeros) {
-            let value = format!("{}{}", render_config.positive_symbol, positive);
-            let formatted = match render_config.align {
-                ValueAlign::Right => format!("{:>width$}", value, width = positive_width),
-                ValueAlign::Left => format!("{:<width$}", value, width = positive_width),
-            };
-            segment.push_styled(formatted, self.display.positive_style);
+        // Render positive (added) subcolumn
+        if Self::should_render(positive, self.display.always_show_zeros) {
+            Self::render_subcolumn(
+                &mut segment,
+                render_config.positive_symbol,
+                positive,
+                positive_width,
+                self.display.positive_style,
+                positive_overflow,
+            );
         } else {
+            // Empty positive subcolumn - add spaces to maintain alignment
             segment.push_raw(" ".repeat(positive_width));
         }
 
+        // Always add separator to maintain fixed layout (early return handles empty case)
         segment.push_raw(" ");
 
-        if negative > 0 || (negative == 0 && self.display.always_show_zeros) {
-            let value = format!("{}{}", render_config.negative_symbol, negative);
-            let formatted = match render_config.align {
-                ValueAlign::Right => format!("{:>width$}", value, width = negative_width),
-                ValueAlign::Left => format!("{:<width$}", value, width = negative_width),
-            };
-            segment.push_styled(formatted, self.display.negative_style);
+        // Render negative (deleted) subcolumn
+        if Self::should_render(negative, self.display.always_show_zeros) {
+            Self::render_subcolumn(
+                &mut segment,
+                render_config.negative_symbol,
+                negative,
+                negative_width,
+                self.display.negative_style,
+                negative_overflow,
+            );
         } else {
+            // Empty negative subcolumn - add spaces to maintain alignment
             segment.push_raw(" ".repeat(negative_width));
-        }
-
-        if matches!(render_config.align, ValueAlign::Left) && extra_padding > 0 {
-            segment.pad_to(segment.width() + extra_padding);
-        }
-
-        if segment.width() < self.total_width {
-            segment.pad_to(self.total_width);
         }
 
         segment
@@ -241,34 +288,64 @@ impl LayoutConfig {
 
         for (index, column) in self.columns.iter().enumerate() {
             line.pad_to(column.start);
-            line.extend(render_cell(column));
+            let cell = render_cell(column);
+            let cell_width = cell.width();
 
+            // Debug: Log if cell exceeds its allocated width
+            if cell_width > column.width {
+                log::debug!(
+                    "Cell overflow: column={:?} allocated={} actual={} excess={}",
+                    column.kind,
+                    column.width,
+                    cell_width,
+                    cell_width - column.width
+                );
+            }
+
+            line.extend(cell);
+
+            // Pad to end of column (unless it's the last column)
             if index != last_index {
                 line.pad_to(column.start + column.width);
             }
         }
 
+        let final_width = line.width();
+        log::debug!("Rendered line width: {}", final_width);
+
         line
     }
 
-    pub fn format_header_line(&self) {
+    pub fn format_header_line(&self) -> String {
         let style = Style::new().bold();
         let line = self.render_line(|column| {
             let mut cell = StyledLine::new();
             if !column.header.is_empty() {
+                // Diff columns have right-aligned values, so right-align headers too
+                let is_diff_column = matches!(column.format, ColumnFormat::Diff(_));
+
+                if is_diff_column {
+                    // Right-align header within column width
+                    let header_width = column.header.width();
+                    if header_width < column.width {
+                        let padding = column.width - header_width;
+                        cell.push_raw(" ".repeat(padding));
+                    }
+                }
+
                 cell.push_styled(column.header.to_string(), style);
             }
             cell
         });
 
-        println!("{}", line.render());
+        line.render()
     }
 
     pub fn format_list_item_line(
         &self,
         item: &ListItem,
         current_worktree_path: Option<&std::path::PathBuf>,
-    ) {
+    ) -> String {
         let ctx = ListRowContext::new(item, current_worktree_path);
         let line = self.render_line(|column| {
             column.render_cell(
@@ -279,24 +356,100 @@ impl LayoutConfig {
             )
         });
 
-        println!("{}", line.render());
+        line.render()
+    }
+
+    /// Render a skeleton row showing known data (branch, path) with placeholders for other columns
+    pub fn format_skeleton_row(
+        &self,
+        wt: &worktrunk::git::Worktree,
+        is_primary: bool,
+        is_current: bool,
+    ) -> String {
+        use crate::display::shorten_path;
+        use unicode_width::UnicodeWidthStr;
+
+        let branch = wt.branch.as_deref().unwrap_or("(detached)");
+        let shortened_path = shorten_path(&wt.path, &self.common_prefix);
+
+        let dim = Style::new().dimmed();
+        let spinner = "⋯"; // Placeholder character
+
+        let line = self.render_line(|col| {
+            let mut cell = StyledLine::new();
+
+            match col.kind {
+                ColumnKind::Branch => {
+                    // Show actual branch name
+                    let style = if is_current {
+                        CURRENT.bold()
+                    } else if is_primary {
+                        Style::new()
+                            .fg_color(Some(Color::Ansi(AnsiColor::Cyan)))
+                            .bold()
+                    } else {
+                        dim
+                    };
+                    cell.push_styled(branch, style);
+                    // Pad to column width
+                    let branch_width = branch.width();
+                    if branch_width < col.width {
+                        cell.push_raw(" ".repeat(col.width - branch_width));
+                    }
+                }
+                ColumnKind::Path => {
+                    // Show actual path
+                    let style = if is_current {
+                        CURRENT.bold()
+                    } else if is_primary {
+                        Style::new()
+                            .fg_color(Some(Color::Ansi(AnsiColor::Cyan)))
+                            .bold()
+                    } else {
+                        dim
+                    };
+                    cell.push_styled(&shortened_path, style);
+                    // Pad to column width
+                    let path_width = shortened_path.width();
+                    if path_width < col.width {
+                        cell.push_raw(" ".repeat(col.width - path_width));
+                    }
+                }
+                ColumnKind::Commit => {
+                    // Show actual commit hash (always available)
+                    let short_head = &wt.head[..8.min(wt.head.len())];
+                    cell.push_styled(short_head, dim);
+                }
+                _ => {
+                    // Show spinner for data columns
+                    cell.push_styled(spinner, dim);
+                    if spinner.width() < col.width {
+                        cell.push_raw(" ".repeat(col.width - spinner.width()));
+                    }
+                }
+            }
+
+            cell
+        });
+
+        line.render()
     }
 }
 
 struct ListRowContext<'a> {
     item: &'a ListItem,
-    worktree_info: Option<&'a WorktreeInfo>,
-    counts: &'a AheadBehind,
+    worktree_info: Option<&'a WorktreeData>,
+    counts: AheadBehind,
     branch_diff: LineDiff,
-    upstream: &'a UpstreamStatus,
-    commit: &'a CommitDetails,
+    upstream: UpstreamStatus,
+    commit: CommitDetails,
     head: &'a str,
     text_style: Option<Style>,
 }
 
 impl<'a> ListRowContext<'a> {
     fn new(item: &'a ListItem, current_worktree_path: Option<&std::path::PathBuf>) -> Self {
-        let worktree_info = item.worktree_info();
+        let worktree_info = item.worktree_data();
         let counts = item.counts();
         let commit = item.commit_details();
         let branch_diff = item.branch_diff().diff;
@@ -366,36 +519,38 @@ impl ColumnLayout {
         match self.kind {
             ColumnKind::Branch => {
                 let mut cell = StyledLine::new();
-                let text = ctx.item.branch_name().to_string();
+                let text = ctx.item.branch.as_deref().unwrap_or("(detached)");
                 if let Some(style) = ctx.text_style {
-                    cell.push_styled(text, style);
+                    cell.push_styled(text.to_string(), style);
                 } else {
-                    cell.push_raw(text);
+                    cell.push_raw(text.to_string());
                 }
                 cell
             }
             ColumnKind::Status => {
                 let mut cell = StyledLine::new();
 
-                if let Some(info) = ctx.worktree_info {
-                    // Render all status symbols including user status (Position 4)
-                    cell.push_raw(info.status_symbols.render_with_mask(status_mask));
-                } else if let ListItem::Branch(branch_info) = ctx.item
-                    && let Some(ref user_status) = branch_info.user_status
-                {
-                    // For branches, create a minimal StatusSymbols with just user_status
-                    use crate::commands::list::model::StatusSymbols;
-                    let branch_symbols = StatusSymbols {
-                        user_status: Some(user_status.clone()),
-                        ..Default::default()
-                    };
-                    cell.push_raw(branch_symbols.render_with_mask(status_mask));
+                // Render status symbols (works for both worktrees and branches)
+                if let Some(ref status_symbols) = ctx.item.status_symbols {
+                    cell.push_raw(status_symbols.render_with_mask(status_mask));
+                } else if ctx.worktree_info.is_some() {
+                    // Show spinner while status is being computed (worktrees only)
+                    cell.push_styled("⋯", Style::new().dimmed());
+                }
+
+                // Pad to column width
+                let status_width = cell.width();
+                if status_width < self.width {
+                    cell.push_raw(" ".repeat(self.width - status_width));
                 }
 
                 cell
             }
             ColumnKind::WorkingDiff => {
-                let Some(diff) = ctx.worktree_info.map(|info| info.working_tree_diff) else {
+                let Some(diff) = ctx
+                    .worktree_info
+                    .and_then(|info| info.working_tree_diff.as_ref())
+                else {
                     return StyledLine::new();
                 };
                 self.render_diff_cell(diff.added, diff.deleted)
@@ -438,15 +593,48 @@ impl ColumnLayout {
             }
             ColumnKind::Time => {
                 let mut cell = StyledLine::new();
-                let time_str = format_relative_time(ctx.commit.timestamp);
-                cell.push_styled(time_str, Style::new().dimmed());
+
+                // Show spinner if commit details haven't loaded yet
+                if ctx.worktree_info.is_some() && ctx.item.commit.is_none() {
+                    cell.push_styled("⋯", Style::new().dimmed());
+                } else {
+                    let time_str = format_relative_time(ctx.commit.timestamp);
+                    cell.push_styled(time_str, Style::new().dimmed());
+                }
+
                 cell
             }
             ColumnKind::CiStatus => {
-                let Some(pr_status) = ctx.item.pr_status() else {
-                    return StyledLine::new();
-                };
-                pr_status.render_indicator()
+                // Check display field first for pending indicators during progressive rendering
+                if ctx.worktree_info.is_some()
+                    && let Some(ref ci_display) = ctx.item.display.ci_status_display
+                {
+                    let mut cell = StyledLine::new();
+                    // ci_status_display contains pre-formatted ANSI text (either actual status or "⋯")
+                    cell.push_raw(ci_display.clone());
+                    return cell;
+                }
+
+                // pr_status is Option<Option<PrStatus>>:
+                // - None = not loaded yet (show spinner)
+                // - Some(None) = loaded, no CI (show nothing)
+                // - Some(Some(status)) = loaded with CI (show status)
+                match ctx.item.pr_status() {
+                    None => {
+                        // Not loaded yet - show spinner
+                        let mut cell = StyledLine::new();
+                        cell.push_styled("⋯", Style::new().dimmed());
+                        cell
+                    }
+                    Some(None) => {
+                        // Loaded, no CI - show nothing
+                        StyledLine::new()
+                    }
+                    Some(Some(pr_status)) => {
+                        // Loaded with CI - show status
+                        pr_status.render_indicator()
+                    }
+                }
             }
             ColumnKind::Commit => {
                 let mut cell = StyledLine::new();
@@ -455,8 +643,16 @@ impl ColumnLayout {
             }
             ColumnKind::Message => {
                 let mut cell = StyledLine::new();
-                let msg = truncate_at_word_boundary(&ctx.commit.commit_message, max_message_len);
-                cell.push_styled(msg, Style::new().dimmed());
+
+                // Show spinner if commit details haven't loaded yet
+                if ctx.worktree_info.is_some() && ctx.item.commit.is_none() {
+                    cell.push_styled("⋯", Style::new().dimmed());
+                } else {
+                    let msg =
+                        truncate_at_word_boundary(&ctx.commit.commit_message, max_message_len);
+                    cell.push_styled(msg, Style::new().dimmed());
+                }
+
                 cell
             }
         }
@@ -854,7 +1050,10 @@ mod tests {
         assert_eq!(with.width(), total);
         let rendered_with = with.render();
         let clean_with = strip_ansi_escapes::strip_str(&rendered_with);
-        assert_eq!(clean_with, "↑0 ↓0  ", "Should render ↑0 ↓0 with padding");
+        assert_eq!(
+            clean_with, "  ↑0 ↓0",
+            "Should render ↑0 ↓0 with padding (right-aligned)"
+        );
     }
 
     #[test]
@@ -916,5 +1115,284 @@ mod tests {
         line3.pad_to(status_start3 + 10); // Pad to width 10
 
         assert_eq!(line3.width(), 10, "Complex status should pad to 10");
+    }
+
+    #[test]
+    fn test_diff_column_numeric_right_alignment() {
+        use super::super::columns::DiffVariant;
+
+        // Test that numbers are right-aligned on the ones column
+        // When we have 2-digit allocation but use 1-digit values, they should have leading space
+        let digits = DiffDigits {
+            added: 2, // Allocates 3 chars: "+NN"
+            deleted: 2,
+        };
+        let total = 8; // 3 (added) + 1 (separator) + 3 (deleted) + 1 (leading padding)
+
+        // Test case 1: (53, 7) - large added, small deleted
+        let result1 = format_diff_like_column(
+            53,
+            7,
+            DiffColumnConfig {
+                digits,
+                total_width: total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Signs,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        let rendered1 = result1.render();
+        let clean1 = strip_ansi_escapes::strip_str(&rendered1);
+        assert_eq!(clean1, " +53  -7", "Should be ' +53  -7'");
+
+        // Test case 2: (33, 23) - both medium
+        let result2 = format_diff_like_column(
+            33,
+            23,
+            DiffColumnConfig {
+                digits,
+                total_width: total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Signs,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        let rendered2 = result2.render();
+        let clean2 = strip_ansi_escapes::strip_str(&rendered2);
+        assert_eq!(clean2, " +33 -23", "Should be ' +33 -23'");
+
+        // Test case 3: (2, 2) - both small (needs padding)
+        let result3 = format_diff_like_column(
+            2,
+            2,
+            DiffColumnConfig {
+                digits,
+                total_width: total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Signs,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        let rendered3 = result3.render();
+        let clean3 = strip_ansi_escapes::strip_str(&rendered3);
+        assert_eq!(clean3, "  +2  -2", "Should be '  +2  -2'");
+
+        // Verify vertical alignment: the ones digits should be in the same column
+        // The ones digit should be at position 3 for all cases (with 2-digit allocation)
+        // ' +53  -7' -> position 3 is '3'
+        // ' +33 -23' -> position 3 is '3' (second '3', the ones digit)
+        // '  +2  -2' -> position 3 is '2'
+        let ones_pos = 3;
+        assert_eq!(
+            clean1.chars().nth(ones_pos).unwrap(),
+            '3',
+            "Ones digit of 53 should be at position {ones_pos}"
+        );
+        assert_eq!(
+            clean2.chars().nth(ones_pos).unwrap(),
+            '3',
+            "Ones digit of 33 should be at position {ones_pos}"
+        );
+        assert_eq!(
+            clean3.chars().nth(ones_pos).unwrap(),
+            '2',
+            "Ones digit of 2 should be at position {ones_pos}"
+        );
+    }
+
+    #[test]
+    fn test_diff_column_overflow_handling() {
+        use super::super::columns::DiffVariant;
+
+        // Test overflow with Signs variant (+ and -)
+        // Allocated: 3 digits for added, 3 digits for deleted (total width 9)
+        // Max value: 999
+        let digits = DiffDigits {
+            added: 3,
+            deleted: 3,
+        };
+        let total = 9;
+
+        // Case 1: Value just within limit (should render normally)
+        let result = format_diff_like_column(
+            999,
+            999,
+            DiffColumnConfig {
+                digits,
+                total_width: total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Signs,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        assert_eq!(result.width(), total);
+        assert!(result.render().contains("999"));
+
+        // Case 2: Positive overflow (1000 exceeds 3 digits)
+        // Should show: "+1K -500" (positive with K suffix, negative normal)
+        let overflow_result = format_diff_like_column(
+            1000,
+            500,
+            DiffColumnConfig {
+                digits,
+                total_width: total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Signs,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        assert_eq!(overflow_result.width(), total);
+        let rendered = overflow_result.render();
+        assert!(
+            rendered.contains("+1") && rendered.contains('K'),
+            "Positive overflow should show +1K (may have styling), got: {}",
+            rendered
+        );
+        assert!(
+            rendered.contains("500"),
+            "Negative value should show normally when positive overflows, got: {}",
+            rendered
+        );
+
+        // Case 3: Negative overflow
+        // Should show: "+500 -1K" (positive normal, negative with K suffix)
+        let overflow_result2 = format_diff_like_column(
+            500,
+            1000,
+            DiffColumnConfig {
+                digits,
+                total_width: total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Signs,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        assert_eq!(overflow_result2.width(), total);
+        let rendered2 = overflow_result2.render();
+        assert!(
+            rendered2.contains("500"),
+            "Positive value should show normally when negative overflows, got: {}",
+            rendered2
+        );
+        assert!(
+            rendered2.contains("-1") && rendered2.contains('K'),
+            "Negative overflow should show -1K (may have styling), got: {}",
+            rendered2
+        );
+
+        // Case 4: Extreme overflow (>= 10K values cap at 9K for 2-char limit)
+        let extreme_overflow = format_diff_like_column(
+            100_000,
+            200_000,
+            DiffColumnConfig {
+                digits,
+                total_width: total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Signs,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        assert_eq!(
+            extreme_overflow.width(),
+            total,
+            "100K overflow should fit in allocated width"
+        );
+        let extreme_rendered = extreme_overflow.render();
+        assert!(
+            extreme_rendered.contains("+9") && extreme_rendered.contains('K'),
+            "100K+ overflow should cap at +9K (may have styling), got: {}",
+            extreme_rendered
+        );
+        assert!(
+            extreme_rendered.contains("-9") && extreme_rendered.contains('K'),
+            "100K+ overflow should cap at -9K (may have styling), got: {}",
+            extreme_rendered
+        );
+
+        // Test overflow with Arrows variant (↑ and ↓)
+        let arrow_digits = DiffDigits {
+            added: 2,
+            deleted: 2,
+        };
+        let arrow_total = 7;
+
+        // Case 5: Arrow positive overflow (100 exceeds 2 digits, max is 99)
+        // Should show with K suffix (not repeated symbols)
+        let arrow_overflow = format_diff_like_column(
+            1000, // Use larger value to show K suffix
+            50,
+            DiffColumnConfig {
+                digits: arrow_digits,
+                total_width: arrow_total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Arrows,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        assert_eq!(arrow_overflow.width(), arrow_total);
+        let arrow_rendered = arrow_overflow.render();
+        assert!(
+            arrow_rendered.contains("↑1") && arrow_rendered.contains('K'),
+            "Arrow positive overflow should show ↑1K (may have styling), got: {}",
+            arrow_rendered
+        );
+        assert!(
+            arrow_rendered.contains("50"),
+            "Negative value should show normally when positive overflows, got: {}",
+            arrow_rendered
+        );
+
+        // Case 6: Arrow negative overflow
+        // Should show with K suffix
+        let arrow_overflow2 = format_diff_like_column(
+            50,
+            1000, // Use larger value to show K suffix
+            DiffColumnConfig {
+                digits: arrow_digits,
+                total_width: arrow_total,
+                display: DiffDisplayConfig {
+                    variant: DiffVariant::Arrows,
+                    positive_style: ADDITION,
+                    negative_style: DELETION,
+                    always_show_zeros: false,
+                },
+            },
+        );
+        assert_eq!(arrow_overflow2.width(), arrow_total);
+        let arrow_rendered2 = arrow_overflow2.render();
+        assert!(
+            arrow_rendered2.contains("50"),
+            "Positive value should show normally when negative overflows, got: {}",
+            arrow_rendered2
+        );
+        assert!(
+            arrow_rendered2.contains("↓1") && arrow_rendered2.contains('K'),
+            "Arrow negative overflow should show ↓1K (may have styling), got: {}",
+            arrow_rendered2
+        );
     }
 }

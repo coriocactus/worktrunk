@@ -177,6 +177,51 @@ pub fn gutter(content: impl Into<String>) -> io::Result<()> {
     })
 }
 
+/// Emit raw output without emoji decoration
+///
+/// Used for structured data like JSON. Goes to stdout in interactive mode,
+/// stderr in directive mode (where stdout is reserved for directives).
+///
+/// Example:
+/// ```rust,ignore
+/// output::raw(json_string)?;
+/// ```
+pub fn raw(content: impl Into<String>) -> io::Result<()> {
+    OUTPUT_CONTEXT.with(|ctx| {
+        let c = content.into();
+        match &mut *ctx.borrow_mut() {
+            OutputHandler::Interactive(i) => i.raw(c),
+            OutputHandler::Directive(d) => d.raw(c),
+        }
+    })
+}
+
+/// Emit raw terminal output to stderr
+///
+/// Used for table output that should appear on the same stream as progress bars.
+/// Goes to stderr in both interactive and directive modes.
+///
+/// TODO: This split between raw() and raw_terminal() is messy. Consider unifying
+/// the output system to have a clearer separation between structured data (JSON)
+/// and terminal UI (tables, progress bars).
+///
+/// Example:
+/// ```rust,ignore
+/// output::raw_terminal(layout.format_header_line())?;
+/// for item in items {
+///     output::raw_terminal(layout.format_item_line(item))?;
+/// }
+/// ```
+pub fn raw_terminal(content: impl Into<String>) -> io::Result<()> {
+    OUTPUT_CONTEXT.with(|ctx| {
+        let c = content.into();
+        match &mut *ctx.borrow_mut() {
+            OutputHandler::Interactive(i) => i.raw_terminal(c),
+            OutputHandler::Directive(d) => d.raw_terminal(c),
+        }
+    })
+}
+
 /// Request directory change (for shell integration)
 pub fn change_directory(path: impl AsRef<Path>) -> io::Result<()> {
     OUTPUT_CONTEXT.with(|ctx| {

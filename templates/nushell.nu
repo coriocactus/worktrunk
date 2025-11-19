@@ -78,7 +78,11 @@ if (which {{ cmd_prefix }} | is-not-empty) or ($env.WORKTRUNK_BIN? | is-not-empt
             $_WORKTRUNK_CMD
         }
 
-        # Force colors if wrapper's stdout is a TTY (respects NO_COLOR and explicit CLICOLOR_FORCE)
+        # Force colors if terminal is available (directive mode outputs to stderr)
+        # Respects NO_COLOR and explicit CLICOLOR_FORCE
+        # Note: Nushell's term size doesn't distinguish stdout vs stderr, but in directive
+        # mode output goes to stderr, so this check is conservative (may enable colors when
+        # stdout is TTY but stderr is redirected - users can set NO_COLOR to disable)
         if ($env.NO_COLOR? | is-empty) and ($env.CLICOLOR_FORCE? | is-empty) {
             if (do -i { term size } | is-not-empty) {
                 load-env { CLICOLOR_FORCE: "1" }

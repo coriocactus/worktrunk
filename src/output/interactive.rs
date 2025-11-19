@@ -86,6 +86,24 @@ impl InteractiveOutput {
         Ok(())
     }
 
+    pub fn raw(&mut self, content: String) -> io::Result<()> {
+        // Raw output without emoji decoration - for structured data like JSON
+        println!("{content}");
+        stdout().flush()?;
+        Ok(())
+    }
+
+    pub fn raw_terminal(&mut self, content: String) -> io::Result<()> {
+        // Raw output to stderr - for table output that should match progressive bars stream
+        // TODO: This split between raw() and raw_terminal() is messy. Consider unifying
+        // the output system to have a clearer separation between structured data (JSON)
+        // and terminal UI (tables, progress bars).
+        use worktrunk::styling::eprintln;
+        eprintln!("{content}");
+        stderr().flush()?;
+        Ok(())
+    }
+
     pub fn change_directory(&mut self, path: &Path) -> io::Result<()> {
         // In interactive mode, we can't actually change directory
         // Just store the target for execute commands

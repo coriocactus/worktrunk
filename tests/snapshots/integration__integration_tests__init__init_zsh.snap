@@ -16,7 +16,7 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpnjIQTI/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpwBTqs5/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -118,9 +118,10 @@ wt_exec() {
             _WORKTRUNK_CMD="./target/debug/wt"
         fi
 
-        # Force colors if wrapper's stdout is a TTY (respects NO_COLOR and explicit CLICOLOR_FORCE)
+        # Force colors if stderr is a TTY (directive mode outputs to stderr)
+        # Respects NO_COLOR and explicit CLICOLOR_FORCE
         if [[ -z "${NO_COLOR:-}" && -z "${CLICOLOR_FORCE:-}" ]]; then
-            if [[ -t 1 ]]; then export CLICOLOR_FORCE=1; fi
+            if [[ -t 2 ]]; then export CLICOLOR_FORCE=1; fi
         fi
 
         # Always use --internal mode for directive support
@@ -406,6 +407,8 @@ json\:"JSON output"))' \
 '-C+[Change working directory]:path:_files' \
 '--branches[Include branches without worktrees]' \
 '--full[Show CI, conflicts, and full diffs]' \
+'(--no-progressive)--progressive[Show rows progressively (auto-detects TTY)]' \
+'--no-progressive[Disable progressive rendering]' \
 '-v[Show git commands and debug info]' \
 '--verbose[Show git commands and debug info]' \
 '-h[Print help (see more with '\''--help'\'')]' \

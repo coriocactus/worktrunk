@@ -37,9 +37,10 @@ if command -v {{ cmd_prefix }} >/dev/null 2>&1 || [[ -n "${WORKTRUNK_BIN:-}" ]];
             _WORKTRUNK_CMD="./target/debug/{{ cmd_prefix }}"
         fi
 
-        # Force colors if wrapper's stdout is a TTY (respects NO_COLOR and explicit CLICOLOR_FORCE)
+        # Force colors if stderr is a TTY (directive mode outputs to stderr)
+        # Respects NO_COLOR and explicit CLICOLOR_FORCE
         if [[ -z "${NO_COLOR:-}" && -z "${CLICOLOR_FORCE:-}" ]]; then
-            if [[ -t 1 ]]; then export CLICOLOR_FORCE=1; fi
+            if [[ -t 2 ]]; then export CLICOLOR_FORCE=1; fi
         fi
 
         # Always use --internal mode for directive support

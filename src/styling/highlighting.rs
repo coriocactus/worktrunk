@@ -11,14 +11,17 @@ use synoptic::{TokOpt, from_extension};
 
 /// Maps bash token kinds to anstyle styles
 ///
-/// Token names come from tree-sitter-bash's highlight queries.
-/// Common tokens include:
-/// - "function": commands like npm, git, cargo, echo, cd
+/// Token names come from tree-sitter-bash 0.25's highlight queries.
+/// Must match the @-names in highlights.scm:
+/// - "function": commands (command_name nodes)
 /// - "keyword": bash keywords (if, then, for, while, do, done, etc.)
 /// - "string": quoted strings
 /// - "comment": hash-prefixed comments
-/// - "operator": operators like &&, ||, |, $, -, etc.
-/// - "constant": flags (arguments starting with -)
+/// - "operator": operators (&&, ||, |, $, -, etc.)
+/// - "property": variables (variable_name nodes)
+/// - "constant": constants/flags
+/// - "number": numeric values
+/// - "embedded": embedded content
 #[cfg(feature = "syntax-highlighting")]
 pub(super) fn bash_token_style(kind: &str) -> Option<Style> {
     match kind {
@@ -45,14 +48,17 @@ pub(super) fn bash_token_style(kind: &str) -> Option<Style> {
         // Operators (&&, ||, |, $, -, >, <, etc.) - cyan
         "operator" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)))),
 
-        // Variables ($VAR, ${VAR}) - yellow
-        "variable" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)))),
+        // Variables ($VAR, ${VAR}) - tree-sitter-bash 0.25 uses "property" not "variable"
+        "property" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)))),
 
         // Numbers - yellow
-        "digit" | "number" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)))),
+        "number" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)))),
 
         // Constants/flags (--flag, -f) - cyan
         "constant" => Some(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)))),
+
+        // Embedded content - default (no special styling)
+        "embedded" => None,
 
         // Everything else (plain arguments, etc.)
         _ => None,

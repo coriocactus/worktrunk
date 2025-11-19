@@ -127,9 +127,10 @@ if ((Get-Command {{ cmd_prefix }} -ErrorAction SilentlyContinue) -or $env:WORKTR
             $cmd = $script:_WORKTRUNK_CMD
         }
 
-        # Force colors if wrapper's stdout is a TTY (respects NO_COLOR and explicit CLICOLOR_FORCE)
+        # Force colors if stderr is a TTY (directive mode outputs to stderr)
+        # Respects NO_COLOR and explicit CLICOLOR_FORCE
         if (-not $env:NO_COLOR -and -not $env:CLICOLOR_FORCE) {
-            if ([Console]::IsOutputRedirected -eq $false) {
+            if ([Console]::IsErrorRedirected -eq $false) {
                 $env:CLICOLOR_FORCE = "1"
             }
         }

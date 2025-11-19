@@ -12,48 +12,25 @@ info:
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
     GIT_CONFIG_GLOBAL: /dev/null
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpvFchbF/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpYxhIJh/test-config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
 [
   {
-    "type": "worktree",
-    "path": "[REPO]",
     "head_sha": "a27cd57d20a6211799da676e70edefa5152f99fe",
     "branch": "main",
-    "bare": false,
-    "detached": false,
-    "locked": null,
-    "prunable": null,
     "timestamp": 0,
     "commit_message": "Main commit 2",
-    "ahead": 0,
-    "behind": 0,
-    "branch_diff": {
-      "added": 0,
-      "deleted": 0
-    },
-    "working_tree_diff": {
-      "added": 0,
-      "deleted": 0
-    },
-    "working_tree_diff_with_main": {
-      "added": 0,
-      "deleted": 0
-    },
-    "worktree_state": null,
-    "has_conflicts": false,
-    "is_primary": true,
     "upstream_remote": null,
     "upstream_ahead": 0,
     "upstream_behind": 0,
     "pr_status": null,
+    "has_conflicts": false,
     "status_symbols": {
       "has_conflicts": false,
       "has_potential_conflicts": false,
@@ -64,17 +41,27 @@ exit_code: 0
       "upstream_divergence": "",
       "working_tree": "",
       "user_status": null
-    }
-  },
-  {
+    },
     "type": "worktree",
-    "path": "[WORKTREE_FEATURE_AHEAD]",
-    "head_sha": "f16cd37915d5ee93903252f5cf877c76c54f3d50",
-    "branch": "feature-ahead",
+    "path": "[REPO]",
     "bare": false,
     "detached": false,
     "locked": null,
     "prunable": null,
+    "working_tree_diff": {
+      "added": 0,
+      "deleted": 0
+    },
+    "working_tree_diff_with_main": {
+      "added": 0,
+      "deleted": 0
+    },
+    "worktree_state": null,
+    "is_primary": true
+  },
+  {
+    "head_sha": "f16cd37915d5ee93903252f5cf877c76c54f3d50",
+    "branch": "feature-ahead",
     "timestamp": 0,
     "commit_message": "Feature commit 2",
     "ahead": 2,
@@ -83,17 +70,11 @@ exit_code: 0
       "added": 1,
       "deleted": 0
     },
-    "working_tree_diff": {
-      "added": 1,
-      "deleted": 1
-    },
-    "worktree_state": null,
-    "has_conflicts": false,
-    "is_primary": false,
     "upstream_remote": null,
     "upstream_ahead": 0,
     "upstream_behind": 0,
     "pr_status": null,
+    "has_conflicts": false,
     "status_symbols": {
       "has_conflicts": false,
       "has_potential_conflicts": false,
@@ -107,18 +88,24 @@ exit_code: 0
     },
     "commits_display": "/u001b[32m↑2/u001b[0m /u001b[2m/u001b[31m↓2/u001b[0m",
     "branch_diff_display": "/u001b[32m+1/u001b[0m",
-    "status_display": "/u001b[36m?!/u001b[0m  ↕    ",
-    "working_diff_display": "/u001b[32m+1/u001b[0m /u001b[31m-1/u001b[0m"
-  },
-  {
     "type": "worktree",
-    "path": "[WORKTREE_FEATURE_BEHIND]",
-    "head_sha": "6c3da84215d400bf6e05a7f9cd1efcfbd825b9e9",
-    "branch": "feature-behind",
+    "path": "[WORKTREE_FEATURE_AHEAD]",
     "bare": false,
     "detached": false,
     "locked": null,
     "prunable": null,
+    "working_tree_diff": {
+      "added": 1,
+      "deleted": 1
+    },
+    "working_tree_diff_with_main": null,
+    "worktree_state": null,
+    "is_primary": false,
+    "working_diff_display": "/u001b[32m+1/u001b[0m /u001b[31m-1/u001b[0m"
+  },
+  {
+    "head_sha": "6c3da84215d400bf6e05a7f9cd1efcfbd825b9e9",
+    "branch": "feature-behind",
     "timestamp": 0,
     "commit_message": "Initial commit on main",
     "ahead": 0,
@@ -127,17 +114,11 @@ exit_code: 0
       "added": 0,
       "deleted": 0
     },
-    "working_tree_diff": {
-      "added": 0,
-      "deleted": 0
-    },
-    "worktree_state": null,
-    "has_conflicts": false,
-    "is_primary": false,
     "upstream_remote": null,
     "upstream_ahead": 0,
     "upstream_behind": 0,
     "pr_status": null,
+    "has_conflicts": false,
     "status_symbols": {
       "has_conflicts": false,
       "has_potential_conflicts": false,
@@ -150,7 +131,19 @@ exit_code: 0
       "user_status": null
     },
     "commits_display": "/u001b[2m/u001b[31m↓2/u001b[0m",
-    "status_display": "   ↓ /u001b[2m∅/u001b[0m  "
+    "type": "worktree",
+    "path": "[WORKTREE_FEATURE_BEHIND]",
+    "bare": false,
+    "detached": false,
+    "locked": null,
+    "prunable": null,
+    "working_tree_diff": {
+      "added": 0,
+      "deleted": 0
+    },
+    "working_tree_diff_with_main": null,
+    "worktree_state": null,
+    "is_primary": false
   }
 ]
 

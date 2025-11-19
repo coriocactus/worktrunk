@@ -15,7 +15,7 @@
 //! - Position 0a: Conflicts (=)
 //! - Position 0b: Branch state (≡, ∅)
 //! - Position 0c: Git operation (↻, ⋈)
-//! - Position 0d: Worktree attributes (◇, ⊠, ⚠)
+//! - Position 0d: Worktree attributes (⊠, ⚠)
 //! - Position 1: Main divergence (↑, ↓, ↕)
 //! - Position 2: Upstream divergence (⇡, ⇣, ⇅)
 //! - Position 3: Working tree (?, !, +, », ✘)
@@ -196,6 +196,20 @@ pub const HEADER_AGE: &str = "Age";
 pub const HEADER_CI: &str = "CI";
 pub const HEADER_COMMIT: &str = "Commit";
 pub const HEADER_MESSAGE: &str = "Message";
+
+/// Calculate maximum display width for a value using compact notation.
+/// Returns the character width (including suffix) when the value is formatted.
+///
+/// Invariant: All values return either 1 or 2, ensuring consistent column width.
+///
+/// Examples: 0 -> 1, 5 -> 1, 42 -> 2, 100 -> 2 (displays as "1C"), 1000 -> 2 (displays as "1K")
+fn max_display_width(value: usize) -> usize {
+    if value < 10 {
+        1 // Single digit (0-9)
+    } else {
+        2 // All values >= 10 display as 2 chars (either "42" or "4C" or "4K")
+    }
+}
 
 /// Ensures a column width is at least as wide as its header.
 ///
@@ -489,25 +503,22 @@ pub fn calculate_column_widths(items: &[ListItem], fetch_ci: bool) -> LayoutMeta
     let mut max_upstream_behind_digits = 0;
 
     // Track which status positions are used across all items
-    let mut status_position_mask = super::model::PositionMask::default();
+    // Always use PositionMask::FULL for consistent spacing with progressive mode
+    // (progressive mode uses FULL because it doesn't have all data upfront)
 
     for item in items {
         let commit = item.commit_details();
         let counts = item.counts();
         let branch_diff = item.branch_diff().diff;
         let upstream = item.upstream();
-        let worktree_info = item.worktree_info();
+        let worktree_info = item.worktree_data();
 
         // Branch name
         max_branch = max_branch.max(item.branch_name().width());
 
         // Status column: git status symbols (worktrees only)
-        // Position mask is collected here for selective rendering
-        if let Some(info) = worktree_info {
-            // Collect position usage from this item's status symbols
-            let item_mask = info.status_symbols.position_mask();
-            status_position_mask.merge(&item_mask);
-        }
+        // Note: We always use PositionMask::FULL for rendering (see below),
+        // so we don't need to collect position masks from items anymore.
 
         // Time
         let time_str = crate::display::format_relative_time(commit.timestamp);
@@ -519,33 +530,34 @@ pub fn calculate_column_widths(items: &[ListItem], fetch_ci: bool) -> LayoutMeta
 
         // Ahead/behind (only for non-primary items) - track digits separately
         if !item.is_primary() && (counts.ahead > 0 || counts.behind > 0) {
-            max_ahead_digits = max_ahead_digits.max(counts.ahead.to_string().len());
-            max_behind_digits = max_behind_digits.max(counts.behind.to_string().len());
+            max_ahead_digits = max_ahead_digits.max(max_display_width(counts.ahead));
+            max_behind_digits = max_behind_digits.max(max_display_width(counts.behind));
         }
 
         // Working tree diff (worktrees only) - track digits separately
         if let Some(info) = worktree_info
-            && !info.working_tree_diff.is_empty()
+            && let Some(ref working_tree_diff) = info.working_tree_diff
+            && !working_tree_diff.is_empty()
         {
             max_wt_added_digits =
-                max_wt_added_digits.max(info.working_tree_diff.added.to_string().len());
+                max_wt_added_digits.max(max_display_width(working_tree_diff.added));
             max_wt_deleted_digits =
-                max_wt_deleted_digits.max(info.working_tree_diff.deleted.to_string().len());
+                max_wt_deleted_digits.max(max_display_width(working_tree_diff.deleted));
         }
 
         // Branch diff (only for non-primary items) - track digits separately
         if !item.is_primary() && !branch_diff.is_empty() {
-            max_br_added_digits = max_br_added_digits.max(branch_diff.added.to_string().len());
+            max_br_added_digits = max_br_added_digits.max(max_display_width(branch_diff.added));
             max_br_deleted_digits =
-                max_br_deleted_digits.max(branch_diff.deleted.to_string().len());
+                max_br_deleted_digits.max(max_display_width(branch_diff.deleted));
         }
 
         // Upstream tracking - track digits only (not remote name yet)
         if let Some((_remote_name, upstream_ahead, upstream_behind)) = upstream.active() {
             max_upstream_ahead_digits =
-                max_upstream_ahead_digits.max(upstream_ahead.to_string().len());
+                max_upstream_ahead_digits.max(max_display_width(upstream_ahead));
             max_upstream_behind_digits =
-                max_upstream_behind_digits.max(upstream_behind.to_string().len());
+                max_upstream_behind_digits.max(max_display_width(upstream_behind));
         }
     }
 
@@ -570,41 +582,22 @@ pub fn calculate_column_widths(items: &[ListItem], fetch_ci: bool) -> LayoutMeta
         max_upstream_behind_digits,
     );
 
-    // Calculate Status column width: maximum rendered width across all items
-    // Now that user_status is Position 4 in the grid, render_with_mask() includes it
-    // Note: render_with_mask() returns styled strings with ANSI codes, so we need to
-    // strip them before calculating visual width
-    let status_data_width = items
-        .iter()
-        .filter_map(|item| {
-            if let Some(info) = item.worktree_info() {
-                // Worktrees: render all symbols including user_status
-                let rendered = info.status_symbols.render_with_mask(&status_position_mask);
-                Some(worktrunk::styling::strip_ansi_codes(&rendered).width())
-            } else if let ListItem::Branch(branch_info) = item {
-                // Branches: create minimal StatusSymbols with just user_status
-                branch_info.user_status.as_ref().map(|user_status| {
-                    use crate::commands::list::model::StatusSymbols;
-                    let branch_symbols = StatusSymbols {
-                        user_status: Some(user_status.clone()),
-                        ..Default::default()
-                    };
-                    let rendered = branch_symbols.render_with_mask(&status_position_mask);
-                    worktrunk::styling::strip_ansi_codes(&rendered).width()
-                })
-            } else {
-                None
-            }
-        })
-        .max()
-        .unwrap_or(0);
+    // Status column: Must match PositionMask::FULL width for consistent alignment with progressive mode
+    // PositionMask::FULL allocates: 5+1+1+1+1+1+2+2 = 14 chars
+    // (working_tree=5, conflicts=1, git_op=1, main_div=1, upstream_div=1,
+    //  branch_state=1, worktree_attrs=2, user_status=2)
+    // This ensures buffered and progressive modes produce identical column layouts.
+    //
+    // User status is limited to single emoji or two characters (2 visual width allocation).
+    let has_status_data = items.iter().any(|item| {
+        item.status_symbols
+            .as_ref()
+            .map(|s| !s.is_empty())
+            .unwrap_or(false)
+    });
+    let final_status = fit_header(HEADER_STATUS, 14);
 
-    // For Status column: always fit header to prevent header overflow
-    // Even though we want narrow columns, we can't make them narrower than the header
-    let has_status_data = status_data_width > 0;
-    let final_status = fit_header(HEADER_STATUS, status_data_width);
-
-    // CI status column: Always 2 chars wide
+    // CI status column: Always 2 chars wide (single symbol "●")
     // Only show if we attempted to fetch CI data (regardless of whether any items have status)
     let has_ci_status = fetch_ci && items.iter().any(|item| item.pr_status().is_some());
     let ci_status_width = 2; // Fixed width
@@ -633,47 +626,27 @@ pub fn calculate_column_widths(items: &[ListItem], fetch_ci: bool) -> LayoutMeta
     LayoutMetadata {
         widths,
         data_flags,
-        status_position_mask,
+        status_position_mask: super::model::PositionMask::FULL,
     }
 }
 
-/// Calculate responsive layout based on terminal width
-pub fn calculate_responsive_layout(
-    items: &[ListItem],
+/// Allocate columns using priority-based allocation logic.
+///
+/// This is the core allocation algorithm used by both `calculate_responsive_layout()`
+/// (with actual data-based widths) and `calculate_layout_from_basics()` (with estimated widths).
+fn allocate_columns_with_priority(
+    metadata: &LayoutMetadata,
     show_full: bool,
     fetch_ci: bool,
+    max_path_width: usize,
+    commit_width: usize,
+    terminal_width: usize,
+    common_prefix: PathBuf,
 ) -> LayoutConfig {
-    let terminal_width = get_terminal_width();
-    let paths: Vec<&Path> = items
-        .iter()
-        .filter_map(|item| item.worktree_path().map(|path| path.as_path()))
-        .collect();
-    let common_prefix = find_common_prefix(&paths);
-
-    // Calculate ideal column widths and track which columns have data
-    let metadata = calculate_column_widths(items, fetch_ci);
-    let ideal_widths = metadata.widths;
-    let data_flags = metadata.data_flags;
-    let status_position_mask = metadata.status_position_mask;
-
-    // Calculate actual maximum path width (after common prefix removal)
-    let path_data_width = items
-        .iter()
-        .filter_map(|item| item.worktree_path())
-        .map(|path| {
-            use crate::display::shorten_path;
-            use unicode_width::UnicodeWidthStr;
-            shorten_path(path.as_path(), &common_prefix).width()
-        })
-        .max()
-        .unwrap_or(0);
-    let max_path_width = fit_header(HEADER_PATH, path_data_width);
-
-    let commit_width = fit_header(HEADER_COMMIT, COMMIT_HASH_WIDTH);
-
     let spacing = 2;
     let mut remaining = terminal_width;
 
+    // Build candidates with priorities
     let mut candidates: Vec<ColumnCandidate> = COLUMN_SPECS
         .iter()
         .filter(|spec| {
@@ -681,7 +654,7 @@ pub fn calculate_responsive_layout(
         })
         .map(|spec| ColumnCandidate {
             spec,
-            priority: if spec.kind.has_data(&data_flags) {
+            priority: if spec.kind.has_data(&metadata.data_flags) {
                 spec.base_priority
             } else {
                 spec.base_priority + EMPTY_PENALTY
@@ -694,7 +667,7 @@ pub fn calculate_responsive_layout(
     // Store which candidates have data for later calculation of hidden columns
     let candidates_with_data: Vec<_> = candidates
         .iter()
-        .map(|c| (c.spec.kind, c.spec.kind.has_data(&data_flags)))
+        .map(|c| (c.spec.kind, c.spec.kind.has_data(&metadata.data_flags)))
         .collect();
 
     const MIN_MESSAGE: usize = 20;
@@ -703,9 +676,11 @@ pub fn calculate_responsive_layout(
 
     let mut pending: Vec<PendingColumn> = Vec::new();
 
+    // Allocate columns in priority order
     for candidate in candidates {
         let spec = candidate.spec;
 
+        // Special handling for Message column
         if spec.kind == ColumnKind::Message {
             let is_first = pending.is_empty();
             let spacing_cost = if is_first { 0 } else { spacing };
@@ -718,9 +693,9 @@ pub fn calculate_responsive_layout(
             let mut message_width = 0;
 
             if available >= PREFERRED_MESSAGE {
-                message_width = PREFERRED_MESSAGE.min(ideal_widths.message);
+                message_width = PREFERRED_MESSAGE.min(metadata.widths.message);
             } else if available >= MIN_MESSAGE {
-                message_width = available.min(ideal_widths.message);
+                message_width = available.min(metadata.widths.message);
             }
 
             if message_width > 0 {
@@ -735,7 +710,8 @@ pub fn calculate_responsive_layout(
             continue;
         }
 
-        let Some(ideal) = ideal_for_column(spec, &ideal_widths, max_path_width, commit_width)
+        // For non-message columns
+        let Some(ideal) = ideal_for_column(spec, &metadata.widths, max_path_width, commit_width)
         else {
             continue;
         };
@@ -750,6 +726,7 @@ pub fn calculate_responsive_layout(
         }
     }
 
+    // Expand message column with leftover space
     let mut max_message_len = 0;
     if let Some(message_col) = pending
         .iter_mut()
@@ -762,8 +739,10 @@ pub fn calculate_responsive_layout(
         max_message_len = message_col.width;
     }
 
+    // Sort by display index to maintain correct visual order
     pending.sort_by_key(|col| col.spec.display_index);
 
+    // Build final column layouts with positions
     let gap = 2;
     let mut position = 0;
     let mut columns = Vec::new();
@@ -798,8 +777,186 @@ pub fn calculate_responsive_layout(
         common_prefix,
         max_message_len,
         hidden_nonempty_count,
-        status_position_mask,
+        status_position_mask: metadata.status_position_mask,
     }
+}
+
+/// Calculate responsive layout based on terminal width
+pub fn calculate_responsive_layout(
+    items: &[ListItem],
+    show_full: bool,
+    fetch_ci: bool,
+) -> LayoutConfig {
+    let terminal_width = get_terminal_width();
+    let paths: Vec<&Path> = items
+        .iter()
+        .filter_map(|item| item.worktree_path().map(|path| path.as_path()))
+        .collect();
+    let common_prefix = find_common_prefix(&paths);
+
+    // Calculate ideal column widths and track which columns have data
+    let metadata = calculate_column_widths(items, fetch_ci);
+
+    // Calculate actual maximum path width (after common prefix removal)
+    let path_data_width = items
+        .iter()
+        .filter_map(|item| item.worktree_path())
+        .map(|path| {
+            use crate::display::shorten_path;
+            use unicode_width::UnicodeWidthStr;
+            shorten_path(path.as_path(), &common_prefix).width()
+        })
+        .max()
+        .unwrap_or(0);
+    let max_path_width = fit_header(HEADER_PATH, path_data_width);
+
+    let commit_width = fit_header(HEADER_COMMIT, COMMIT_HASH_WIDTH);
+
+    allocate_columns_with_priority(
+        &metadata,
+        show_full,
+        fetch_ci,
+        max_path_width,
+        commit_width,
+        terminal_width,
+        common_prefix,
+    )
+}
+
+/// Calculate responsive layout from basic worktree info with estimated column widths.
+///
+/// This is used for progressive rendering where we want to show the layout immediately
+/// before collecting full data. We use:
+/// - Actual branch names and paths from worktree list (fast operation)
+/// - Branch names from branches without worktrees (when --branches is used)
+/// - Estimated widths for columns that require expensive git operations
+///
+/// The estimates are generous to minimize truncation:
+/// - Status: 5 chars (covers "≡ 🔧" and most common patterns)
+/// - HEAD±: 6 chars (covers "+12 -5" and similar)
+/// - main↕: 6 chars (covers "↑23 ↓5")
+/// - Remote⇅: 7 chars (header width, covers most cases)
+/// - Age: 15 chars (covers "3 months ago")
+/// - Commit: 8 chars (fixed)
+/// - Message: flexible (20-100 chars)
+///
+/// Note: This is work-in-progress for improved progressive rendering.
+pub fn calculate_layout_from_basics(
+    worktrees: &[worktrunk::git::Worktree],
+    branch_names: &[String],
+    show_full: bool,
+    fetch_ci: bool,
+) -> LayoutConfig {
+    let terminal_width = get_terminal_width();
+
+    // Calculate common prefix from paths
+    let paths: Vec<&Path> = worktrees.iter().map(|wt| wt.path.as_path()).collect();
+    let common_prefix = find_common_prefix(&paths);
+
+    // Calculate actual widths for things we know
+    // Include both worktree branch names AND branch names without worktrees
+    let max_worktree_branch = worktrees
+        .iter()
+        .filter_map(|wt| wt.branch.as_deref())
+        .map(|b| b.width())
+        .max()
+        .unwrap_or(0);
+
+    let max_standalone_branch = branch_names.iter().map(|b| b.width()).max().unwrap_or(0);
+
+    let max_branch = fit_header(
+        HEADER_BRANCH,
+        max_worktree_branch.max(max_standalone_branch),
+    );
+
+    let path_data_width = worktrees
+        .iter()
+        .map(|wt| {
+            use crate::display::shorten_path;
+            shorten_path(wt.path.as_path(), &common_prefix).width()
+        })
+        .max()
+        .unwrap_or(0);
+    let max_path_width = fit_header(HEADER_PATH, path_data_width);
+
+    // Fixed widths for slow columns (require expensive git operations)
+    // These are predetermined widths, not based on actual data
+    // Values exceeding these widths will be shown with K/M suffixes
+    //
+    // Status column: Must match PositionMask::FULL width for consistent alignment
+    // PositionMask::FULL allocates: 5+1+1+1+1+1+2+2 = 14 chars
+    // (working_tree=5, conflicts=1, git_op=1, main_div=1, upstream_div=1,
+    //  branch_state=1, worktree_attrs=2, user_status=2)
+    let status_fixed = fit_header(HEADER_STATUS, 14);
+    let working_diff_fixed = fit_header(HEADER_WORKING_DIFF, 9); // "+999 -999" (9 chars)
+    let ahead_behind_fixed = fit_header(HEADER_AHEAD_BEHIND, 7); // "↑99 ↓99" (7 chars)
+    let branch_diff_fixed = fit_header(HEADER_BRANCH_DIFF, 9); // "+999 -999" (9 chars)
+    let upstream_fixed = fit_header(HEADER_UPSTREAM, 7); // "↑99 ↓99" (7 chars)
+    let age_estimate = 15; // "3 months ago" (fast to compute)
+    let commit_width = fit_header(HEADER_COMMIT, COMMIT_HASH_WIDTH); // Fixed 8 chars
+    // CI column shows only indicator symbol (●/○/◐)
+    let ci_estimate = fit_header(HEADER_CI, 1);
+
+    // For progressive rendering, assume columns will have data
+    // (better to show and hide than to not show)
+    let data_flags = ColumnDataFlags {
+        status: true,
+        working_diff: true,
+        ahead_behind: true,
+        branch_diff: show_full,
+        upstream: true,
+        ci_status: fetch_ci,
+    };
+
+    // Build ColumnWidths with fixed widths for slow columns
+    let estimated_widths = ColumnWidths {
+        branch: max_branch,
+        status: status_fixed,
+        time: age_estimate,
+        ci_status: ci_estimate,
+        message: 50, // Will be flexible later
+        ahead_behind: DiffWidths {
+            total: ahead_behind_fixed,
+            added_digits: 2, // Compact notation at 100+
+            deleted_digits: 2,
+        },
+        working_diff: DiffWidths {
+            total: working_diff_fixed,
+            added_digits: 2, // Compact notation at 100+
+            deleted_digits: 2,
+        },
+        branch_diff: DiffWidths {
+            total: branch_diff_fixed,
+            added_digits: 2, // Compact notation at 100+
+            deleted_digits: 2,
+        },
+        upstream: DiffWidths {
+            total: upstream_fixed,
+            added_digits: 2, // Compact notation at 100+
+            deleted_digits: 2,
+        },
+    };
+
+    // Use full position mask for progressive rendering
+    // (we don't know which positions will be needed until data is collected)
+    let status_position_mask = super::model::PositionMask::FULL;
+
+    // Build metadata for allocation
+    let metadata = LayoutMetadata {
+        widths: estimated_widths,
+        data_flags,
+        status_position_mask,
+    };
+
+    allocate_columns_with_priority(
+        &metadata,
+        show_full,
+        fetch_ci,
+        max_path_width,
+        commit_width,
+        terminal_width,
+        common_prefix,
+    )
 }
 
 #[cfg(test)]
@@ -812,42 +969,47 @@ mod tests {
     #[test]
     fn test_column_width_calculation_with_unicode() {
         use crate::commands::list::model::{
-            AheadBehind, BranchDiffTotals, CommitDetails, DisplayFields, StatusSymbols,
-            UpstreamStatus, WorktreeInfo,
+            AheadBehind, BranchDiffTotals, CommitDetails, DisplayFields, ItemKind, StatusSymbols,
+            UpstreamStatus, WorktreeData,
         };
 
-        let info1 = WorktreeInfo {
-            path: PathBuf::from("/test"),
+        let item1 = super::ListItem {
             head: "abc123".to_string(),
             branch: Some("main".to_string()),
-            bare: false,
-            detached: false,
-            locked: None,
-            prunable: None,
-            commit: CommitDetails {
+            commit: Some(CommitDetails {
                 timestamp: 0,
                 commit_message: "Test".to_string(),
-            },
-            counts: AheadBehind {
+            }),
+            counts: Some(AheadBehind {
                 ahead: 3,
                 behind: 2,
-            },
-            working_tree_diff: LineDiff::from((100, 50)),
-            working_tree_diff_with_main: Some(LineDiff::default()),
-            branch_diff: BranchDiffTotals {
+            }),
+            branch_diff: Some(BranchDiffTotals {
                 diff: LineDiff::from((200, 30)),
-            },
-            is_primary: false,
-            upstream: UpstreamStatus::from_parts(Some("origin".to_string()), 4, 0),
-            worktree_state: None,
+            }),
+            upstream: Some(UpstreamStatus::from_parts(Some("origin".to_string()), 4, 0)),
             pr_status: None,
-            has_conflicts: false,
-            status_symbols: StatusSymbols::default(),
+            has_conflicts: Some(false),
+            user_status: None,
+            status_symbols: Some(StatusSymbols::default()),
             display: DisplayFields::default(),
-            working_diff_display: None,
+            kind: ItemKind::Worktree(Box::new(WorktreeData {
+                path: PathBuf::from("/test"),
+                bare: false,
+                detached: false,
+                locked: None,
+                prunable: None,
+                working_tree_diff: Some(LineDiff::from((100, 50))),
+                working_tree_diff_with_main: Some(Some(LineDiff::default())),
+                worktree_state: None,
+                is_primary: false,
+                working_tree_symbols: Some(String::new()),
+                is_dirty: Some(false),
+                working_diff_display: None,
+            })),
         };
 
-        let metadata = calculate_column_widths(&[super::ListItem::Worktree(info1)], false);
+        let metadata = calculate_column_widths(&[item1], false);
         let widths = metadata.widths;
 
         // "↑3 ↓2" has format "↑3 ↓2" = 1+1+1+1+1 = 5, header "main↕" is also 5
@@ -855,24 +1017,39 @@ mod tests {
             widths.ahead_behind.total, 5,
             "Ahead/behind column should fit header 'main↕' (width 5)"
         );
-        assert_eq!(widths.ahead_behind.added_digits, 1, "3 has 1 digit");
-        assert_eq!(widths.ahead_behind.deleted_digits, 1, "2 has 1 digit");
-
-        // "+100 -50" has width 8, but header "HEAD±" is 5, so column width is 8
+        assert_eq!(widths.ahead_behind.added_digits, 1, "3 displays as 1 digit");
         assert_eq!(
-            widths.working_diff.total, 8,
-            "Working diff column should fit header 'HEAD±' (width 5)"
+            widths.ahead_behind.deleted_digits, 1,
+            "2 displays as 1 digit"
         );
-        assert_eq!(widths.working_diff.added_digits, 3, "100 has 3 digits");
-        assert_eq!(widths.working_diff.deleted_digits, 2, "50 has 2 digits");
 
-        // "+200 -30" has width 8, header "main…±" is 6, so column width is 8
+        // "+1C -50" has width 7 (compact notation), header "HEAD±" is 5, so column width is 7
         assert_eq!(
-            widths.branch_diff.total, 8,
-            "Branch diff column should fit header 'main…±' (width 6)"
+            widths.working_diff.total, 7,
+            "Working diff column should fit data '+1C -50' (width 7)"
         );
-        assert_eq!(widths.branch_diff.added_digits, 3, "200 has 3 digits");
-        assert_eq!(widths.branch_diff.deleted_digits, 2, "30 has 2 digits");
+        assert_eq!(
+            widths.working_diff.added_digits, 2,
+            "100 displays as 2 digits (1C)"
+        );
+        assert_eq!(
+            widths.working_diff.deleted_digits, 2,
+            "50 displays as 2 digits"
+        );
+
+        // "+2C -30" has width 7 (compact notation), header "main…±" is 6, so column width is 7
+        assert_eq!(
+            widths.branch_diff.total, 7,
+            "Branch diff column should fit data '+2C -30' (width 7)"
+        );
+        assert_eq!(
+            widths.branch_diff.added_digits, 2,
+            "200 displays as 2 digits (2C)"
+        );
+        assert_eq!(
+            widths.branch_diff.deleted_digits, 2,
+            "30 displays as 2 digits"
+        );
 
         // Upstream: "↑4 ↓0" = "↑" (1) + "4" (1) + " " (1) + "↓" (1) + "0" (1) = 5, but header "Remote⇅" = 7
         assert_eq!(
@@ -884,45 +1061,97 @@ mod tests {
     }
 
     #[test]
+    fn test_max_display_width_edge_cases() {
+        // Single digits (0-9) display as 1 character
+        assert_eq!(max_display_width(0), 1, "0 displays as '0' (1 char)");
+        assert_eq!(max_display_width(5), 1, "5 displays as '5' (1 char)");
+        assert_eq!(max_display_width(9), 1, "9 displays as '9' (1 char)");
+
+        // Two digits (10-99) display as 2 characters
+        assert_eq!(max_display_width(10), 2, "10 displays as '10' (2 chars)");
+        assert_eq!(max_display_width(42), 2, "42 displays as '42' (2 chars)");
+        assert_eq!(max_display_width(99), 2, "99 displays as '99' (2 chars)");
+
+        // Hundreds (100-999) display as 2 characters with C suffix
+        assert_eq!(max_display_width(100), 2, "100 displays as '1C' (2 chars)");
+        assert_eq!(max_display_width(648), 2, "648 displays as '6C' (2 chars)");
+        assert_eq!(max_display_width(999), 2, "999 displays as '9C' (2 chars)");
+
+        // Thousands (1000-9999) display as 2 characters with K suffix
+        assert_eq!(
+            max_display_width(1000),
+            2,
+            "1000 displays as '1K' (2 chars)"
+        );
+        assert_eq!(
+            max_display_width(1500),
+            2,
+            "1500 displays as '1K' (2 chars)"
+        );
+        assert_eq!(
+            max_display_width(9999),
+            2,
+            "9999 displays as '9K' (2 chars)"
+        );
+
+        // Large values (10000+) cap at 2 characters
+        assert_eq!(
+            max_display_width(10000),
+            2,
+            "10000 displays as '9K' (capped at 2 chars)"
+        );
+        assert_eq!(
+            max_display_width(100000),
+            2,
+            "100000 displays as '9K' (capped at 2 chars)"
+        );
+    }
+
+    #[test]
     fn test_visible_columns_follow_gap_rule() {
         use crate::commands::list::model::{
-            AheadBehind, BranchDiffTotals, CommitDetails, DisplayFields, StatusSymbols,
-            UpstreamStatus, WorktreeInfo,
+            AheadBehind, BranchDiffTotals, CommitDetails, DisplayFields, ItemKind, StatusSymbols,
+            UpstreamStatus, WorktreeData,
         };
 
         // Create test data with specific widths to verify position calculation
-        let info = WorktreeInfo {
-            path: PathBuf::from("/test/path"),
+        let item = super::ListItem {
             head: "abc12345".to_string(),
             branch: Some("feature".to_string()),
-            bare: false,
-            detached: false,
-            locked: None,
-            prunable: None,
-            commit: CommitDetails {
+            commit: Some(CommitDetails {
                 timestamp: 1234567890,
                 commit_message: "Test commit message".to_string(),
-            },
-            counts: AheadBehind {
+            }),
+            counts: Some(AheadBehind {
                 ahead: 5,
                 behind: 10,
-            },
-            working_tree_diff: LineDiff::from((100, 50)),
-            working_tree_diff_with_main: Some(LineDiff::default()),
-            branch_diff: BranchDiffTotals {
+            }),
+            branch_diff: Some(BranchDiffTotals {
                 diff: LineDiff::from((200, 30)),
-            },
-            is_primary: false,
-            upstream: UpstreamStatus::from_parts(Some("origin".to_string()), 4, 2),
-            worktree_state: None,
+            }),
+            upstream: Some(UpstreamStatus::from_parts(Some("origin".to_string()), 4, 2)),
             pr_status: None,
-            has_conflicts: false,
-            status_symbols: StatusSymbols::default(),
+            has_conflicts: Some(false),
+            user_status: None,
+            status_symbols: Some(StatusSymbols::default()),
             display: DisplayFields::default(),
-            working_diff_display: None,
+            kind: ItemKind::Worktree(Box::new(WorktreeData {
+                path: PathBuf::from("/test/path"),
+                bare: false,
+                detached: false,
+                locked: None,
+                prunable: None,
+                working_tree_diff: Some(LineDiff::from((100, 50))),
+                working_tree_diff_with_main: Some(Some(LineDiff::default())),
+                worktree_state: None,
+                is_primary: false,
+                working_tree_symbols: Some(String::new()),
+                is_dirty: Some(false),
+                working_diff_display: None,
+            })),
         };
 
-        let items = vec![super::ListItem::Worktree(info)];
+        let items = vec![item];
         let layout = calculate_responsive_layout(&items, false, false);
 
         assert!(
@@ -960,43 +1189,48 @@ mod tests {
     #[test]
     fn test_column_positions_with_empty_columns() {
         use crate::commands::list::model::{
-            AheadBehind, BranchDiffTotals, CommitDetails, DisplayFields, StatusSymbols,
-            UpstreamStatus, WorktreeInfo,
+            AheadBehind, BranchDiffTotals, CommitDetails, DisplayFields, ItemKind, StatusSymbols,
+            UpstreamStatus, WorktreeData,
         };
 
         // Create minimal data - most columns will be empty
-        let info = WorktreeInfo {
-            path: PathBuf::from("/test"),
+        let item = super::ListItem {
             head: "abc12345".to_string(),
             branch: Some("main".to_string()),
-            bare: false,
-            detached: false,
-            locked: None,
-            prunable: None,
-            commit: CommitDetails {
+            commit: Some(CommitDetails {
                 timestamp: 1234567890,
                 commit_message: "Test".to_string(),
-            },
-            counts: AheadBehind {
+            }),
+            counts: Some(AheadBehind {
                 ahead: 0,
                 behind: 0,
-            },
-            working_tree_diff: LineDiff::default(),
-            working_tree_diff_with_main: Some(LineDiff::default()),
-            branch_diff: BranchDiffTotals {
+            }),
+            branch_diff: Some(BranchDiffTotals {
                 diff: LineDiff::default(),
-            },
-            is_primary: true, // Primary worktree: no ahead/behind shown
-            upstream: UpstreamStatus::default(),
-            worktree_state: None,
+            }),
+            upstream: Some(UpstreamStatus::default()),
             pr_status: None,
-            has_conflicts: false,
-            status_symbols: StatusSymbols::default(),
+            has_conflicts: Some(false),
+            user_status: None,
+            status_symbols: Some(StatusSymbols::default()),
             display: DisplayFields::default(),
-            working_diff_display: None,
+            kind: ItemKind::Worktree(Box::new(WorktreeData {
+                path: PathBuf::from("/test"),
+                bare: false,
+                detached: false,
+                locked: None,
+                prunable: None,
+                working_tree_diff: Some(LineDiff::default()),
+                working_tree_diff_with_main: Some(Some(LineDiff::default())),
+                worktree_state: None,
+                is_primary: true, // Primary worktree: no ahead/behind shown
+                working_tree_symbols: Some(String::new()),
+                is_dirty: Some(false),
+                working_diff_display: None,
+            })),
         };
 
-        let items = vec![super::ListItem::Worktree(info)];
+        let items = vec![item];
         let layout = calculate_responsive_layout(&items, false, false);
 
         assert!(
@@ -1023,45 +1257,50 @@ mod tests {
     #[test]
     fn test_consecutive_empty_columns_have_low_priority() {
         use crate::commands::list::model::{
-            AheadBehind, BranchDiffTotals, CommitDetails, DisplayFields, StatusSymbols,
-            UpstreamStatus, WorktreeInfo,
+            AheadBehind, BranchDiffTotals, CommitDetails, DisplayFields, ItemKind, StatusSymbols,
+            UpstreamStatus, WorktreeData,
         };
 
         // Create data where multiple consecutive columns are empty:
         // visible(branch) → empty(working_diff) → empty(ahead_behind) → empty(branch_diff)
         // → empty(states) → visible(path)
-        let info = WorktreeInfo {
-            path: PathBuf::from("/test/worktree"),
+        let item = super::ListItem {
             head: "abc12345".to_string(),
             branch: Some("feature-x".to_string()),
-            bare: false,
-            detached: false,
-            locked: None,
-            prunable: None,
-            commit: CommitDetails {
+            commit: Some(CommitDetails {
                 timestamp: 1234567890,
                 commit_message: "Test commit".to_string(),
-            },
-            counts: AheadBehind {
+            }),
+            counts: Some(AheadBehind {
                 ahead: 0,
                 behind: 0,
-            },
-            working_tree_diff: LineDiff::default(), // Empty: no dirty changes
-            working_tree_diff_with_main: Some(LineDiff::default()),
-            branch_diff: BranchDiffTotals {
+            }),
+            branch_diff: Some(BranchDiffTotals {
                 diff: LineDiff::default(),
-            }, // Empty: no diff
-            is_primary: true, // Empty: no ahead/behind for primary
-            upstream: UpstreamStatus::default(), // Empty: no upstream
-            worktree_state: None, // Empty: no state
+            }), // Empty: no diff
+            upstream: Some(UpstreamStatus::default()), // Empty: no upstream
             pr_status: None,
-            has_conflicts: false,
-            status_symbols: StatusSymbols::default(),
+            has_conflicts: Some(false),
+            user_status: None,
+            status_symbols: Some(StatusSymbols::default()),
             display: DisplayFields::default(),
-            working_diff_display: None,
+            kind: ItemKind::Worktree(Box::new(WorktreeData {
+                path: PathBuf::from("/test/worktree"),
+                bare: false,
+                detached: false,
+                locked: None,
+                prunable: None,
+                working_tree_diff: Some(LineDiff::default()), // Empty: no dirty changes
+                working_tree_diff_with_main: Some(Some(LineDiff::default())),
+                worktree_state: None, // Empty: no state
+                is_primary: true,     // Empty: no ahead/behind for primary
+                working_tree_symbols: Some(String::new()),
+                is_dirty: Some(false),
+                working_diff_display: None,
+            })),
         };
 
-        let items = vec![super::ListItem::Worktree(info)];
+        let items = vec![item];
         let layout = calculate_responsive_layout(&items, false, false);
 
         let path_visible = layout

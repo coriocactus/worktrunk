@@ -579,25 +579,53 @@ impl Repository {
     /// Returns (ahead, behind) where ahead is commits in head not in base,
     /// and behind is commits in base not in head.
     pub fn ahead_behind(&self, base: &str, head: &str) -> Result<(usize, usize), GitError> {
-        // Acquire permit once for both rev-list operations to avoid nested acquisition
-        let _guard = super::HEAVY_OPS_SEMAPHORE.acquire();
+        // Use single git call with --left-right --count for better performance
+        let range = format!("{}...{}", base, head);
+        let output = self.run_command(&["rev-list", "--left-right", "--count", &range])?;
 
-        let range_ahead = format!("{}..{}", base, head);
-        let range_behind = format!("{}..{}", head, base);
+        // Parse output: "<behind>\t<ahead>" format
+        // Example: "5\t3" means 5 commits behind, 3 commits ahead
+        // git rev-list --left-right outputs left (base) first, then right (head)
+        let parts: Vec<&str> = output.trim().split('\t').collect();
+        if parts.len() != 2 {
+            return Err(GitError::CommandFailed(format!(
+                "Unexpected rev-list output format: {}",
+                output
+            )));
+        }
 
-        let stdout_ahead = self.run_command(&["rev-list", "--count", &range_ahead])?;
-        let stdout_behind = self.run_command(&["rev-list", "--count", &range_behind])?;
-
-        let ahead = stdout_ahead
-            .trim()
+        let behind: usize = parts[0]
             .parse()
-            .map_err(|e| GitError::ParseError(format!("Failed to parse ahead count: {}", e)))?;
-        let behind = stdout_behind
-            .trim()
+            .map_err(|e| GitError::CommandFailed(format!("Failed to parse behind count: {}", e)))?;
+        let ahead: usize = parts[1]
             .parse()
-            .map_err(|e| GitError::ParseError(format!("Failed to parse behind count: {}", e)))?;
+            .map_err(|e| GitError::CommandFailed(format!("Failed to parse ahead count: {}", e)))?;
 
         Ok((ahead, behind))
+    }
+
+    /// List all local branches with their HEAD commit SHA.
+    /// Returns a vector of (branch_name, commit_sha) tuples.
+    pub fn list_local_branches(&self) -> Result<Vec<(String, String)>, GitError> {
+        let output = self.run_command(&[
+            "for-each-ref",
+            "--format=%(refname:short) %(objectname)",
+            "refs/heads/",
+        ])?;
+
+        let branches: Vec<(String, String)> = output
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() == 2 {
+                    Some((parts[0].to_string(), parts[1].to_string()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(branches)
     }
 
     /// Get line diff statistics for working tree changes (unstaged + staged).
@@ -774,11 +802,10 @@ impl Repository {
     /// # Ok::<(), worktrunk::git::GitError>(())
     /// ```
     pub fn has_merge_conflicts(&self, base: &str, head: &str) -> Result<bool, GitError> {
-        let merge_base = self.merge_base(base, head)?;
-
-        // git merge-tree exits with 0 for clean merge, 1 for conflicts
+        // Use modern merge-tree --write-tree mode which exits with 1 when conflicts exist
+        // (the old 3-argument deprecated mode always exits with 0)
         // run_command_check returns true for exit 0, false otherwise
-        let clean_merge = self.run_command_check(&["merge-tree", &merge_base, base, head])?;
+        let clean_merge = self.run_command_check(&["merge-tree", "--write-tree", base, head])?;
         Ok(!clean_merge)
     }
 

@@ -349,7 +349,7 @@ Docs: https://llm.datasette.io/ | https://github.com/sigoden/aichat
   Age: Time since last commit (relative)
   Message: Last commit message (truncated)
 
-STATUS SYMBOLS (order: =≠ ≡∅ ↻⋈ ◇⊠⚠ ↑↓ ⇡⇣ ?!+»✘):
+STATUS SYMBOLS (order: =≠ ≡∅ ↻⋈ ⊠⚠ ↑↓ ⇡⇣ ?!+»✘):
   ·  Branch without worktree (no working directory to check)
   \x1b[31m=\x1b[0m  Merge conflicts (unmerged paths in working tree)
   \x1b[33m≠\x1b[0m  Potential conflicts with main (--full only, detected via git merge-tree)
@@ -357,7 +357,6 @@ STATUS SYMBOLS (order: =≠ ≡∅ ↻⋈ ◇⊠⚠ ↑↓ ⇡⇣ ?!+»✘):
   ∅  No commits (no commits ahead AND no uncommitted changes)
   ↻  Rebase in progress
   ⋈  Merge in progress
-  ◇  Bare worktree (no working directory)
   ⊠  Locked worktree
   ⚠  Prunable worktree
   ↑  Ahead of main branch
@@ -387,6 +386,14 @@ Rows are dimmed when no unique work (≡ matches main OR ∅ no commits).")]
         /// Requires network requests and git merge-tree operations.
         #[arg(long, verbatim_doc_comment)]
         full: bool,
+
+        /// Show rows progressively (auto-detects TTY)
+        #[arg(long, verbatim_doc_comment, conflicts_with = "no_progressive")]
+        progressive: bool,
+
+        /// Disable progressive rendering
+        #[arg(long)]
+        no_progressive: bool,
     },
 
     /// Switch to a worktree

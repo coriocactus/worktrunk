@@ -54,6 +54,54 @@ pub fn command_with_width(repo: &TestRepo, width: usize) -> Command {
     cmd
 }
 
+pub fn command_progressive(repo: &TestRepo) -> Command {
+    let mut cmd = command(repo, repo.root_path());
+    cmd.arg("--progressive");
+    cmd
+}
+
+pub fn command_no_progressive(repo: &TestRepo) -> Command {
+    let mut cmd = command(repo, repo.root_path());
+    cmd.arg("--no-progressive");
+    cmd
+}
+
+pub fn command_progressive_json(repo: &TestRepo) -> Command {
+    let mut cmd = command(repo, repo.root_path());
+    cmd.args(["--progressive", "--format=json"]);
+    cmd
+}
+
+pub fn command_no_progressive_json(repo: &TestRepo) -> Command {
+    let mut cmd = command(repo, repo.root_path());
+    cmd.args(["--no-progressive", "--format=json"]);
+    cmd
+}
+
+pub fn command_progressive_branches(repo: &TestRepo) -> Command {
+    let mut cmd = command(repo, repo.root_path());
+    cmd.args(["--progressive", "--branches"]);
+    cmd
+}
+
+pub fn command_task_dag(repo: &TestRepo) -> Command {
+    // Task DAG is now the default for progressive mode
+    command_progressive(repo)
+}
+
+pub fn command_task_dag_full(repo: &TestRepo) -> Command {
+    let mut cmd = command_task_dag(repo);
+    cmd.arg("--full");
+    cmd
+}
+
+pub fn command_task_dag_from_dir(repo: &TestRepo, cwd: &Path) -> Command {
+    let mut cmd = wt_command();
+    repo.clean_cli_env(&mut cmd);
+    cmd.args(["list", "--progressive"]).current_dir(cwd);
+    cmd
+}
+
 fn normalize_worktree_paths(settings: &mut Settings, repo: &TestRepo) {
     settings.add_filter(repo.root_path().to_str().unwrap(), "[REPO]");
     for (name, path) in &repo.worktrees {

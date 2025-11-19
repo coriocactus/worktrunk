@@ -6,8 +6,8 @@ use std::sync::{Arc, OnceLock};
 use worktrunk::config::WorktrunkConfig;
 use worktrunk::git::{GitError, GitResultExt, Repository};
 
+use super::list::collect;
 use super::list::model::ListItem;
-use super::repository_ext::RepositoryCliExt;
 use super::worktree::handle_switch;
 use crate::output::{blank_line, handle_switch_output};
 
@@ -146,7 +146,7 @@ impl WorktreeSkimItem {
     /// Render Mode 1: Working tree preview (uncommitted changes vs HEAD)
     /// Matches `wt list` "HEAD±" column
     fn render_working_tree_preview(&self) -> String {
-        let Some(wt_info) = self.item.worktree_info() else {
+        let Some(wt_info) = self.item.worktree_data() else {
             return "No worktree (branch only)\n".to_string();
         };
 
@@ -248,8 +248,15 @@ pub fn handle_select() -> Result<(), GitError> {
     // Initialize preview mode state file (auto-cleanup on drop)
     let _state = PreviewState::new();
 
-    // Gather list data using existing logic
-    let Some(list_data) = repo.gather_list_data(false, false, false)? else {
+    // Gather list data using simplified collection (buffered mode)
+    let Some(list_data) = collect::collect(
+        &repo, false, // show_branches (select only shows worktrees, not branches)
+        false, // show_full (no full layout needed)
+        false, // fetch_ci (no CI with select command)
+        false, // check_conflicts (no conflict checking with select command)
+        false, // show_progress (no progress bars)
+    )?
+    else {
         return Ok(());
     };
 
@@ -267,19 +274,15 @@ pub fn handle_select() -> Result<(), GitError> {
         .into_iter()
         .map(|item| {
             let branch_name = item.branch_name().to_string();
-            let commit_msg = item
-                .commit_details()
-                .commit_message
-                .lines()
-                .next()
-                .unwrap_or("");
+            let commit_details = item.commit_details();
+            let commit_msg = commit_details.commit_message.lines().next().unwrap_or("");
 
             // Build display text with aligned columns
             let mut display_text = format!("{:<width$}", branch_name, width = max_branch_len);
 
-            // Add status symbols for worktrees (fixed width)
-            let status = if let Some(wt_info) = item.worktree_info() {
-                format!("{:<8}", wt_info.status_symbols.render())
+            // Add status symbols (fixed width)
+            let status = if let Some(ref status_symbols) = item.status_symbols {
+                format!("{:<8}", status_symbols.render())
             } else {
                 "        ".to_string()
             };

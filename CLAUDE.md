@@ -325,6 +325,24 @@ output::gutter(format_with_gutter(&log, "", None))?;
 output::progress(format!("{CYAN}Merging...{CYAN:#}\n"))?;
 ```
 
+### Table Column Alignment
+
+**Principle: Headers and values align consistently within each column type.**
+
+Column alignment follows standard tabular data conventions:
+
+1. **Text columns** (Branch, Path, Message, Commit):
+   - Headers: Left-aligned
+   - Values: Left-aligned
+
+2. **Diff/numeric columns** (HEAD±, main↕, main…±, Remote⇅):
+   - Headers: Right-aligned
+   - Values: Right-aligned
+
+**Why:** Right-aligning numeric data allows visual scanning by magnitude (rightmost digits align vertically). Left-aligning text data prioritizes readability from the start. Matching header and value alignment within each column creates a consistent visual grid.
+
+**Implementation:** Headers are positioned within their column width using the same alignment strategy as their values (render.rs).
+
 ### Snapshot Testing Requirement
 
 Every command output must have a snapshot test (`tests/integration_tests/`). Use this pattern:

@@ -211,7 +211,16 @@ fn main() {
             format,
             branches,
             full,
-        } => handle_list(format, branches, full),
+            progressive,
+            no_progressive,
+        } => handle_list(
+            format,
+            branches,
+            full,
+            progressive,
+            no_progressive,
+            cli.internal,
+        ),
         Commands::Switch {
             branch,
             create,

@@ -13,8 +13,13 @@ use tempfile::TempDir;
 
 /// Test that `list` command works with --internal flag
 ///
-/// The list command doesn't emit directives, so output remains newline-terminated.
-/// The --internal flag can be safely passed without changing behavior.
+/// The list command outputs tables through stderr in directive mode for progressive
+/// streaming. This bypasses the shell wrapper's NUL-delimited parsing on stdout,
+/// allowing real-time display without buffering.
+///
+/// Expected behavior:
+/// - stdout: empty (no directives emitted by list command)
+/// - stderr: complete table output with ANSI formatting
 #[test]
 fn test_list_with_internal_flag() {
     let repo = TestRepo::new();

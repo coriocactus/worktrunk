@@ -1,12 +1,12 @@
 use std::path::PathBuf;
-use worktrunk::git::{GitError, LineDiff, Repository};
+use worktrunk::git::LineDiff;
 
 use super::ci_status::PrStatus;
 use super::columns::ColumnKind;
 
 /// Display fields shared between WorktreeInfo and BranchInfo
 /// These contain formatted strings with ANSI colors for json-pretty output
-#[derive(serde::Serialize, Default)]
+#[derive(Clone, serde::Serialize, Default)]
 pub struct DisplayFields {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commits_display: Option<String>,
@@ -22,25 +22,28 @@ pub struct DisplayFields {
 
 impl DisplayFields {
     pub(crate) fn from_common_fields(
-        counts: &AheadBehind,
-        branch_diff: &BranchDiffTotals,
-        upstream: &UpstreamStatus,
-        pr_status: &Option<PrStatus>,
+        counts: &Option<AheadBehind>,
+        branch_diff: &Option<BranchDiffTotals>,
+        upstream: &Option<UpstreamStatus>,
+        _pr_status: &Option<Option<PrStatus>>,
     ) -> Self {
-        let commits_display =
-            ColumnKind::AheadBehind.format_diff_plain(counts.ahead, counts.behind);
+        let commits_display = counts
+            .as_ref()
+            .and_then(|c| ColumnKind::AheadBehind.format_diff_plain(c.ahead, c.behind));
 
-        let branch_diff_display = ColumnKind::BranchDiff
-            .format_diff_plain(branch_diff.diff.added, branch_diff.diff.deleted);
+        let branch_diff_display = branch_diff.as_ref().and_then(|bd| {
+            ColumnKind::BranchDiff.format_diff_plain(bd.diff.added, bd.diff.deleted)
+        });
 
-        let upstream_display =
-            upstream
-                .active()
-                .and_then(|(_, upstream_ahead, upstream_behind)| {
-                    ColumnKind::Upstream.format_diff_plain(upstream_ahead, upstream_behind)
-                });
+        let upstream_display = upstream.as_ref().and_then(|u| {
+            u.active().and_then(|(_, upstream_ahead, upstream_behind)| {
+                ColumnKind::Upstream.format_diff_plain(upstream_ahead, upstream_behind)
+            })
+        });
 
-        let ci_status_display = pr_status.as_ref().map(PrStatus::format_plain);
+        // CI column shows only the indicator (●/○/◐), not text
+        // Let render.rs handle it via render_indicator()
+        let ci_status_display = None;
 
         Self {
             commits_display,
@@ -52,165 +55,94 @@ impl DisplayFields {
     }
 }
 
-#[derive(serde::Serialize)]
-pub struct WorktreeInfo {
-    // Worktree identity fields (flattened from worktrunk::git::Worktree)
+/// Type-specific data for worktrees
+#[derive(Clone, serde::Serialize, Default)]
+pub struct WorktreeData {
     pub path: PathBuf,
-    #[serde(rename = "head_sha")]
-    pub head: String,
-    pub branch: Option<String>,
     pub bare: bool,
     pub detached: bool,
     pub locked: Option<String>,
     pub prunable: Option<String>,
-
-    // Commit details
-    #[serde(flatten)]
-    pub commit: CommitDetails,
-
-    // Divergence from main
-    #[serde(flatten)]
-    pub counts: AheadBehind,
-    #[serde(flatten)]
-    pub branch_diff: BranchDiffTotals,
-
-    // Working tree state
-    pub working_tree_diff: LineDiff,
-    /// Diff between working tree and main branch.
-    /// `None` means "not computed" (optimization: skipped when trees differ).
-    /// `Some((0, 0))` means working tree matches main exactly.
-    /// `Some((a, d))` means a lines added, d deleted vs main.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub working_tree_diff_with_main: Option<LineDiff>,
+    pub working_tree_diff: Option<LineDiff>,
+    /// Diff between working tree and main branch.
+    /// `None` means "not computed yet" or "not computed" (optimization: skipped when trees differ).
+    /// `Some(Some((0, 0)))` means working tree matches main exactly.
+    /// `Some(Some((a, d)))` means a lines added, d deleted vs main.
+    /// `Some(None)` means computation was skipped.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub working_tree_diff_with_main: Option<Option<LineDiff>>,
     pub worktree_state: Option<String>,
-    pub has_conflicts: bool,
-
-    // Metadata
     pub is_primary: bool,
-
-    // Remote/upstream
-    #[serde(flatten)]
-    pub upstream: UpstreamStatus,
-
-    // Status
-    pub pr_status: Option<PrStatus>,
-    /// Git status symbols (=, ↑, ↓, ⇡, ⇣, ?, !, +, », ✘) including user-defined status
-    pub status_symbols: StatusSymbols,
-
-    // Display fields for json-pretty format (with ANSI colors)
-    #[serde(flatten)]
-    pub display: DisplayFields,
+    /// Working tree symbols (?, !, +, », ✘) - used for status computation, not serialized
+    #[serde(skip)]
+    pub(crate) working_tree_symbols: Option<String>,
+    /// is_dirty flag - used for status computation, not serialized
+    #[serde(skip)]
+    pub(crate) is_dirty: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub working_diff_display: Option<String>,
 }
 
-#[derive(serde::Serialize)]
-pub struct BranchInfo {
-    pub name: String,
-    #[serde(rename = "head_sha")]
-    pub head: String,
-    #[serde(flatten)]
-    pub commit: CommitDetails,
-    #[serde(flatten)]
-    pub counts: AheadBehind,
-    #[serde(flatten)]
-    pub branch_diff: BranchDiffTotals,
-    #[serde(flatten)]
-    pub upstream: UpstreamStatus,
-    pub pr_status: Option<PrStatus>,
-    pub has_conflicts: bool,
-    /// User-defined status from `worktrunk.status.<branch>` git config
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_status: Option<String>,
+impl WorktreeData {
+    /// Create WorktreeData from a Worktree, with all computed fields set to None.
+    pub(crate) fn from_worktree(wt: &worktrunk::git::Worktree, is_primary: bool) -> Self {
+        Self {
+            // Identity fields (known immediately from worktree list)
+            path: wt.path.clone(),
+            bare: wt.bare,
+            detached: wt.detached,
+            locked: wt.locked.clone(),
+            prunable: wt.prunable.clone(),
+            is_primary,
 
-    // Display fields for json-pretty format (with ANSI colors)
-    #[serde(flatten)]
-    pub display: DisplayFields,
+            // Computed fields start as None (filled progressively)
+            ..Default::default()
+        }
+    }
 }
 
-#[derive(serde::Serialize, Clone)]
+/// Discriminator for item type (worktree vs branch)
+///
+/// WorktreeData is boxed to reduce the size of ItemKind enum (304 bytes → 24 bytes).
+/// This reduces stack pressure when passing ListItem by value and improves cache locality
+/// in `Vec<ListItem>` by keeping the discriminant and common fields together.
+#[derive(serde::Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum ItemKind {
+    Worktree(Box<WorktreeData>),
+    Branch,
+}
+
+#[derive(serde::Serialize, Clone, Default, Debug)]
 pub struct CommitDetails {
     pub timestamp: i64,
     pub commit_message: String,
 }
 
-impl CommitDetails {
-    fn gather(repo: &Repository, head: &str) -> Result<Self, GitError> {
-        Ok(Self {
-            timestamp: repo.commit_timestamp(head)?,
-            commit_message: repo.commit_message(head)?,
-        })
-    }
-}
-
-#[derive(serde::Serialize, Default, Clone)]
+#[derive(serde::Serialize, Default, Clone, Debug)]
 pub struct AheadBehind {
     pub ahead: usize,
     pub behind: usize,
 }
 
-impl AheadBehind {
-    fn compute(repo: &Repository, base: Option<&str>, head: &str) -> Result<Self, GitError> {
-        let Some(base) = base else {
-            return Ok(Self::default());
-        };
-
-        let (ahead, behind) = repo.ahead_behind(base, head)?;
-        Ok(Self { ahead, behind })
-    }
-}
-
-#[derive(serde::Serialize, Default, Clone)]
+#[derive(serde::Serialize, Default, Clone, Debug)]
 pub struct BranchDiffTotals {
     #[serde(rename = "branch_diff")]
     pub diff: LineDiff,
 }
 
-impl BranchDiffTotals {
-    fn compute(repo: &Repository, base: Option<&str>, head: &str) -> Result<Self, GitError> {
-        let Some(base) = base else {
-            return Ok(Self::default());
-        };
-
-        let diff = repo.branch_diff_stats(base, head)?;
-        Ok(Self { diff })
-    }
-}
-
-#[derive(serde::Serialize, Default, Clone)]
+#[derive(serde::Serialize, Default, Clone, Debug)]
 pub struct UpstreamStatus {
     #[serde(rename = "upstream_remote")]
-    remote: Option<String>,
+    pub(super) remote: Option<String>,
     #[serde(rename = "upstream_ahead")]
-    ahead: usize,
+    pub(super) ahead: usize,
     #[serde(rename = "upstream_behind")]
-    behind: usize,
+    pub(super) behind: usize,
 }
 
 impl UpstreamStatus {
-    fn calculate(repo: &Repository, branch: Option<&str>, head: &str) -> Result<Self, GitError> {
-        let Some(branch) = branch else {
-            return Ok(Self::default());
-        };
-
-        match repo.upstream_branch(branch) {
-            Ok(Some(upstream_branch)) => {
-                let remote = upstream_branch
-                    .split_once('/')
-                    .map(|(remote, _)| remote)
-                    .unwrap_or("origin")
-                    .to_string();
-                let (ahead, behind) = repo.ahead_behind(&upstream_branch, head)?;
-                Ok(Self {
-                    remote: Some(remote),
-                    ahead,
-                    behind,
-                })
-            }
-            _ => Ok(Self::default()),
-        }
-    }
-
     pub fn active(&self) -> Option<(&str, usize, usize)> {
         self.remote
             .as_deref()
@@ -218,7 +150,7 @@ impl UpstreamStatus {
     }
 
     #[cfg(test)]
-    pub fn from_parts(remote: Option<String>, ahead: usize, behind: usize) -> Self {
+    pub(crate) fn from_parts(remote: Option<String>, ahead: usize, behind: usize) -> Self {
         Self {
             remote,
             ahead,
@@ -227,13 +159,48 @@ impl UpstreamStatus {
     }
 }
 
-/// Unified type for displaying worktrees and branches in the same table
+/// Unified item for displaying worktrees and branches in the same table
 #[derive(serde::Serialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-#[allow(clippy::large_enum_variant)]
-pub enum ListItem {
-    Worktree(WorktreeInfo),
-    Branch(BranchInfo),
+pub struct ListItem {
+    // Common fields (present for both worktrees and branches)
+    #[serde(rename = "head_sha")]
+    pub head: String,
+    /// Branch name - None for detached worktrees
+    pub branch: Option<String>,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<CommitDetails>,
+
+    // TODO: Evaluate if skipping these fields in JSON when None is correct behavior.
+    // Currently, primary worktree omits counts/branch_diff (since it doesn't compare to itself),
+    // but consumers may expect these fields to always be present (even if zero).
+    // Consider: always include with default values vs current "omit when not computed" approach.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub counts: Option<AheadBehind>,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub branch_diff: Option<BranchDiffTotals>,
+
+    // TODO: Same concern as counts/branch_diff above - should upstream fields always be present?
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub upstream: Option<UpstreamStatus>,
+
+    /// CI/PR status: None = not loaded, Some(None) = no CI, Some(Some(status)) = has CI
+    pub pr_status: Option<Option<PrStatus>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_conflicts: Option<bool>,
+    /// User-defined status from git config
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_status: Option<String>,
+    /// Git status symbols - None until all dependencies are ready
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_symbols: Option<StatusSymbols>,
+
+    // Display fields for json-pretty format (with ANSI colors)
+    #[serde(flatten)]
+    pub display: DisplayFields,
+
+    // Type-specific data (worktree vs branch)
+    #[serde(flatten)]
+    pub kind: ItemKind,
 }
 
 pub struct ListData {
@@ -243,74 +210,46 @@ pub struct ListData {
 
 impl ListItem {
     pub fn branch_name(&self) -> &str {
-        match self {
-            ListItem::Worktree(wt) => wt.branch.as_deref().unwrap_or("(detached)"),
-            ListItem::Branch(br) => &br.name,
-        }
+        self.branch.as_deref().unwrap_or("(detached)")
     }
 
     pub fn is_primary(&self) -> bool {
-        matches!(self, ListItem::Worktree(wt) if wt.is_primary)
-    }
-
-    pub fn commit_timestamp(&self) -> i64 {
-        match self {
-            ListItem::Worktree(info) => info.commit.timestamp,
-            ListItem::Branch(info) => info.commit.timestamp,
-        }
+        matches!(&self.kind, ItemKind::Worktree(data) if data.is_primary)
     }
 
     pub fn head(&self) -> &str {
-        match self {
-            ListItem::Worktree(info) => &info.head,
-            ListItem::Branch(info) => &info.head,
-        }
+        &self.head
     }
 
-    pub fn commit_details(&self) -> &CommitDetails {
-        match self {
-            ListItem::Worktree(info) => &info.commit,
-            ListItem::Branch(info) => &info.commit,
-        }
+    pub fn commit_details(&self) -> CommitDetails {
+        self.commit.clone().unwrap_or_default()
     }
 
-    pub fn counts(&self) -> &AheadBehind {
-        match self {
-            ListItem::Worktree(info) => &info.counts,
-            ListItem::Branch(info) => &info.counts,
-        }
+    pub fn counts(&self) -> AheadBehind {
+        self.counts.clone().unwrap_or_default()
     }
 
-    pub fn branch_diff(&self) -> &BranchDiffTotals {
-        match self {
-            ListItem::Worktree(info) => &info.branch_diff,
-            ListItem::Branch(info) => &info.branch_diff,
-        }
+    pub fn branch_diff(&self) -> BranchDiffTotals {
+        self.branch_diff.clone().unwrap_or_default()
     }
 
-    pub fn upstream(&self) -> &UpstreamStatus {
-        match self {
-            ListItem::Worktree(info) => &info.upstream,
-            ListItem::Branch(info) => &info.upstream,
-        }
+    pub fn upstream(&self) -> UpstreamStatus {
+        self.upstream.clone().unwrap_or_default()
     }
 
-    pub fn worktree_info(&self) -> Option<&WorktreeInfo> {
-        match self {
-            ListItem::Worktree(info) => Some(info),
-            ListItem::Branch(_) => None,
+    pub fn worktree_data(&self) -> Option<&WorktreeData> {
+        match &self.kind {
+            ItemKind::Worktree(data) => Some(data),
+            ItemKind::Branch => None,
         }
     }
 
     pub fn worktree_path(&self) -> Option<&PathBuf> {
-        self.worktree_info().map(|info| &info.path)
+        self.worktree_data().map(|data| &data.path)
     }
 
-    pub fn pr_status(&self) -> Option<&PrStatus> {
-        match self {
-            ListItem::Worktree(info) => info.pr_status.as_ref(),
-            ListItem::Branch(info) => info.pr_status.as_ref(),
-        }
+    pub fn pr_status(&self) -> Option<Option<&PrStatus>> {
+        self.pr_status.as_ref().map(|opt| opt.as_ref())
     }
 
     /// Determine if the item contains no unique work and can likely be removed.
@@ -321,77 +260,22 @@ impl ListItem {
 
         let counts = self.counts();
 
-        if let Some(info) = self.worktree_info() {
-            let no_commits_and_clean = counts.ahead == 0 && info.working_tree_diff.is_empty();
-            let matches_main = info
+        if let Some(data) = self.worktree_data() {
+            let no_commits_and_clean = counts.ahead == 0
+                && data
+                    .working_tree_diff
+                    .as_ref()
+                    .map(|d| d.is_empty())
+                    .unwrap_or(true);
+            let matches_main = data
                 .working_tree_diff_with_main
-                .is_some_and(|diff| diff.is_empty());
+                .and_then(|opt_diff| opt_diff)
+                .map(|diff| diff.is_empty())
+                .unwrap_or(false);
             no_commits_and_clean || matches_main
         } else {
             counts.ahead == 0
         }
-    }
-}
-
-impl BranchInfo {
-    /// Create BranchInfo from a branch name, enriching it with git metadata
-    pub(crate) fn from_branch(
-        branch: &str,
-        repo: &Repository,
-        primary_branch: Option<&str>,
-        fetch_ci: bool,
-        check_conflicts: bool,
-    ) -> Result<Self, GitError> {
-        // Get the commit SHA for this branch
-        let head = repo.run_command(&["rev-parse", branch])?.trim().to_string();
-
-        let commit = CommitDetails::gather(repo, &head)?;
-        let counts = AheadBehind::compute(repo, primary_branch, &head)?;
-        let branch_diff = BranchDiffTotals::compute(repo, primary_branch, &head)?;
-        let upstream = UpstreamStatus::calculate(repo, Some(branch), &head)?;
-
-        let pr_status = if fetch_ci {
-            // Use worktree_root() which returns an absolute path
-            let repo_path = repo.worktree_root()?;
-            PrStatus::detect(branch, &head, &repo_path)
-        } else {
-            None
-        };
-
-        let has_conflicts = if check_conflicts {
-            if let Some(base) = primary_branch {
-                repo.has_merge_conflicts(base, &head)?
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-
-        // Read user-defined status from git config (branch-keyed only, no worktree)
-        let user_status = repo.branch_keyed_status(branch);
-
-        // Create display fields with status
-        // For branches without worktrees, status is just user status or "·"
-        let status_display = Some(user_status.clone().unwrap_or_else(|| "·".to_string()));
-
-        let display = DisplayFields {
-            status_display,
-            ..Default::default()
-        };
-
-        Ok(BranchInfo {
-            name: branch.to_string(),
-            head,
-            commit,
-            counts,
-            branch_diff,
-            upstream,
-            pr_status,
-            has_conflicts,
-            user_status,
-            display,
-        })
     }
 }
 
@@ -561,24 +445,23 @@ impl PositionMask {
     const POS_0D_WORKTREE_ATTRS: usize = 6;
     const POS_4_USER_STATUS: usize = 7;
 
-    /// Full mask with all positions enabled (for JSON output)
-    /// Uses width of 1 for each position as a placeholder
-    pub const FULL: Self = Self { widths: [1; 8] };
+    /// Full mask with all positions enabled (for JSON output and progressive rendering)
+    /// Allocates realistic widths based on common symbol sizes to ensure proper grid alignment
+    pub const FULL: Self = Self {
+        widths: [
+            5, // POS_3_WORKING_TREE: ?!+»✘ (max 5 symbols)
+            1, // POS_0A_CONFLICTS: = (1 char)
+            1, // POS_0C_GIT_OPERATION: ↻ or ⋈ (1 char)
+            1, // POS_1_MAIN_DIVERGENCE: ↑, ↓, ↕ (1 char)
+            1, // POS_2_UPSTREAM_DIVERGENCE: ⇡, ⇣, ⇅ (1 char)
+            1, // POS_0B_BRANCH_STATE: ≡ or ∅ (1 char)
+            2, // POS_0D_WORKTREE_ATTRS: ⊠⚠ (max 2 symbols - bare filtered out)
+            2, // POS_4_USER_STATUS: single emoji or two chars (allocate 2)
+        ],
+    };
 
-    /// Merge this mask with another, keeping the maximum width for each position
-    pub fn merge(&mut self, other: &Self) {
-        for (i, &other_width) in other.widths.iter().enumerate() {
-            self.widths[i] = self.widths[i].max(other_width);
-        }
-    }
-
-    /// Check if a position is included in the mask (width > 0)
-    fn includes(&self, pos: usize) -> bool {
-        self.widths[pos] > 0
-    }
-
-    /// Get the width allocated for a position
-    fn width(&self, pos: usize) -> usize {
+    /// Get the allocated width for a position
+    pub(crate) fn width(&self, pos: usize) -> usize {
         self.widths[pos]
     }
 }
@@ -589,7 +472,7 @@ impl PositionMask {
 /// - Position 0a: Conflicts (=)
 /// - Position 0b: Branch state (≡, ∅)
 /// - Position 0c: Git operation (↻, ⋈)
-/// - Position 0d: Worktree attributes (◇, ⊠, ⚠)
+/// - Position 0d: Worktree attributes (⊠, ⚠)
 /// - Position 1: Main branch divergence (↑, ↓, ↕)
 /// - Position 2: Remote/upstream divergence (⇡, ⇣, ⇅)
 /// - Position 3: Working tree symbols (?, !, +, », ✘)
@@ -605,7 +488,7 @@ impl PositionMask {
 ///
 /// **NOT mutually exclusive (can co-occur):**
 /// - = can occur with any other symbol
-/// - ◇, ⊠, ⚠: Worktree can be bare+locked, bare+prunable, etc.
+/// - ⊠, ⚠: Worktree can be locked+prunable (bare is filtered out)
 /// - All working tree symbols (?!+»✘): Can have multiple types of changes
 #[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct StatusSymbols {
@@ -625,8 +508,8 @@ pub struct StatusSymbols {
     /// Position 0c - MUTUALLY EXCLUSIVE (enforced by enum)
     pub(crate) git_operation: GitOperation,
 
-    /// Worktree attributes: ◇, ⊠, ⚠
-    /// Position 0d - NOT mutually exclusive (can combine like "◇⊠")
+    /// Worktree attributes: ⊠, ⚠
+    /// Position 0d - NOT mutually exclusive (can combine like "⊠⚠")
     pub(crate) worktree_attrs: String,
 
     /// Main branch divergence state
@@ -662,7 +545,7 @@ impl StatusSymbols {
     /// - Position 0a: Conflicts (= or space)
     /// - Position 0b: Branch state (≡, ∅, or space)
     /// - Position 0c: Git operation (↻, ⋈, or space)
-    /// - Position 0d: Worktree attributes (◇⊠⚠ or space)
+    /// - Position 0d: Worktree attributes (⊠⚠ or space)
     /// - Position 1: Main divergence (↑, ↓, ↕, or space)
     /// - Position 2: Upstream divergence (⇡, ⇣, ⇅, or space)
     /// - Position 3: Working tree symbols (?, !, +, », ✘)
@@ -671,6 +554,7 @@ impl StatusSymbols {
     /// This ensures vertical scannability - each symbol type appears at the same
     /// column position across all rows, while minimizing wasted space.
     pub fn render_with_mask(&self, mask: &PositionMask) -> String {
+        use unicode_width::UnicodeWidthStr;
         use worktrunk::styling::{CYAN, ERROR, HINT, WARNING};
 
         let mut result = String::with_capacity(12);
@@ -682,11 +566,10 @@ impl StatusSymbols {
         // Build list of (position_index, content, has_data) tuples
         // Ordered by importance/actionability
         // Apply colors based on semantic meaning:
-        // - Red (ERROR): Actual conflicts (blocking problems requiring immediate action)
-        // - Yellow (WARNING): Potential conflicts, git operations, locked/prunable (warnings)
+        // - Red (ERROR): Conflicts (blocking problems)
+        // - Yellow (WARNING): Git operations, locked/prunable (active/stuck states)
         // - Cyan: Working tree changes (activity)
         // - Dimmed (HINT): Branch state symbols that indicate removability
-        // Conflicts: actual (=) and potential (≠) are mutually exclusive
         let conflicts_str = if self.has_conflicts {
             format!("{ERROR}={ERROR:#}")
         } else if self.has_potential_conflicts {
@@ -720,6 +603,10 @@ impl StatusSymbols {
 
         // Track (position, styled_content, visual_width, has_data)
         // visual_width is the actual display width without ANSI codes
+        //
+        // CRITICAL: Display order is working_tree first, then other symbols.
+        // NEVER change this order - it ensures progressive and final rendering match exactly.
+        // Tests will break if you change this, but that's expected - update the tests, not this order.
         let positions_data: [(usize, &str, usize, bool); 8] = [
             (
                 PositionMask::POS_3_WORKING_TREE,
@@ -738,10 +625,22 @@ impl StatusSymbols {
                 self.has_conflicts || self.has_potential_conflicts,
             ),
             (
+                PositionMask::POS_0B_BRANCH_STATE,
+                branch_state_str.as_str(),
+                self.branch_state.to_string().width(),
+                self.branch_state != BranchState::None,
+            ),
+            (
                 PositionMask::POS_0C_GIT_OPERATION,
                 git_operation_str.as_str(),
                 self.git_operation.to_string().width(),
                 self.git_operation != GitOperation::None,
+            ),
+            (
+                PositionMask::POS_0D_WORKTREE_ATTRS,
+                worktree_attrs_str.as_str(),
+                self.worktree_attrs.width(),
+                !self.worktree_attrs.is_empty(),
             ),
             (
                 PositionMask::POS_1_MAIN_DIVERGENCE,
@@ -756,18 +655,6 @@ impl StatusSymbols {
                 self.upstream_divergence != UpstreamDivergence::None,
             ),
             (
-                PositionMask::POS_0B_BRANCH_STATE,
-                branch_state_str.as_str(),
-                self.branch_state.to_string().width(),
-                self.branch_state != BranchState::None,
-            ),
-            (
-                PositionMask::POS_0D_WORKTREE_ATTRS,
-                worktree_attrs_str.as_str(),
-                self.worktree_attrs.width(),
-                !self.worktree_attrs.is_empty(),
-            ),
-            (
                 PositionMask::POS_4_USER_STATUS,
                 user_status_str.as_str(),
                 self.user_status.as_ref().map(|s| s.width()).unwrap_or(0),
@@ -775,28 +662,22 @@ impl StatusSymbols {
             ),
         ];
 
-        // Grid-based rendering with padding: each position gets a fixed-width column
-        // - If row has content at position: append content, then pad to allocated width
-        // - If row has no content at position: fill with spaces to allocated width
-        use unicode_width::UnicodeWidthStr;
-
+        // Grid-based rendering: each position gets a fixed width for vertical alignment.
+        // CRITICAL: Always use PositionMask::FULL for consistent spacing between progressive and final rendering.
+        // The mask provides the maximum width needed for each position across all rows.
+        // Accept wider Status column with whitespace as tradeoff for perfect alignment.
         for (pos, styled_content, visual_width, has_data) in positions_data.iter() {
-            if !mask.includes(*pos) {
-                continue; // Skip positions not in mask
-            }
-
             let allocated_width = mask.width(*pos);
 
             if *has_data {
                 result.push_str(styled_content);
-                // Pad to allocated width (use saturating_sub to handle edge cases)
-                // Use visual_width (without ANSI codes) for padding calculation
+                // Pad to allocated width for alignment
                 let padding = allocated_width.saturating_sub(*visual_width);
                 for _ in 0..padding {
                     result.push(' ');
                 }
             } else {
-                // Fill empty column with spaces
+                // Fill empty position with spaces for alignment
                 for _ in 0..allocated_width {
                     result.push(' ');
                 }
@@ -804,31 +685,6 @@ impl StatusSymbols {
         }
 
         result
-    }
-
-    /// Derive a position mask that tracks which symbol slots contain data.
-    pub fn position_mask(&self) -> PositionMask {
-        use unicode_width::UnicodeWidthStr;
-
-        let mut widths = [0; 8];
-
-        widths[PositionMask::POS_3_WORKING_TREE] = self.working_tree.width();
-        widths[PositionMask::POS_0A_CONFLICTS] =
-            if self.has_conflicts || self.has_potential_conflicts {
-                1
-            } else {
-                0
-            };
-        widths[PositionMask::POS_0C_GIT_OPERATION] = self.git_operation.to_string().width();
-        widths[PositionMask::POS_1_MAIN_DIVERGENCE] = self.main_divergence.to_string().width();
-        widths[PositionMask::POS_2_UPSTREAM_DIVERGENCE] =
-            self.upstream_divergence.to_string().width();
-        widths[PositionMask::POS_0B_BRANCH_STATE] = self.branch_state.to_string().width();
-        widths[PositionMask::POS_0D_WORKTREE_ATTRS] = self.worktree_attrs.width();
-        widths[PositionMask::POS_4_USER_STATUS] =
-            self.user_status.as_ref().map(|s| s.width()).unwrap_or(0);
-
-        PositionMask { widths }
     }
 
     /// Check if symbols are empty
@@ -842,265 +698,5 @@ impl StatusSymbols {
             && self.upstream_divergence == UpstreamDivergence::None
             && self.working_tree.is_empty()
             && self.user_status.is_none()
-    }
-}
-
-/// Git status information parsed from `git status --porcelain`
-struct GitStatusInfo {
-    /// Whether the working tree has any changes (staged or unstaged)
-    is_dirty: bool,
-    /// Status symbols (structured for alignment)
-    symbols: StatusSymbols,
-}
-
-/// Parse git status --porcelain output to determine dirty state and status symbols
-/// This combines the dirty check and symbol computation in a single git command
-fn parse_git_status(
-    repo: &Repository,
-    main_ahead: usize,
-    main_behind: usize,
-    upstream_ahead: usize,
-    upstream_behind: usize,
-) -> Result<GitStatusInfo, GitError> {
-    let status_output = repo.run_command(&["status", "--porcelain"])?;
-
-    let mut has_conflicts = false;
-    let mut has_untracked = false;
-    let mut has_modified = false;
-    let mut has_staged = false;
-    let mut has_renamed = false;
-    let mut has_deleted = false;
-    let mut is_dirty = false;
-
-    for line in status_output.lines() {
-        if line.len() < 2 {
-            continue;
-        }
-
-        is_dirty = true; // Any line means changes exist
-
-        // Get status codes (first two bytes for ASCII compatibility)
-        let bytes = line.as_bytes();
-        let index_status = bytes[0] as char;
-        let worktree_status = bytes[1] as char;
-
-        // Unmerged paths (actual conflicts in working tree)
-        // U = unmerged, D = both deleted, A = both added
-        if index_status == 'U'
-            || worktree_status == 'U'
-            || (index_status == 'D' && worktree_status == 'D')
-            || (index_status == 'A' && worktree_status == 'A')
-        {
-            has_conflicts = true;
-        }
-
-        // Untracked files
-        if index_status == '?' && worktree_status == '?' {
-            has_untracked = true;
-        }
-
-        // Modified (unstaged changes in working tree)
-        if worktree_status == 'M' {
-            has_modified = true;
-        }
-
-        // Staged files (changes in index)
-        // Includes: A (added), M (modified), C (copied), but excludes D/R
-        if index_status == 'A' || index_status == 'M' || index_status == 'C' {
-            has_staged = true;
-        }
-
-        // Renamed files (staged rename)
-        if index_status == 'R' {
-            has_renamed = true;
-        }
-
-        // Deleted files (staged or unstaged)
-        if index_status == 'D' || worktree_status == 'D' {
-            has_deleted = true;
-        }
-    }
-
-    // Build working tree string
-    let mut working_tree = String::new();
-    if has_untracked {
-        working_tree.push('?');
-    }
-    if has_modified {
-        working_tree.push('!');
-    }
-    if has_staged {
-        working_tree.push('+');
-    }
-    if has_renamed {
-        working_tree.push('»');
-    }
-    if has_deleted {
-        working_tree.push('✘');
-    }
-
-    // Build structured symbols for aligned rendering
-    let symbols = StatusSymbols {
-        has_conflicts,
-        main_divergence: match (main_ahead > 0, main_behind > 0) {
-            (true, true) => MainDivergence::Diverged, // Both ahead and behind
-            (true, false) => MainDivergence::Ahead,   // Ahead only
-            (false, true) => MainDivergence::Behind,  // Behind only
-            (false, false) => MainDivergence::None,   // Up to date
-        },
-        upstream_divergence: match (upstream_ahead > 0, upstream_behind > 0) {
-            (true, true) => UpstreamDivergence::Diverged, // Both ahead and behind
-            (true, false) => UpstreamDivergence::Ahead,   // Ahead only
-            (false, true) => UpstreamDivergence::Behind,  // Behind only
-            (false, false) => UpstreamDivergence::None,   // Up to date
-        },
-        working_tree,
-        ..Default::default()
-    };
-
-    Ok(GitStatusInfo { is_dirty, symbols })
-}
-
-impl WorktreeInfo {
-    /// Create WorktreeInfo from a Worktree, enriching it with git metadata
-    pub(crate) fn from_worktree(
-        wt: &worktrunk::git::Worktree,
-        primary: &worktrunk::git::Worktree,
-        fetch_ci: bool,
-        check_conflicts: bool,
-    ) -> Result<Self, GitError> {
-        let wt_repo = Repository::at(&wt.path);
-        let is_primary = wt.path == primary.path;
-
-        let commit = CommitDetails::gather(&wt_repo, &wt.head)?;
-        let base_branch = primary.branch.as_deref().filter(|_| !is_primary);
-        let counts = AheadBehind::compute(&wt_repo, base_branch, &wt.head)?;
-        let upstream = UpstreamStatus::calculate(&wt_repo, wt.branch.as_deref(), &wt.head)?;
-
-        // Parse git status once for both dirty check and status symbols
-        // Pass both main and upstream ahead/behind counts
-        let (upstream_ahead, upstream_behind) = upstream
-            .active()
-            .map(|(_, ahead, behind)| (ahead, behind))
-            .unwrap_or((0, 0));
-        let status_info = parse_git_status(
-            &wt_repo,
-            counts.ahead,
-            counts.behind,
-            upstream_ahead,
-            upstream_behind,
-        )?;
-
-        let working_tree_diff = if status_info.is_dirty {
-            wt_repo.working_tree_diff_stats()?
-        } else {
-            LineDiff::default() // Clean working tree
-        };
-
-        // Use tree equality check instead of expensive diff for "matches main"
-        let working_tree_diff_with_main =
-            wt_repo.working_tree_diff_with_base(base_branch, status_info.is_dirty)?;
-        let branch_diff = BranchDiffTotals::compute(&wt_repo, base_branch, &wt.head)?;
-
-        // Get worktree state (merge/rebase/etc)
-        let worktree_state = wt_repo.worktree_state()?;
-
-        let pr_status = if fetch_ci {
-            wt.branch
-                .as_deref()
-                .and_then(|branch| PrStatus::detect(branch, &wt.head, &wt.path))
-        } else {
-            None
-        };
-
-        let has_conflicts = if check_conflicts {
-            if let Some(base) = base_branch {
-                wt_repo.has_merge_conflicts(base, &wt.head)?
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-
-        // Build complete status symbols with type-safe enums
-        // Order: =≠ ≡∅ ↻⋈ ◇⊠⚠ | ↑↓ | ⇡⇣ | ?!+»✘
-        //        ^0a 0b 0c 0d^  ^1^  ^2^  ^3+^
-        let mut symbols = status_info.symbols;
-
-        // Add potential conflicts indicator if this branch has conflicts with base (--full only)
-        // This is separate from actual unmerged files which are already in has_conflicts
-        if has_conflicts {
-            symbols.has_potential_conflicts = true;
-        }
-
-        // Branch state: ≡ matches main, ∅ no commits (mutually exclusive)
-        if !is_primary {
-            if working_tree_diff_with_main.is_some_and(|diff| diff.is_empty()) {
-                symbols.branch_state = BranchState::MatchesMain;
-            } else if counts.ahead == 0 && working_tree_diff.is_empty() {
-                symbols.branch_state = BranchState::NoCommits;
-            }
-        }
-
-        // Git operation: ↻ rebase, ⋈ merge (mutually exclusive)
-        if let Some(state) = &worktree_state {
-            if state.contains("rebase") {
-                symbols.git_operation = GitOperation::Rebase;
-            } else if state.contains("merge") {
-                symbols.git_operation = GitOperation::Merge;
-            }
-        }
-
-        // Worktree attributes: ◇ bare, ⊠ locked, ⚠ prunable (can combine)
-        if wt.bare {
-            symbols.worktree_attrs.push('◇');
-        }
-        if wt.locked.is_some() {
-            symbols.worktree_attrs.push('⊠');
-        }
-        if wt.prunable.is_some() {
-            symbols.worktree_attrs.push('⚠');
-        }
-
-        // Add user-defined status from git config to symbols (Position 4)
-        symbols.user_status = wt_repo.user_status(wt.branch.as_deref());
-
-        // Create display fields with rendered status
-        let status_display = if !symbols.is_empty() {
-            Some(symbols.render())
-        } else {
-            None
-        };
-
-        let display = DisplayFields {
-            status_display,
-            ..Default::default()
-        };
-
-        Ok(WorktreeInfo {
-            // Flatten worktree fields
-            path: wt.path.clone(),
-            head: wt.head.clone(),
-            branch: wt.branch.clone(),
-            bare: wt.bare,
-            detached: wt.detached,
-            locked: wt.locked.clone(),
-            prunable: wt.prunable.clone(),
-            // Remaining fields
-            commit,
-            counts,
-            branch_diff,
-            working_tree_diff,
-            working_tree_diff_with_main,
-            worktree_state,
-            has_conflicts,
-            is_primary,
-            upstream,
-            pr_status,
-            status_symbols: symbols,
-            display,
-            working_diff_display: None,
-        })
     }
 }

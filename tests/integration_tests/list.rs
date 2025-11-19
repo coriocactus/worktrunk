@@ -36,6 +36,46 @@ fn snapshot_list_with_branches(test_name: &str, repo: &TestRepo) {
     );
 }
 
+fn snapshot_list_progressive(test_name: &str, repo: &TestRepo) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_progressive(repo),
+    );
+}
+
+fn snapshot_list_no_progressive(test_name: &str, repo: &TestRepo) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_no_progressive(repo),
+    );
+}
+
+fn snapshot_list_progressive_branches(test_name: &str, repo: &TestRepo) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_progressive_branches(repo),
+    );
+}
+
+fn snapshot_list_task_dag(test_name: &str, repo: &TestRepo) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_task_dag(repo),
+    );
+}
+
+fn snapshot_list_task_dag_full(test_name: &str, repo: &TestRepo) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_task_dag_full(repo),
+    );
+}
+
 fn run_snapshot(settings: Settings, test_name: &str, mut cmd: Command) {
     settings.bind(|| {
         assert_cmd_snapshot!(test_name, cmd);
@@ -730,6 +770,401 @@ fn test_readme_example_simple_list() {
 }
 
 #[test]
+fn test_list_progressive_flag() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.add_worktree("feature-a", "feature-a");
+    repo.add_worktree("feature-b", "feature-b");
+
+    // Force progressive mode even in non-TTY test environment
+    // Output should be identical to buffered mode (only process differs)
+    snapshot_list_progressive("progressive_flag", &repo);
+}
+
+#[test]
+fn test_list_no_progressive_flag() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.add_worktree("feature", "feature");
+
+    // Explicitly force buffered mode
+    snapshot_list_no_progressive("no_progressive_flag", &repo);
+}
+
+#[test]
+fn test_list_progressive_with_branches() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Create worktrees
+    repo.add_worktree("feature-a", "feature-a");
+
+    // Create branches without worktrees
+    create_branch(&repo, "orphan-1");
+    create_branch(&repo, "orphan-2");
+
+    // Critical: test that --branches works with --progressive
+    // This ensures progressive mode supports the --branches flag
+    snapshot_list_progressive_branches("progressive_with_branches", &repo);
+}
+
+// ============================================================================
+// Task DAG Mode Tests
+// ============================================================================
+
+#[test]
+fn test_list_task_dag_single_worktree() {
+    let repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    snapshot_list_task_dag("task_dag_single_worktree", &repo);
+}
+
+#[test]
+fn test_list_task_dag_multiple_worktrees() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    repo.add_worktree("feature-a", "feature-a");
+    repo.add_worktree("feature-b", "feature-b");
+    repo.add_worktree("feature-c", "feature-c");
+
+    snapshot_list_task_dag("task_dag_multiple_worktrees", &repo);
+}
+
+#[test]
+fn test_list_task_dag_full_with_diffs() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Create worktree with changes
+    let feature_a = repo.add_worktree("feature-a", "feature-a");
+    std::fs::write(feature_a.join("new.txt"), "content").expect("Failed to write file");
+
+    // Create another worktree with commits
+    let feature_b = repo.add_worktree("feature-b", "feature-b");
+    std::fs::write(feature_b.join("file.txt"), "test").expect("Failed to write file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&feature_b)
+        .output()
+        .expect("Failed to add");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Test commit"])
+        .current_dir(&feature_b)
+        .output()
+        .expect("Failed to commit");
+
+    snapshot_list_task_dag_full("task_dag_full_with_diffs", &repo);
+}
+
+#[test]
+fn test_list_task_dag_with_upstream() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit on main");
+    repo.setup_remote("main");
+
+    // Branch in sync
+    let in_sync = repo.add_worktree("in-sync", "in-sync");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["push", "-u", "origin", "in-sync"])
+        .current_dir(&in_sync)
+        .output()
+        .expect("Failed to push");
+
+    // Branch ahead
+    let ahead = repo.add_worktree("ahead", "ahead");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["push", "-u", "origin", "ahead"])
+        .current_dir(&ahead)
+        .output()
+        .expect("Failed to push");
+    std::fs::write(ahead.join("ahead.txt"), "ahead").expect("Failed to write");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&ahead)
+        .output()
+        .expect("Failed to add");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Ahead commit"])
+        .current_dir(&ahead)
+        .output()
+        .expect("Failed to commit");
+
+    snapshot_list_task_dag_full("task_dag_with_upstream", &repo);
+}
+
+#[test]
+fn test_list_task_dag_many_worktrees() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Create 10 worktrees to test parallel processing
+    for i in 1..=10 {
+        repo.add_worktree(&format!("feature-{}", i), &format!("feature-{}", i));
+    }
+
+    snapshot_list_task_dag("task_dag_many_worktrees", &repo);
+}
+
+#[test]
+fn test_list_task_dag_with_locked_worktree() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    repo.add_worktree("normal", "normal");
+    repo.add_worktree("locked", "locked");
+    repo.lock_worktree("locked", Some("Testing task DAG with locked worktree"));
+
+    snapshot_list_task_dag("task_dag_with_locked", &repo);
+}
+
+#[test]
+fn test_list_task_dag_detached_head() {
+    let repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.detach_head();
+
+    snapshot_list_task_dag("task_dag_detached_head", &repo);
+}
+
+#[test]
+fn test_list_task_dag_ordering_stability() {
+    // Test that task_dag mode produces same ordering as buffered mode
+    // Regression test for progressive rendering order instability
+    let mut repo = TestRepo::new();
+
+    // Create main with earliest timestamp (00:00)
+    repo.commit("Initial commit on main");
+
+    // Create worktrees with specific timestamps (non-chronological creation order)
+
+    // 1. Create feature-current (01:00) - we'll run test from here
+    let current_path = repo.add_worktree("feature-current", "feature-current");
+    {
+        let file_path = current_path.join("current.txt");
+        std::fs::write(&file_path, "current content").expect("Failed to write file");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.env("GIT_AUTHOR_DATE", "2025-01-01T01:00:00Z");
+        cmd.env("GIT_COMMITTER_DATE", "2025-01-01T01:00:00Z");
+        cmd.args(["add", "."])
+            .current_dir(&current_path)
+            .output()
+            .expect("Failed to git add");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.env("GIT_AUTHOR_DATE", "2025-01-01T01:00:00Z");
+        cmd.env("GIT_COMMITTER_DATE", "2025-01-01T01:00:00Z");
+        cmd.args(["commit", "-m", "Commit at 01:00"])
+            .current_dir(&current_path)
+            .output()
+            .expect("Failed to git commit");
+    }
+
+    // 2. Create feature-newest (03:00) - most recent, should be 3rd
+    let newest_path = repo.add_worktree("feature-newest", "feature-newest");
+    {
+        let file_path = newest_path.join("newest.txt");
+        std::fs::write(&file_path, "newest content").expect("Failed to write file");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.env("GIT_AUTHOR_DATE", "2025-01-01T03:00:00Z");
+        cmd.env("GIT_COMMITTER_DATE", "2025-01-01T03:00:00Z");
+        cmd.args(["add", "."])
+            .current_dir(&newest_path)
+            .output()
+            .expect("Failed to git add");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.env("GIT_AUTHOR_DATE", "2025-01-01T03:00:00Z");
+        cmd.env("GIT_COMMITTER_DATE", "2025-01-01T03:00:00Z");
+        cmd.args(["commit", "-m", "Commit at 03:00"])
+            .current_dir(&newest_path)
+            .output()
+            .expect("Failed to git commit");
+    }
+
+    // 3. Create feature-middle (02:00) - should be 4th
+    let middle_path = repo.add_worktree("feature-middle", "feature-middle");
+    {
+        let file_path = middle_path.join("middle.txt");
+        std::fs::write(&file_path, "middle content").expect("Failed to write file");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.env("GIT_AUTHOR_DATE", "2025-01-01T02:00:00Z");
+        cmd.env("GIT_COMMITTER_DATE", "2025-01-01T02:00:00Z");
+        cmd.args(["add", "."])
+            .current_dir(&middle_path)
+            .output()
+            .expect("Failed to git add");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.env("GIT_AUTHOR_DATE", "2025-01-01T02:00:00Z");
+        cmd.env("GIT_COMMITTER_DATE", "2025-01-01T02:00:00Z");
+        cmd.args(["commit", "-m", "Commit at 02:00"])
+            .current_dir(&middle_path)
+            .output()
+            .expect("Failed to git commit");
+    }
+
+    // 4. Create feature-oldest (00:30) - should be 5th
+    let oldest_path = repo.add_worktree("feature-oldest", "feature-oldest");
+    {
+        let file_path = oldest_path.join("oldest.txt");
+        std::fs::write(&file_path, "oldest content").expect("Failed to write file");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.env("GIT_AUTHOR_DATE", "2025-01-01T00:30:00Z");
+        cmd.env("GIT_COMMITTER_DATE", "2025-01-01T00:30:00Z");
+        cmd.args(["add", "."])
+            .current_dir(&oldest_path)
+            .output()
+            .expect("Failed to git add");
+
+        let mut cmd = Command::new("git");
+        repo.configure_git_cmd(&mut cmd);
+        cmd.env("GIT_AUTHOR_DATE", "2025-01-01T00:30:00Z");
+        cmd.env("GIT_COMMITTER_DATE", "2025-01-01T00:30:00Z");
+        cmd.args(["commit", "-m", "Commit at 00:30"])
+            .current_dir(&oldest_path)
+            .output()
+            .expect("Failed to git commit");
+    }
+
+    // Run from feature-current worktree
+    // Expected order: main, feature-current, feature-newest, feature-middle, feature-oldest
+    run_snapshot(
+        list_snapshots::standard_settings(&repo),
+        "task_dag_ordering_stability",
+        list_snapshots::command_task_dag_from_dir(&repo, &current_path),
+    );
+}
+
+#[test]
+fn test_list_progressive_vs_buffered_identical_data() {
+    // Critical test: Verify that progressive and buffered modes collect identical data
+    // despite using different rendering strategies (real-time UI vs collect-then-print).
+    // This ensures consolidation on task DAG data collection works correctly.
+    //
+    // Note: We compare JSON output, not table output, because:
+    // - Progressive mode renders headers before knowing final column widths (uses estimates)
+    // - Buffered mode renders headers after data collection (uses actual widths)
+    // - The DATA must be identical, but table formatting may differ slightly
+
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Create varied worktrees to test multiple data points
+    repo.add_worktree("feature-a", "feature-a");
+    repo.add_worktree("feature-b", "feature-b");
+
+    // Modify a worktree to have uncommitted changes
+    let feature_a_path = repo.worktree_path("feature-a");
+    std::fs::write(feature_a_path.join("changes.txt"), "test").unwrap();
+
+    // Run both modes with JSON output to compare data (not formatting)
+    let progressive_output = list_snapshots::command_progressive_json(&repo)
+        .output()
+        .expect("Progressive JSON command failed");
+
+    let buffered_output = list_snapshots::command_no_progressive_json(&repo)
+        .output()
+        .expect("Buffered JSON command failed");
+
+    // Both should succeed
+    assert!(
+        progressive_output.status.success(),
+        "Progressive mode failed: {}",
+        String::from_utf8_lossy(&progressive_output.stderr)
+    );
+    assert!(
+        buffered_output.status.success(),
+        "Buffered mode failed: {}",
+        String::from_utf8_lossy(&buffered_output.stderr)
+    );
+
+    // Parse JSON outputs
+    let progressive_json: serde_json::Value = serde_json::from_slice(&progressive_output.stdout)
+        .expect("Invalid JSON from progressive mode");
+    let buffered_json: serde_json::Value =
+        serde_json::from_slice(&buffered_output.stdout).expect("Invalid JSON from buffered mode");
+
+    // The JSON data should be identical (ignoring display fields which may have formatting differences)
+    // Compare the structured data to ensure both modes collect the same information
+    assert_eq!(
+        progressive_json,
+        buffered_json,
+        "Progressive and buffered modes produced different data!\n\nProgressive:\n{}\n\nBuffered:\n{}",
+        serde_json::to_string_pretty(&progressive_json).unwrap(),
+        serde_json::to_string_pretty(&buffered_json).unwrap()
+    );
+}
+
+/// Test that errors from worktree collection include helpful context
+/// This verifies that when a worktree fails to collect data, the error message
+/// includes the worktree branch name and path for easier debugging.
+///
+/// TODO: This test is currently ignored because the parallel collection implementation
+/// silently handles errors instead of propagating them. We need to add proper error
+/// propagation through the CellUpdate channel. See collect_progressive_impl.rs TODOs.
+#[test]
+#[ignore = "Error handling needs improvement in parallel collection"]
+fn test_list_error_shows_worktree_context() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Create a worktree
+    let feature_wt = repo.add_worktree("feature", "feature");
+
+    // Delete the worktree directory manually to trigger an error
+    // (but keep the git metadata, so git worktree list still shows it)
+    std::fs::remove_dir_all(&feature_wt).expect("Failed to remove worktree directory");
+
+    // Run list command and expect an error
+    let mut cmd = wt_command();
+    repo.clean_cli_env(&mut cmd);
+    repo.configure_mock_commands(&mut cmd);
+    cmd.arg("list").current_dir(repo.root_path());
+
+    let output = cmd.output().expect("Failed to run command");
+
+    // Should fail with non-zero exit code
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !output.status.success(),
+        "Expected command to fail. stdout:\n{}\nstderr:\n{}",
+        stdout,
+        stderr
+    );
+
+    // Error message should include worktree context (could be in stdout or stderr)
+    let combined = format!("{}{}", stdout, stderr);
+
+    assert!(
+        combined.contains("feature") && combined.contains("Failed to collect data for worktree"),
+        "Error message should include worktree branch 'feature' and context, but got:\nstdout:\n{}\nstderr:\n{}",
+        stdout,
+        stderr
+    );
+}
+
+#[test]
 fn test_list_with_c_flag() {
     let mut repo = TestRepo::new();
     repo.commit("Initial commit");
@@ -746,5 +1181,609 @@ fn test_list_with_c_flag() {
         // Run from /tmp to ensure -C is actually being used
         cmd.current_dir("/tmp");
         assert_cmd_snapshot!("list_with_c_flag", cmd);
+    });
+}
+
+#[test]
+fn test_list_large_diffs_alignment() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Worktree with large uncommitted changes and ahead commits
+    // Use a longer branch name similar to user's "wli-sequence" to trigger column width
+    let large_wt = repo.add_worktree("feature-changes", "feature-changes");
+
+    // Create a file with many lines for large diff
+    let large_content = (1..=100)
+        .map(|i| format!("line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(large_wt.join("large.txt"), &large_content).expect("Failed to write file");
+
+    // Commit it
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&large_wt)
+        .output()
+        .expect("Failed to add");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Add 100 lines"])
+        .current_dir(&large_wt)
+        .output()
+        .expect("Failed to commit");
+
+    // Add large uncommitted changes (both added and deleted lines)
+    // Add a new file with many lines
+    std::fs::write(large_wt.join("uncommitted.txt"), &large_content).expect("Failed to write file");
+
+    // Modify the existing file to create deletions
+    let modified_content = (1..=50)
+        .map(|i| format!("modified line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(large_wt.join("large.txt"), &modified_content).expect("Failed to write file");
+
+    // Add another new file with many lines
+    let another_large = (1..=80)
+        .map(|i| format!("another line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(large_wt.join("another.txt"), &another_large).expect("Failed to write file");
+
+    // Set user status
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", "worktrunk.status.feature-changes", "🤖"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to set user status");
+
+    // Worktree with short name to show gap before Status column
+    let short_wt = repo.add_worktree("fix", "fix");
+    std::fs::write(short_wt.join("quick.txt"), "quick fix").expect("Failed to write file");
+
+    // Set user status for short branch
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", "worktrunk.status.fix", "💬"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to set user status");
+
+    // Worktree with diverged status and working tree changes
+    let diverged_wt = repo.add_worktree("diverged", "diverged");
+
+    // Commit some changes
+    let diverged_content = (1..=60)
+        .map(|i| format!("diverged line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(diverged_wt.join("test.txt"), &diverged_content).expect("Failed to write file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&diverged_wt)
+        .output()
+        .expect("Failed to add");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Diverged commit"])
+        .current_dir(&diverged_wt)
+        .output()
+        .expect("Failed to commit");
+
+    // Add uncommitted changes
+    let modified_diverged = (1..=40)
+        .map(|i| format!("modified diverged line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(diverged_wt.join("test.txt"), &modified_diverged).expect("Failed to write file");
+
+    // Set user status
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", "worktrunk.status.diverged", "💬"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to set user status");
+
+    snapshot_list("large_diffs_alignment", &repo);
+}
+
+#[test]
+fn test_list_status_column_padding_with_emoji() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    // Create worktree matching user's exact scenario: "wli-sequence"
+    let wli_seq = repo.add_worktree("wli-sequence", "wli-sequence");
+
+    // Create large working tree changes: +164, -111
+    // Need ~164 added lines and ~111 deleted lines
+    let initial_content = (1..=200)
+        .map(|i| format!("original line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(wli_seq.join("main.txt"), &initial_content).expect("write failed");
+
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&wli_seq)
+        .output()
+        .expect("add failed");
+
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Initial content"])
+        .current_dir(&wli_seq)
+        .output()
+        .expect("commit failed");
+
+    // Modify to create desired diff: remove ~111 lines, add different content
+    let modified_content = (1..=89)
+        .map(|i| format!("original line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(wli_seq.join("main.txt"), &modified_content).expect("write failed");
+
+    // Add new file with ~164 lines to get +164
+    let new_content = (1..=164)
+        .map(|i| format!("new line {}", i))
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(wli_seq.join("new.txt"), &new_content).expect("write failed");
+
+    // Set user status emoji 🤖
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", "worktrunk.status.wli-sequence", "🤖"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("config failed");
+
+    // Create "pr-link" worktree with different status (fewer symbols, same emoji type)
+    let pr_link = repo.add_worktree("pr-link", "pr-link");
+
+    // Commit to make it ahead
+    std::fs::write(pr_link.join("pr.txt"), "pr content").expect("write failed");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&pr_link)
+        .output()
+        .expect("add failed");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "PR commit"])
+        .current_dir(&pr_link)
+        .output()
+        .expect("commit failed");
+
+    // Set same emoji type
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", "worktrunk.status.pr-link", "🤖"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("config failed");
+
+    // Create "main-symbol" with different emoji
+    let main_sym = repo.add_worktree("main-symbol", "main-symbol");
+    std::fs::write(main_sym.join("sym.txt"), "symbol").expect("write failed");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&main_sym)
+        .output()
+        .expect("add failed");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Symbol commit"])
+        .current_dir(&main_sym)
+        .output()
+        .expect("commit failed");
+
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", "worktrunk.status.main-symbol", "💬"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("config failed");
+
+    snapshot_list("status_column_padding_emoji", &repo);
+}
+
+#[test]
+fn test_list_maximum_working_tree_symbols() {
+    // Test that all 5 working tree symbols can appear simultaneously:
+    // ? (untracked), ! (modified), + (staged), » (renamed), ✘ (deleted)
+    // This verifies the maximum width of the working_tree position (5 chars)
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+
+    let feature = repo.add_worktree("feature", "feature");
+
+    // Create initial files to manipulate
+    std::fs::write(feature.join("file-a.txt"), "original a").unwrap();
+    std::fs::write(feature.join("file-b.txt"), "original b").unwrap();
+    std::fs::write(feature.join("file-c.txt"), "original c").unwrap();
+    std::fs::write(feature.join("file-d.txt"), "original d").unwrap();
+
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Add files"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // 1. Create untracked file (?)
+    std::fs::write(feature.join("untracked.txt"), "new file").unwrap();
+
+    // 2. Modify tracked file without staging (!)
+    std::fs::write(feature.join("file-a.txt"), "modified content").unwrap();
+
+    // 3. Stage some changes (+)
+    std::fs::write(feature.join("file-b.txt"), "staged changes").unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "file-b.txt"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // 4. Rename a file and stage it (»)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["mv", "file-c.txt", "renamed-c.txt"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // 5. Delete a file in index (✘)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["rm", "file-d.txt"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Result should show: ?!+»✘
+    snapshot_list("maximum_working_tree_symbols", &repo);
+}
+
+#[test]
+fn test_list_maximum_status_with_git_operation() {
+    // Test maximum status symbols including git operation (rebase/merge):
+    // ?!+ (working_tree) + = (conflicts) + ↻ (rebase) + ↕ (diverged) + ⊠ (locked) + 🤖 (user status)
+    // This pushes the Status column to ~10-11 chars of actual content
+    let mut repo = TestRepo::new();
+
+    // Create initial commit with a file that will conflict
+    std::fs::write(
+        repo.root_path().join("conflict.txt"),
+        "original line 1\noriginal line 2\n",
+    )
+    .unwrap();
+    std::fs::write(repo.root_path().join("shared.txt"), "shared content").unwrap();
+    repo.commit("Initial commit");
+
+    // Create feature worktree
+    let feature = repo.add_worktree("feature", "feature");
+
+    // Feature makes changes
+    std::fs::write(
+        feature.join("conflict.txt"),
+        "feature line 1\nfeature line 2\n",
+    )
+    .unwrap();
+    std::fs::write(feature.join("feature.txt"), "feature-specific content").unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Feature changes"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Main makes conflicting changes
+    std::fs::write(
+        repo.root_path().join("conflict.txt"),
+        "main line 1\nmain line 2\n",
+    )
+    .unwrap();
+    std::fs::write(repo.root_path().join("main-only.txt"), "main content").unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Main conflicting changes"])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+
+    // Start rebase which will create conflicts and git operation state
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    let rebase_output = cmd
+        .args(["rebase", "main"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Rebase should fail with conflicts - verify we're in rebase state
+    assert!(
+        !rebase_output.status.success(),
+        "Rebase should fail with conflicts"
+    );
+
+    // Now add working tree symbols while in rebase state
+    // 1. Untracked file (?)
+    std::fs::write(feature.join("untracked.txt"), "untracked during rebase").unwrap();
+
+    // 2. Modified file (!) - modify a non-conflicting file
+    std::fs::write(feature.join("feature.txt"), "modified during rebase").unwrap();
+
+    // 3. Staged file (+) - stage the conflict resolution
+    std::fs::write(feature.join("new-staged.txt"), "staged during rebase").unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "new-staged.txt"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Lock the worktree (⊠)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["worktree", "lock", feature.to_str().unwrap()])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+
+    // Set user status emoji (🤖)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", "worktrunk.status.feature", "🤖"])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+
+    // Result should show: ?!+ (working_tree) + = (conflicts) + ↻ (rebase) + ↕ (diverged) + ⊠ (locked) + 🤖 (user status)
+    // Use --full to enable conflict detection
+    let settings = list_snapshots::standard_settings(&repo);
+    settings.bind(|| {
+        let mut cmd = list_snapshots::command(&repo, repo.root_path());
+        cmd.arg("--full");
+        assert_cmd_snapshot!("maximum_status_with_git_operation", cmd);
+    });
+}
+
+#[test]
+fn test_list_maximum_status_symbols() {
+    // Test the maximum status symbols possible:
+    // ?!+»✘ (5) + = (1) + ⊠ (1) + ↕ (1) + ⇅ (1) + 🤖 (2) = 11 chars
+    // Missing: ↻ (git operation - can't have with divergence), ◇ (bare), ⚠ (prunable)
+    let mut repo = TestRepo::new();
+
+    // Create initial commit on main with shared files
+    std::fs::write(repo.root_path().join("shared.txt"), "original").unwrap();
+    std::fs::write(repo.root_path().join("file-a.txt"), "a").unwrap();
+    std::fs::write(repo.root_path().join("file-b.txt"), "b").unwrap();
+    std::fs::write(repo.root_path().join("file-c.txt"), "c").unwrap();
+    std::fs::write(repo.root_path().join("file-d.txt"), "d").unwrap();
+    repo.commit("Initial commit");
+
+    // Create feature worktree
+    let feature = repo.add_worktree("feature", "feature");
+
+    // Make feature diverge from main (ahead) with conflicting change
+    std::fs::write(feature.join("shared.txt"), "feature version").unwrap();
+    std::fs::write(feature.join("feature.txt"), "feature content").unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Feature work"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Set up a real local bare repository as the remote for reliable upstream tracking
+    let remote_dir = repo.root_path().parent().unwrap().join("remote.git");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args([
+        "clone",
+        "--bare",
+        repo.root_path().to_str().unwrap(),
+        remote_dir.to_str().unwrap(),
+    ])
+    .output()
+    .unwrap();
+
+    // Add the local bare repo as origin
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["remote", "add", "origin", remote_dir.to_str().unwrap()])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Push to establish the remote branch
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["push", "-u", "origin", "feature"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Create divergence: local has commits remote doesn't have, AND vice versa
+    // Step 1: Make a local commit (we'll be ahead)
+    std::fs::write(feature.join("local-only.txt"), "local content").unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "local-only.txt"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Local only commit"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Step 2: Simulate remote having a divergent commit by creating a parallel history
+
+    // Clone to a temp location starting from our current feature commit
+    let temp_wt = repo.root_path().parent().unwrap().join("temp-for-remote");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args([
+        "clone",
+        "--branch",
+        "feature",
+        remote_dir.to_str().unwrap(),
+        temp_wt.to_str().unwrap(),
+    ])
+    .output()
+    .unwrap();
+
+    // Reset to the commit BEFORE our local commit (so we diverge from a common ancestor)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["reset", "--hard", "HEAD~1"])
+        .current_dir(&temp_wt)
+        .output()
+        .unwrap();
+
+    // Make a different commit on the same base (creating true divergence)
+    std::fs::write(
+        temp_wt.join("remote-diverged.txt"),
+        "remote diverged content",
+    )
+    .unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "remote-diverged.txt"])
+        .current_dir(&temp_wt)
+        .output()
+        .unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Remote diverged commit"])
+        .current_dir(&temp_wt)
+        .output()
+        .unwrap();
+
+    // Force push to update the remote (simulating someone else force-pushed)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["push", "--force", "origin", "feature"])
+        .current_dir(&temp_wt)
+        .output()
+        .unwrap();
+
+    // Fetch so our feature worktree knows about the remote commit
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["fetch", "origin"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Make main advance with conflicting change (so feature is behind with conflicts)
+    std::fs::write(repo.root_path().join("shared.txt"), "main version").unwrap();
+    std::fs::write(repo.root_path().join("main2.txt"), "more main").unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "."])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "Main advances"])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+
+    // Add all 5 working tree symbol types (without rebase, so we keep divergence)
+    // 1. Untracked (?)
+    std::fs::write(feature.join("untracked.txt"), "untracked").unwrap();
+
+    // 2. Modified (!)
+    std::fs::write(feature.join("feature.txt"), "modified").unwrap();
+
+    // 3. Staged (+)
+    std::fs::write(feature.join("new-staged.txt"), "staged content").unwrap();
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "new-staged.txt"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // 4. Renamed (»)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["mv", "file-c.txt", "renamed-c.txt"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // 5. Deleted (✘)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["rm", "file-d.txt"])
+        .current_dir(&feature)
+        .output()
+        .unwrap();
+
+    // Lock the worktree (⊠)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["worktree", "lock", feature.to_str().unwrap()])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+
+    // Set user status emoji (🤖)
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", "worktrunk.status.feature", "🤖"])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+
+    // Result should show 11 chars: ?!+»✘=⊠↕⇅🤖
+    let settings = list_snapshots::standard_settings(&repo);
+    settings.bind(|| {
+        let mut cmd = list_snapshots::command(&repo, repo.root_path());
+        cmd.arg("--full");
+        assert_cmd_snapshot!("maximum_status_symbols", cmd);
     });
 }

@@ -189,12 +189,12 @@ fn test_bare_repo_list_shows_no_bare_entry() {
     cmd.arg("list").current_dir(&main_worktree);
 
     let output = cmd.output().expect("Failed to run wt list");
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Should only show the main worktree, not the bare repo
-    assert!(stdout.contains("main"));
-    assert!(!stdout.contains(".git"));
-    assert!(!stdout.contains("bare"));
+    // Should only show the main worktree, not the bare repo (table output is on stderr)
+    assert!(stderr.contains("main"));
+    assert!(!stderr.contains(".git"));
+    assert!(!stderr.contains("bare"));
 }
 
 #[test]
@@ -362,11 +362,11 @@ fn test_bare_repo_identifies_primary_correctly() {
     cmd.arg("list").current_dir(&main_worktree);
 
     let output = cmd.output().expect("Failed to run wt list");
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // First non-bare worktree (main) should be primary
+    // First non-bare worktree (main) should be primary (table output is on stderr)
     // The exact formatting may vary, but main should be listed
-    assert!(stdout.contains("main"));
+    assert!(stderr.contains("main"));
 }
 
 #[test]
@@ -443,13 +443,13 @@ worktree-path = "{{ branch }}"
         .output()
         .expect("Failed to list normal worktrees");
 
-    // Both should show 1 worktree (main/main)
-    let bare_stdout = String::from_utf8_lossy(&bare_output.stdout);
-    let normal_stdout = String::from_utf8_lossy(&normal_output.stdout);
+    // Both should show 1 worktree (main/main) - table output is on stderr
+    let bare_stderr = String::from_utf8_lossy(&bare_output.stderr);
+    let normal_stderr = String::from_utf8_lossy(&normal_output.stderr);
 
-    assert!(bare_stdout.contains("main"));
-    assert!(normal_stdout.contains("main"));
-    assert_eq!(bare_stdout.lines().count(), normal_stdout.lines().count());
+    assert!(bare_stderr.contains("main"));
+    assert!(normal_stderr.contains("main"));
+    assert_eq!(bare_stderr.lines().count(), normal_stderr.lines().count());
 }
 
 #[test]
@@ -475,11 +475,11 @@ fn test_bare_repo_commands_from_bare_directory() {
         );
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // Should list the worktree even when run from bare repo
-    assert!(stdout.contains("main"), "Should show main worktree");
-    assert!(!stdout.contains("bare"), "Should not show bare repo itself");
+    // Should list the worktree even when run from bare repo (table output is on stderr)
+    assert!(stderr.contains("main"), "Should show main worktree");
+    assert!(!stderr.contains("bare"), "Should not show bare repo itself");
 }
 
 #[test]

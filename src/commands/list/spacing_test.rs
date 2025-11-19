@@ -19,11 +19,6 @@ fn test_header_data_alignment_with_and_without_styling() {
     let age_header = format!("{:width$}", "Age", width = 14);
     header.push_styled(age_header, Style::new().dimmed());
 
-    println!(
-        "Header visual: |{}|",
-        header.render().replace("\x1b", "\\x1b")
-    );
-
     // Data row 1: with styling (styled cell)
     let mut row1 = StyledLine::new();
     let branch1_text = format!("{:width$}", "main", width = branch_width);
@@ -35,16 +30,6 @@ fn test_header_data_alignment_with_and_without_styling() {
     let time1_text = format!("{:width$}", "23 minutes ago", width = 14);
     row1.push_styled(time1_text, Style::new().dimmed());
 
-    println!(
-        "Row 1 styled visual: |{}|",
-        row1.render().replace("\x1b", "\\x1b")
-    );
-    println!(
-        "Row 1 styled: branch_text='{}' len={}",
-        branch1_text,
-        branch1_text.len()
-    );
-
     // Data row 2: without styling (raw cell)
     let mut row2 = StyledLine::new();
     let branch2_text = format!("{:width$}", "foo", width = branch_width);
@@ -53,27 +38,10 @@ fn test_header_data_alignment_with_and_without_styling() {
     let time2_text = format!("{:width$}", "23 minutes ago", width = 14);
     row2.push_styled(time2_text, Style::new().dimmed());
 
-    println!(
-        "Row 2 unstyled visual: |{}|",
-        row2.render().replace("\x1b", "\\x1b")
-    );
-    println!(
-        "Row 2 unstyled: branch_text='{}' len={}",
-        branch2_text,
-        branch2_text.len()
-    );
-
     // Check that all rows have the same width up to the time column
     let header_width_before_time = branch_width + 2; // branch + separator
     let row1_width_before_time = branch_width + 2;
     let row2_width_before_time = branch_width + 2;
-
-    println!(
-        "\nExpected width before time column: {}",
-        header_width_before_time
-    );
-    println!("Row 1 width before time: {}", row1_width_before_time);
-    println!("Row 2 width before time: {}", row2_width_before_time);
 
     assert_eq!(
         header_width_before_time, row1_width_before_time,

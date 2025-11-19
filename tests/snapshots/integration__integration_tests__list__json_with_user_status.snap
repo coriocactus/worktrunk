@@ -12,48 +12,25 @@ info:
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
     GIT_CONFIG_GLOBAL: /dev/null
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmp7D6YbP/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpPlVPx6/test-config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
 [
   {
-    "type": "worktree",
-    "path": "[REPO]",
     "head_sha": "b834638e33dbc6b37002685ee0777f4b8f1af904",
     "branch": "main",
-    "bare": false,
-    "detached": false,
-    "locked": null,
-    "prunable": null,
     "timestamp": 0,
     "commit_message": "Initial commit",
-    "ahead": 0,
-    "behind": 0,
-    "branch_diff": {
-      "added": 0,
-      "deleted": 0
-    },
-    "working_tree_diff": {
-      "added": 0,
-      "deleted": 0
-    },
-    "working_tree_diff_with_main": {
-      "added": 0,
-      "deleted": 0
-    },
-    "worktree_state": null,
-    "has_conflicts": false,
-    "is_primary": true,
     "upstream_remote": null,
     "upstream_ahead": 0,
     "upstream_behind": 0,
     "pr_status": null,
+    "has_conflicts": false,
     "status_symbols": {
       "has_conflicts": false,
       "has_potential_conflicts": false,
@@ -64,25 +41,13 @@ exit_code: 0
       "upstream_divergence": "",
       "working_tree": "",
       "user_status": null
-    }
-  },
-  {
+    },
     "type": "worktree",
-    "path": "[WORKTREE_WITH_STATUS]",
-    "head_sha": "b834638e33dbc6b37002685ee0777f4b8f1af904",
-    "branch": "with-status",
+    "path": "[REPO]",
     "bare": false,
     "detached": false,
     "locked": null,
     "prunable": null,
-    "timestamp": 0,
-    "commit_message": "Initial commit",
-    "ahead": 0,
-    "behind": 0,
-    "branch_diff": {
-      "added": 0,
-      "deleted": 0
-    },
     "working_tree_diff": {
       "added": 0,
       "deleted": 0
@@ -92,12 +57,25 @@ exit_code: 0
       "deleted": 0
     },
     "worktree_state": null,
-    "has_conflicts": false,
-    "is_primary": false,
+    "is_primary": true
+  },
+  {
+    "head_sha": "b834638e33dbc6b37002685ee0777f4b8f1af904",
+    "branch": "with-status",
+    "timestamp": 0,
+    "commit_message": "Initial commit",
+    "ahead": 0,
+    "behind": 0,
+    "branch_diff": {
+      "added": 0,
+      "deleted": 0
+    },
     "upstream_remote": null,
     "upstream_ahead": 0,
     "upstream_behind": 0,
     "pr_status": null,
+    "has_conflicts": false,
+    "user_status": "🔧",
     "status_symbols": {
       "has_conflicts": false,
       "has_potential_conflicts": false,
@@ -109,25 +87,12 @@ exit_code: 0
       "working_tree": "",
       "user_status": "🔧"
     },
-    "status_display": "     /u001b[2m≡/u001b[0m 🔧"
-  },
-  {
     "type": "worktree",
-    "path": "[WORKTREE_WITHOUT_STATUS]",
-    "head_sha": "b834638e33dbc6b37002685ee0777f4b8f1af904",
-    "branch": "without-status",
+    "path": "[WORKTREE_WITH_STATUS]",
     "bare": false,
     "detached": false,
     "locked": null,
     "prunable": null,
-    "timestamp": 0,
-    "commit_message": "Initial commit",
-    "ahead": 0,
-    "behind": 0,
-    "branch_diff": {
-      "added": 0,
-      "deleted": 0
-    },
     "working_tree_diff": {
       "added": 0,
       "deleted": 0
@@ -137,12 +102,24 @@ exit_code: 0
       "deleted": 0
     },
     "worktree_state": null,
-    "has_conflicts": false,
-    "is_primary": false,
+    "is_primary": false
+  },
+  {
+    "head_sha": "b834638e33dbc6b37002685ee0777f4b8f1af904",
+    "branch": "without-status",
+    "timestamp": 0,
+    "commit_message": "Initial commit",
+    "ahead": 0,
+    "behind": 0,
+    "branch_diff": {
+      "added": 0,
+      "deleted": 0
+    },
     "upstream_remote": null,
     "upstream_ahead": 0,
     "upstream_behind": 0,
     "pr_status": null,
+    "has_conflicts": false,
     "status_symbols": {
       "has_conflicts": false,
       "has_potential_conflicts": false,
@@ -154,7 +131,22 @@ exit_code: 0
       "working_tree": "",
       "user_status": null
     },
-    "status_display": "     /u001b[2m≡/u001b[0m  "
+    "type": "worktree",
+    "path": "[WORKTREE_WITHOUT_STATUS]",
+    "bare": false,
+    "detached": false,
+    "locked": null,
+    "prunable": null,
+    "working_tree_diff": {
+      "added": 0,
+      "deleted": 0
+    },
+    "working_tree_diff_with_main": {
+      "added": 0,
+      "deleted": 0
+    },
+    "worktree_state": null,
+    "is_primary": false
   }
 ]
 

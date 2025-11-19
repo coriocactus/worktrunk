@@ -4,7 +4,12 @@ use std::path::Path;
 #[test]
 fn check_output_system_usage() {
     let project_root = env!("CARGO_MANIFEST_DIR");
-    let restricted_files = ["src/commands/worktree.rs", "src/commands/merge.rs"];
+    let restricted_files = [
+        "src/commands/worktree.rs",
+        "src/commands/merge.rs",
+        "src/commands/list/mod.rs",
+        "src/commands/list/collect.rs",
+    ];
     let forbidden_tokens = ["print!", "println!", "eprint!", "eprintln!"];
     let allowed_substrings = ["spacing_test.rs", "command_approval.rs"];
 

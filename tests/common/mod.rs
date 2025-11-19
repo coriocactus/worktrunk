@@ -591,12 +591,19 @@ exit 1
     ///
     /// Must call `setup_mock_gh()` first. Prepends the mock bin directory to PATH
     /// so gh/glab commands are intercepted.
+    ///
+    /// Note: This sets PATH explicitly (which will be captured in snapshots). We use
+    /// a clean, minimal PATH with only system paths to avoid leaking user-specific
+    /// paths like ~/.cargo/bin into version control. This hardcoded PATH works on
+    /// macOS and Linux but may need adjustment for other environments.
     pub fn configure_mock_commands(&self, cmd: &mut Command) {
         if let Some(mock_bin) = &self.mock_bin_path {
-            // Prepend mock bin to PATH
-            let current_path = std::env::var("PATH").unwrap_or_default();
-            let new_path = format!("{}:{}", mock_bin.display(), current_path);
-            cmd.env("PATH", new_path);
+            // Use clean, minimal PATH to avoid capturing user-specific paths in snapshots
+            let clean_path = format!(
+                "{}:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+                mock_bin.display()
+            );
+            cmd.env("PATH", clean_path);
         }
     }
 }

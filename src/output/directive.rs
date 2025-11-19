@@ -105,6 +105,22 @@ impl DirectiveOutput {
         io::stderr().flush()
     }
 
+    pub fn raw(&mut self, content: String) -> io::Result<()> {
+        // Raw output without emoji decoration - for structured data like JSON
+        // In directive mode, even JSON goes to stderr (stdout is reserved for directives)
+        use worktrunk::styling::eprintln;
+        eprintln!("{content}");
+        io::stderr().flush()
+    }
+
+    pub fn raw_terminal(&mut self, content: String) -> io::Result<()> {
+        // Raw output to stderr - for table output
+        // In directive mode, this is the same as raw() since everything goes to stderr
+        use worktrunk::styling::eprintln;
+        eprintln!("{content}");
+        io::stderr().flush()
+    }
+
     pub fn change_directory(&mut self, path: &Path) -> io::Result<()> {
         write!(io::stdout(), "__WORKTRUNK_CD__{}\0", path.display())?;
         io::stdout().flush()
