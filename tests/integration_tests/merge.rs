@@ -2807,3 +2807,80 @@ fn test_merge_to_non_default_target() {
         Some(&feature_wt),
     );
 }
+
+#[test]
+fn test_merge_squash_with_working_tree_creates_backup() {
+    let mut repo = TestRepo::new();
+    repo.commit("Initial commit");
+    repo.setup_remote("main");
+
+    // Create a worktree for main
+    repo.add_main_worktree();
+
+    // Create a feature worktree with multiple commits
+    let feature_wt = repo.add_worktree("feature", "feature");
+
+    // First commit
+    std::fs::write(feature_wt.join("file1.txt"), "content 1").expect("Failed to write file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "file1.txt"])
+        .current_dir(&feature_wt)
+        .output()
+        .expect("Failed to add file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "feat: add file 1"])
+        .current_dir(&feature_wt)
+        .output()
+        .expect("Failed to commit");
+
+    // Second commit
+    std::fs::write(feature_wt.join("file2.txt"), "content 2").expect("Failed to write file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["add", "file2.txt"])
+        .current_dir(&feature_wt)
+        .output()
+        .expect("Failed to add file");
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["commit", "-m", "feat: add file 2"])
+        .current_dir(&feature_wt)
+        .output()
+        .expect("Failed to commit");
+
+    // Add uncommitted tracked changes that will be included in the squash
+    std::fs::write(feature_wt.join("file1.txt"), "updated content 1")
+        .expect("Failed to write file");
+
+    // Merge with squash (default behavior)
+    // This should create a backup before squashing because there are uncommitted changes
+    snapshot_merge_with_env(
+        "merge_squash_with_working_tree_creates_backup",
+        &repo,
+        &["main"],
+        Some(&feature_wt),
+        &[
+            ("WORKTRUNK_COMMIT_GENERATION__COMMAND", "echo"),
+            ("WORKTRUNK_COMMIT_GENERATION__ARGS", "fix: update files"),
+        ],
+    );
+
+    // Verify that a stash backup was created
+    // Note: The worktree has been removed by the merge, so we check from the repo root
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    let output = cmd
+        .args(["stash", "list"])
+        .current_dir(repo.root_path())
+        .output()
+        .expect("Failed to list stashes");
+
+    let stash_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stash_list.contains("feature → main (squash)"),
+        "Expected backup stash to be created, but stash list was: {}",
+        stash_list
+    );
+}

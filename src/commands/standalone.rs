@@ -193,6 +193,15 @@ pub fn handle_squash(
     let formatted_message = generator.format_message_for_display(&commit_message);
     crate::output::gutter(format_with_gutter(&formatted_message, "", None))?;
 
+    // Create safety backup before potentially destructive reset if there are working tree changes
+    if has_staged {
+        let backup_message = format!("{} → {} (squash)", current_branch, target_branch);
+        let (sha, _restore_cmd) = repo.create_safety_backup(&backup_message)?;
+        use worktrunk::styling::AnstyleStyle;
+        let dim = AnstyleStyle::new().dimmed();
+        crate::output::hint(format!("Backup created @ {dim}{sha}{dim:#}"))?;
+    }
+
     // Reset to merge base (soft reset stages all changes, including any already-staged uncommitted changes)
     repo.run_command(&["reset", "--soft", &merge_base])
         .git_context("Failed to reset to merge base")?;

@@ -679,6 +679,43 @@ impl Repository {
         Ok(!self.run_command_check(&["diff", "--cached", "--quiet", "--exit-code"])?)
     }
 
+    /// Create a safety backup of current working tree state without affecting the working tree.
+    ///
+    /// This creates a stash commit containing all changes (staged, unstaged, and untracked files)
+    /// and adds it to the stash reflog for recovery. The working tree remains unchanged.
+    ///
+    /// Users can find safety backups with: `git stash list`
+    ///
+    /// Returns the SHA of the backup commit and a restore command.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use worktrunk::git::Repository;
+    ///
+    /// let repo = Repository::current();
+    /// let (sha, restore_cmd) = repo.create_safety_backup("feature → main (squash)")?;
+    /// println!("Backup created: {} - Restore with: {}", sha, restore_cmd);
+    /// # Ok::<(), worktrunk::git::GitError>(())
+    /// ```
+    pub fn create_safety_backup(&self, message: &str) -> Result<(String, String), GitError> {
+        // Create a stash commit without modifying the working tree
+        let stash_sha = self
+            .run_command(&["stash", "create", "--include-untracked"])?
+            .trim()
+            .to_string();
+
+        // Store the stash commit in the reflog
+        // This makes it accessible via `git stash list` and prevents it from being garbage collected
+        self.run_command(&["stash", "store", "-m", message, &stash_sha])
+            .git_context("Failed to store backup in reflog")?;
+
+        // Return short SHA and restore command
+        let short_sha = &stash_sha[..7];
+        let restore_cmd = format!("git stash apply --index {}", short_sha);
+
+        Ok((short_sha.to_string(), restore_cmd))
+    }
+
     /// Get all branch names (local branches only).
     pub fn all_branches(&self) -> Result<Vec<String>, GitError> {
         let stdout = self.run_command(&["branch", "--format=%(refname:short)"])?;
