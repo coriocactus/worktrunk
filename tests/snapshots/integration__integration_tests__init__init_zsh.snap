@@ -12,11 +12,10 @@ info:
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
     GIT_CONFIG_GLOBAL: /dev/null
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpFxEupS/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpSJbP72/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -454,7 +453,7 @@ _arguments "${_arguments_options[@]}" : \
 '--no-squash[Skip commit squashing]' \
 '--no-commit[Skip commit, squash, and rebase]' \
 '--no-remove[Keep worktree after merge]' \
-'--no-verify[Skip project hooks]' \
+'--no-verify[Skip all project hooks]' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
 '--tracked-only[Stage tracked files only]' \

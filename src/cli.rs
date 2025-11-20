@@ -566,8 +566,9 @@ The merge operation follows a strict order designed for fail-fast execution:
    (defaults to repository's default branch).
 
 2. Auto-commit uncommitted changes
-   If working tree has uncommitted changes, stages all changes (git add -A) and commits
-   with LLM-generated message.
+   If working tree has uncommitted changes, stages changes and commits with LLM-generated
+   message. By default stages all changes (git add -A). Use --tracked-only to stage only
+   tracked files (git add -u).
 
 3. Squash commits (default)
    By default, counts commits since merge base with target branch. When multiple
@@ -595,6 +596,18 @@ The merge operation follows a strict order designed for fail-fast execution:
    Removes current worktree, deletes the branch, and switches main worktree to target
    branch if needed. Skip removal with --no-remove.
 
+8. Run post-merge commands
+   Runs commands from project config's [post-merge-command] in the destination worktree
+   after cleanup. These receive {{ target }} placeholder. Commands run sequentially,
+   failures are logged but don't abort. Skip with --no-verify.
+
+HOOKS
+
+The --no-verify flag skips all project hooks:
+- Pre-commit hooks (before committing working tree changes)
+- Pre-merge hooks (after rebase, before push)
+- Post-merge hooks (after cleanup)
+
 EXAMPLES
 
 Basic merge to main:
@@ -606,7 +619,7 @@ Merge without squashing:
 Keep worktree after merging:
   wt merge --no-remove
 
-Skip pre-merge commands:
+Skip all hooks:
   wt merge --no-verify"#)]
     Merge {
         /// Target branch (defaults to default branch)
@@ -625,7 +638,7 @@ Skip pre-merge commands:
         #[arg(long = "no-remove", action = clap::ArgAction::SetFalse, default_value_t = true)]
         remove: bool,
 
-        /// Skip project hooks
+        /// Skip all project hooks
         #[arg(long = "no-verify", action = clap::ArgAction::SetFalse, default_value_t = true)]
         verify: bool,
 

@@ -12,11 +12,10 @@ info:
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
     GIT_CONFIG_GLOBAL: /dev/null
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmp5ZgirM/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpK4BFVd/test-config.toml
 ---
 success: true
 exit_code: 0
@@ -300,7 +299,7 @@ complete -c wt -n "__fish_wt_using_subcommand merge" -s C -d 'Change working dir
 complete -c wt -n "__fish_wt_using_subcommand merge" -l no-squash -d 'Skip commit squashing'
 complete -c wt -n "__fish_wt_using_subcommand merge" -l no-commit -d 'Skip commit, squash, and rebase'
 complete -c wt -n "__fish_wt_using_subcommand merge" -l no-remove -d 'Keep worktree after merge'
-complete -c wt -n "__fish_wt_using_subcommand merge" -l no-verify -d 'Skip project hooks'
+complete -c wt -n "__fish_wt_using_subcommand merge" -l no-verify -d 'Skip all project hooks'
 complete -c wt -n "__fish_wt_using_subcommand merge" -s f -l force -d 'Skip approval prompts'
 complete -c wt -n "__fish_wt_using_subcommand merge" -l tracked-only -d 'Stage tracked files only'
 complete -c wt -n "__fish_wt_using_subcommand merge" -s v -l verbose -d 'Show commands and debug info'
