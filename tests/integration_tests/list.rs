@@ -1715,16 +1715,6 @@ fn test_list_maximum_status_symbols() {
         .output()
         .unwrap();
 
-    // Run git gc to ensure deterministic ahead/behind calculation after force push.
-    // Force pushes can leave stale references that affect merge-base calculation differently
-    // across platforms. Git gc cleans up unreachable objects and packs references.
-    let mut cmd = Command::new("git");
-    repo.configure_git_cmd(&mut cmd);
-    cmd.args(["gc", "--prune=now"])
-        .current_dir(&feature)
-        .output()
-        .unwrap();
-
     // Make main advance with conflicting change (so feature is behind with conflicts)
     std::fs::write(repo.root_path().join("shared.txt"), "main version").unwrap();
     std::fs::write(repo.root_path().join("main2.txt"), "more main").unwrap();
