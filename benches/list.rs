@@ -3,6 +3,10 @@
 // This suite measures raw performance and scaling characteristics:
 //
 // 1. Synthetic benchmarks (fast, deterministic):
+//    - bench_time_to_skeleton: Measures time until skeleton appears (progressive mode)
+//    - bench_time_to_skeleton_cold: Same as above but with packed-refs invalidated
+//    - bench_time_to_complete: Measures full `wt list` execution (when all data appears), warm caches
+//    - bench_time_to_complete_cold: Same as above but with packed-refs invalidated
 //    - bench_list_by_worktree_count: Measures scaling with worktree count (1-8), warm caches
 //    - bench_list_by_repo_profile: Measures scaling with repo size (minimal/typical/large), warm caches
 //    - bench_sequential_vs_parallel: Light comparison of sequential vs parallel (3 data points), warm caches
@@ -17,6 +21,7 @@
 //   cargo bench --bench list
 //
 // Run specific benchmark:
+//   cargo bench --bench list bench_time_to_skeleton
 //   cargo bench --bench list bench_list_by_worktree_count
 //   cargo bench --bench list bench_list_cold_cache
 //   cargo bench --bench list bench_list_real_repo
@@ -247,6 +252,242 @@ fn add_worktree_with_divergence(
             run_git(repo_path, &["commit", "-m", &format!("Main advance {}", i)]);
         }
     }
+}
+
+/// Benchmark time to render skeleton (before cell filling starts).
+///
+/// Uses WT_SKELETON_ONLY=1 to exit after skeleton is rendered.
+/// This measures the actual worktrunk code path: git I/O, parsing, layout, render skeleton.
+fn bench_time_to_skeleton(c: &mut Criterion) {
+    let mut group = c.benchmark_group("time_to_skeleton");
+
+    let binary = get_release_binary();
+    let profile = &PROFILES[1];
+
+    for num_worktrees in [1, 4, 8] {
+        let temp = create_realistic_repo(profile.commits, profile.files);
+        let repo_path = temp.path().join("main");
+
+        for i in 1..num_worktrees {
+            add_worktree_with_divergence(
+                &temp,
+                &repo_path,
+                i,
+                profile.commits_ahead,
+                profile.commits_behind,
+                profile.uncommitted_files,
+            );
+        }
+
+        // Set up cached default branch
+        let refs_dir = repo_path.join(".git/refs/remotes/origin");
+        std::fs::create_dir_all(&refs_dir).unwrap();
+        std::fs::write(refs_dir.join("HEAD"), "ref: refs/remotes/origin/main\n").unwrap();
+        let head_sha = Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(&repo_path)
+            .output()
+            .unwrap();
+        std::fs::write(refs_dir.join("main"), head_sha.stdout).unwrap();
+
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_worktrees),
+            &num_worktrees,
+            |b, _| {
+                b.iter(|| {
+                    Command::new(&binary)
+                        .arg("list")
+                        .env("WT_SKELETON_ONLY", "1")
+                        .current_dir(&repo_path)
+                        .output()
+                        .unwrap();
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Cold cache variant of time_to_skeleton benchmark.
+/// Invalidates packed-refs before each measurement.
+fn bench_time_to_skeleton_cold(c: &mut Criterion) {
+    let mut group = c.benchmark_group("time_to_skeleton_cold");
+
+    let binary = get_release_binary();
+    let profile = &PROFILES[1];
+
+    for num_worktrees in [1, 4, 8] {
+        let temp = create_realistic_repo(profile.commits, profile.files);
+        let repo_path = temp.path().join("main");
+
+        for i in 1..num_worktrees {
+            add_worktree_with_divergence(
+                &temp,
+                &repo_path,
+                i,
+                profile.commits_ahead,
+                profile.commits_behind,
+                profile.uncommitted_files,
+            );
+        }
+
+        // Set up cached default branch
+        let refs_dir = repo_path.join(".git/refs/remotes/origin");
+        std::fs::create_dir_all(&refs_dir).unwrap();
+        std::fs::write(refs_dir.join("HEAD"), "ref: refs/remotes/origin/main\n").unwrap();
+        let head_sha = Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(&repo_path)
+            .output()
+            .unwrap();
+        std::fs::write(refs_dir.join("main"), head_sha.stdout).unwrap();
+
+        let packed_refs = repo_path.join(".git/packed-refs");
+
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_worktrees),
+            &num_worktrees,
+            |b, _| {
+                b.iter_batched(
+                    || {
+                        // Invalidate packed-refs before each iteration
+                        if packed_refs.exists() {
+                            std::fs::remove_file(&packed_refs).unwrap();
+                        }
+                    },
+                    |_| {
+                        Command::new(&binary)
+                            .arg("list")
+                            .env("WT_SKELETON_ONLY", "1")
+                            .current_dir(&repo_path)
+                            .output()
+                            .unwrap();
+                    },
+                    criterion::BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmark `wt list` full execution time with warm caches.
+///
+/// This measures the actual worktrunk code path including git operations, parsing,
+/// layout calculation, and rendering - i.e., when all data is filled in.
+fn bench_time_to_complete(c: &mut Criterion) {
+    let mut group = c.benchmark_group("time_to_complete");
+
+    let binary = get_release_binary();
+    let profile = &PROFILES[1];
+
+    for num_worktrees in [1, 4, 8] {
+        let temp = create_realistic_repo(profile.commits, profile.files);
+        let repo_path = temp.path().join("main");
+
+        for i in 1..num_worktrees {
+            add_worktree_with_divergence(
+                &temp,
+                &repo_path,
+                i,
+                profile.commits_ahead,
+                profile.commits_behind,
+                profile.uncommitted_files,
+            );
+        }
+
+        // Set up cached default branch
+        let refs_dir = repo_path.join(".git/refs/remotes/origin");
+        std::fs::create_dir_all(&refs_dir).unwrap();
+        std::fs::write(refs_dir.join("HEAD"), "ref: refs/remotes/origin/main\n").unwrap();
+        let head_sha = Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(&repo_path)
+            .output()
+            .unwrap();
+        std::fs::write(refs_dir.join("main"), head_sha.stdout).unwrap();
+
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_worktrees),
+            &num_worktrees,
+            |b, _| {
+                b.iter(|| {
+                    Command::new(&binary)
+                        .arg("list")
+                        .current_dir(&repo_path)
+                        .output()
+                        .unwrap();
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Cold cache variant of time_to_complete benchmark.
+/// Invalidates packed-refs before each measurement.
+fn bench_time_to_complete_cold(c: &mut Criterion) {
+    let mut group = c.benchmark_group("time_to_complete_cold");
+
+    let binary = get_release_binary();
+    let profile = &PROFILES[1];
+
+    for num_worktrees in [1, 4, 8] {
+        let temp = create_realistic_repo(profile.commits, profile.files);
+        let repo_path = temp.path().join("main");
+
+        for i in 1..num_worktrees {
+            add_worktree_with_divergence(
+                &temp,
+                &repo_path,
+                i,
+                profile.commits_ahead,
+                profile.commits_behind,
+                profile.uncommitted_files,
+            );
+        }
+
+        // Set up cached default branch
+        let refs_dir = repo_path.join(".git/refs/remotes/origin");
+        std::fs::create_dir_all(&refs_dir).unwrap();
+        std::fs::write(refs_dir.join("HEAD"), "ref: refs/remotes/origin/main\n").unwrap();
+        let head_sha = Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(&repo_path)
+            .output()
+            .unwrap();
+        std::fs::write(refs_dir.join("main"), head_sha.stdout).unwrap();
+
+        let packed_refs = repo_path.join(".git/packed-refs");
+
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_worktrees),
+            &num_worktrees,
+            |b, _| {
+                b.iter_batched(
+                    || {
+                        // Invalidate packed-refs before each iteration
+                        if packed_refs.exists() {
+                            std::fs::remove_file(&packed_refs).unwrap();
+                        }
+                    },
+                    |_| {
+                        Command::new(&binary)
+                            .arg("list")
+                            .current_dir(&repo_path)
+                            .output()
+                            .unwrap();
+                    },
+                    criterion::BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
 }
 
 fn bench_list_by_worktree_count(c: &mut Criterion) {
@@ -750,6 +991,6 @@ criterion_group! {
         .sample_size(30)
         .measurement_time(std::time::Duration::from_secs(15))
         .warm_up_time(std::time::Duration::from_secs(3));
-    targets = bench_list_by_worktree_count, bench_list_by_repo_profile, bench_sequential_vs_parallel, bench_list_cold_cache, bench_list_real_repo, bench_list_real_repo_cold_cache
+    targets = bench_time_to_skeleton, bench_time_to_skeleton_cold, bench_time_to_complete, bench_time_to_complete_cold, bench_list_by_worktree_count, bench_list_by_repo_profile, bench_sequential_vs_parallel, bench_list_cold_cache, bench_list_real_repo, bench_list_real_repo_cold_cache
 }
 criterion_main!(benches);

@@ -648,6 +648,11 @@ pub fn collect(
         None
     };
 
+    // Early exit for benchmarking skeleton render time
+    if std::env::var("WT_SKELETON_ONLY").is_ok() {
+        return Ok(None);
+    }
+
     // Cache last rendered (unclamped) message per row to avoid redundant updates.
     let mut last_rendered_lines: Vec<String> = vec![String::new(); all_items.len()];
 

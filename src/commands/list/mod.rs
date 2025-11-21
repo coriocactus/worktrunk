@@ -5,6 +5,48 @@
 //! `wt list` runs multiple git commands per worktree in parallel using Rayon. Performance
 //! depends heavily on git's internal caches, not worktrunk-specific caching.
 //!
+//! ## Time to First Information
+//!
+//! Before displaying actual data, we perform these sequential operations:
+//!
+//! 1. **`git worktree list --porcelain`** (~5-15ms)
+//!    - Lists all worktrees with their paths, HEADs, and branches
+//!    - Uses ref cache, very fast
+//!
+//! 2. **Default branch lookup** (~1-5ms)
+//!    - Reads cached value from `.git/refs/remotes/origin/HEAD`
+//!    - Falls back to `git remote show origin` if not cached (~100-300ms network)
+//!    - Refresh with `wt config refresh-cache`
+//!
+//! 3. **Sort worktrees** (<1ms)
+//!    - Orders by: current → main → rest alphabetically
+//!    - Pure Rust, no git calls
+//!
+//! 4. **Branch listing** (only with `--branches`, ~10-30ms)
+//!    - `git for-each-ref refs/heads` - lists local branches
+//!    - Filters out branches that already have worktrees
+//!
+//! 5. **Remote branch listing** (only with `--remotes`, ~10-50ms)
+//!    - `git for-each-ref refs/remotes` - lists remote branches
+//!    - Scales with number of remotes/branches
+//!
+//! 6. **Layout calculation** (<1ms)
+//!    - Determines column widths from branch names and paths
+//!    - Pure Rust, no git calls
+//!
+//! **Time to skeleton: ~50ms** (placeholder rows with loading indicators)
+//!
+//! Skeleton timing is stable at ~46-52ms regardless of worktree count (1-8) or cache state.
+//! This is because skeleton operations (worktree list, default branch lookup, layout) use
+//! git's ref cache rather than packed-refs or the index.
+//!
+//! **Time to complete: ~60-170ms** (all data filled in, depends on worktree count)
+//!
+//! First run in a repo without cached default branch adds ~100-300ms for network lookup.
+//!
+//! After the skeleton appears, cells fill in progressively as git operations complete.
+//! The slowest operations (CI status, merge-tree conflict detection) only run with `--full`.
+//!
 //! ## Git Commands Per Worktree
 //!
 //! For each worktree, we execute:

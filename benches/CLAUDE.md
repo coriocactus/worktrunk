@@ -18,6 +18,10 @@ cargo bench --bench list bench_list_real_repo
 ## Benchmark Types
 
 ### 1. Synthetic Benchmarks (Fast, ~5-10 minutes)
+- `bench_time_to_skeleton` - Time until skeleton appears (progressive mode, warm caches)
+- `bench_time_to_skeleton_cold` - Same as above but with packed-refs invalidated
+- `bench_time_to_complete` - Full `wt list` execution (all data filled in), warm caches
+- `bench_time_to_complete_cold` - Same as above but with packed-refs invalidated
 - `bench_list_by_worktree_count` - Scaling with worktree count (1-8), warm caches
 - `bench_list_by_repo_profile` - Scaling with repo size (minimal/typical/large), warm caches
 - `bench_list_sequential_vs_parallel` - Sequential vs parallel comparison
