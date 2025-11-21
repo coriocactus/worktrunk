@@ -369,7 +369,6 @@ impl LayoutConfig {
     /// Render a skeleton row showing known data (branch, path) with placeholders for other columns
     pub fn format_skeleton_row(&self, item: &super::model::ListItem, is_current: bool) -> String {
         use crate::display::shorten_path;
-        use unicode_width::UnicodeWidthStr;
 
         let branch = item.branch_name();
         let is_main = item.is_main();
@@ -413,11 +412,7 @@ impl LayoutConfig {
                         dim
                     };
                     cell.push_styled(branch, style);
-                    // Pad to column width
-                    let branch_width = branch.width();
-                    if branch_width < col.width {
-                        cell.push_raw(" ".repeat(col.width - branch_width));
-                    }
+                    cell.pad_to(col.width);
                 }
                 ColumnKind::Path => {
                     // Show actual path
@@ -431,11 +426,7 @@ impl LayoutConfig {
                         dim
                     };
                     cell.push_styled(&shortened_path, style);
-                    // Pad to column width
-                    let path_width = shortened_path.width();
-                    if path_width < col.width {
-                        cell.push_raw(" ".repeat(col.width - path_width));
-                    }
+                    cell.pad_to(col.width);
                 }
                 ColumnKind::Commit => {
                     // Show actual commit hash (always available)
@@ -446,9 +437,7 @@ impl LayoutConfig {
                 _ => {
                     // Show spinner for data columns
                     cell.push_styled(spinner, dim);
-                    if spinner.width() < col.width {
-                        cell.push_raw(" ".repeat(col.width - spinner.width()));
-                    }
+                    cell.pad_to(col.width);
                 }
             }
 
@@ -586,10 +575,7 @@ impl ColumnLayout {
 
                 // Truncate if exceeds column width, then pad
                 let mut cell = cell.truncate_to_width(self.width);
-                let status_width = cell.width();
-                if status_width < self.width {
-                    cell.push_raw(" ".repeat(self.width - status_width));
-                }
+                cell.pad_to(self.width);
                 cell
             }
             ColumnKind::WorkingDiff => {

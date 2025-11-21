@@ -531,10 +531,9 @@ impl StatusSymbols {
     ///
     /// See [`StatusSymbols`] struct doc for symbol categories.
     pub fn render_with_mask(&self, mask: &PositionMask) -> String {
-        use unicode_width::UnicodeWidthStr;
-        use worktrunk::styling::{CYAN, ERROR, HINT, WARNING};
+        use worktrunk::styling::{CYAN, ERROR, HINT, StyledLine, WARNING};
 
-        let mut result = String::with_capacity(12);
+        let mut result = String::with_capacity(64);
 
         if self.is_empty() {
             return result;
@@ -586,57 +585,46 @@ impl StatusSymbols {
         };
         let user_status_str = self.user_status.as_deref().unwrap_or("").to_string();
 
-        // Track (position, styled_content, visual_width, has_data)
-        // visual_width is the actual display width without ANSI codes
+        // Position data: (position_mask, styled_content, has_data)
+        // StyledLine handles width tracking automatically via .width()
         //
         // CRITICAL: Display order is working_tree first, then other symbols.
         // NEVER change this order - it ensures progressive and final rendering match exactly.
         // Tests will break if you change this, but that's expected - update the tests, not this order.
-        let positions_data: [(usize, &str, usize, bool); 7] = [
+        let positions_data: [(usize, String, bool); 7] = [
             (
                 PositionMask::WORKING_TREE,
-                working_tree_str.as_str(),
-                self.working_tree.width(),
+                working_tree_str,
                 !self.working_tree.is_empty(),
             ),
             (
                 PositionMask::BRANCH_STATE,
-                branch_state_str.as_str(),
-                if self.branch_state != BranchState::None {
-                    1
-                } else {
-                    0
-                },
+                branch_state_str,
                 self.branch_state != BranchState::None,
             ),
             (
                 PositionMask::GIT_OPERATION,
-                git_operation_str.as_str(),
-                self.git_operation.to_string().width(),
+                git_operation_str,
                 self.git_operation != GitOperation::None,
             ),
             (
                 PositionMask::MAIN_DIVERGENCE,
-                main_divergence_str.as_str(),
-                self.main_divergence.to_string().width(),
+                main_divergence_str,
                 self.main_divergence != MainDivergence::None,
             ),
             (
                 PositionMask::UPSTREAM_DIVERGENCE,
-                upstream_divergence_str.as_str(),
-                self.upstream_divergence.to_string().width(),
+                upstream_divergence_str,
                 self.upstream_divergence != UpstreamDivergence::None,
             ),
             (
                 PositionMask::ITEM_ATTRS,
-                item_attrs_str.as_str(),
-                self.item_attrs.width(),
+                item_attrs_str,
                 !self.item_attrs.is_empty(),
             ),
             (
                 PositionMask::USER_STATUS,
-                user_status_str.as_str(),
-                self.user_status.as_ref().map(|s| s.width()).unwrap_or(0),
+                user_status_str,
                 self.user_status.is_some(),
             ),
         ];
@@ -645,16 +633,15 @@ impl StatusSymbols {
         // CRITICAL: Always use PositionMask::FULL for consistent spacing between progressive and final rendering.
         // The mask provides the maximum width needed for each position across all rows.
         // Accept wider Status column with whitespace as tradeoff for perfect alignment.
-        for (pos, styled_content, visual_width, has_data) in positions_data.iter() {
-            let allocated_width = mask.width(*pos);
+        for (pos, styled_content, has_data) in positions_data {
+            let allocated_width = mask.width(pos);
 
-            if *has_data {
-                result.push_str(styled_content);
-                // Pad to allocated width for alignment
-                let padding = allocated_width.saturating_sub(*visual_width);
-                for _ in 0..padding {
-                    result.push(' ');
-                }
+            if has_data {
+                // Use StyledLine to handle width calculation (strips ANSI codes automatically)
+                let mut segment = StyledLine::new();
+                segment.push_raw(styled_content);
+                segment.pad_to(allocated_width);
+                result.push_str(&segment.render());
             } else {
                 // Fill empty position with spaces for alignment
                 for _ in 0..allocated_width {
