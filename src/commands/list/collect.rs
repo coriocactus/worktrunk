@@ -311,7 +311,7 @@ fn compute_item_status_symbols(
     }
 }
 
-/// Drain cell updates from the channel and apply them to worktree_items.
+/// Drain cell updates from the channel and apply them to items.
 ///
 /// This is the shared logic between progressive and buffered collection modes.
 /// The `on_update` callback is called after each update is processed with the
@@ -319,12 +319,12 @@ fn compute_item_status_symbols(
 /// to update progress bars while buffered mode does nothing.
 fn drain_cell_updates(
     rx: chan::Receiver<CellUpdate>,
-    worktree_items: &mut [ListItem],
+    items: &mut [ListItem],
     mut on_update: impl FnMut(usize, &mut ListItem, bool, Option<String>),
 ) {
     // Temporary storage for data needed by status_symbols computation
-    let mut merge_tree_conflicts_map: Vec<Option<bool>> = vec![None; worktree_items.len()];
-    let mut user_status_map: Vec<Option<Option<String>>> = vec![None; worktree_items.len()];
+    let mut merge_tree_conflicts_map: Vec<Option<bool>> = vec![None; items.len()];
+    let mut user_status_map: Vec<Option<Option<String>>> = vec![None; items.len()];
 
     // Process cell updates as they arrive
     while let Ok(update) = rx.recv() {
@@ -332,16 +332,16 @@ fn drain_cell_updates(
 
         match update {
             CellUpdate::CommitDetails { item_idx, commit } => {
-                worktree_items[item_idx].commit = Some(commit);
+                items[item_idx].commit = Some(commit);
             }
             CellUpdate::AheadBehind { item_idx, counts } => {
-                worktree_items[item_idx].counts = Some(counts);
+                items[item_idx].counts = Some(counts);
             }
             CellUpdate::BranchDiff {
                 item_idx,
                 branch_diff,
             } => {
-                worktree_items[item_idx].branch_diff = Some(branch_diff);
+                items[item_idx].branch_diff = Some(branch_diff);
             }
             CellUpdate::WorkingTreeDiff {
                 item_idx,
@@ -351,7 +351,7 @@ fn drain_cell_updates(
                 is_dirty,
                 has_conflicts,
             } => {
-                if let ItemKind::Worktree(data) = &mut worktree_items[item_idx].kind {
+                if let ItemKind::Worktree(data) = &mut items[item_idx].kind {
                     data.working_tree_diff = Some(working_tree_diff);
                     data.working_tree_diff_with_main = Some(working_tree_diff_with_main);
                     data.working_tree_symbols = Some(working_tree_symbols);
@@ -370,7 +370,7 @@ fn drain_cell_updates(
                 item_idx,
                 worktree_state,
             } => {
-                if let ItemKind::Worktree(data) = &mut worktree_items[item_idx].kind {
+                if let ItemKind::Worktree(data) = &mut items[item_idx].kind {
                     data.worktree_state = worktree_state;
                 }
             }
@@ -382,14 +382,14 @@ fn drain_cell_updates(
                 user_status_map[item_idx] = Some(user_status);
             }
             CellUpdate::Upstream { item_idx, upstream } => {
-                worktree_items[item_idx].upstream = Some(upstream);
+                items[item_idx].upstream = Some(upstream);
             }
             CellUpdate::CiStatus {
                 item_idx,
                 pr_status,
             } => {
                 // Wrap in Some() to indicate "loaded" (Some(None) = no CI, Some(Some(status)) = has CI)
-                worktree_items[item_idx].pr_status = Some(pr_status);
+                items[item_idx].pr_status = Some(pr_status);
             }
         }
 
@@ -398,7 +398,7 @@ fn drain_cell_updates(
         let user_status = user_status_map[item_idx].clone().unwrap_or(None);
         on_update(
             item_idx,
-            &mut worktree_items[item_idx],
+            &mut items[item_idx],
             has_merge_tree_conflicts,
             user_status,
         );
