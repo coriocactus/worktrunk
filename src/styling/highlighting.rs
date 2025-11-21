@@ -71,8 +71,7 @@ pub(super) fn bash_token_style(kind: &str) -> Option<Style> {
 
 /// Formats TOML content with syntax highlighting using synoptic
 pub fn format_toml(content: &str, left_margin: &str) -> String {
-    // Gutter style: subtle background for visual separation
-    let gutter = Style::new().bg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
+    let gutter = super::GUTTER;
 
     // Get TOML highlighter from synoptic's built-in rules (tab_width = 4)
     let mut highlighter = match from_extension("toml", 4) {

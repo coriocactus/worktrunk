@@ -60,6 +60,17 @@ pub const GREEN_BOLD: Style = Style::new()
 /// Gray style for secondary/metadata text - use as `{GRAY}text{GRAY:#}`
 pub const GRAY: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
 
+/// Gutter style for quoted content (commands, config, error details)
+///
+/// We wanted the dimmest/most subtle background that works on both dark and light
+/// terminals. BrightWhite was the best we could find among basic ANSI colors, but
+/// we're open to better ideas. Options considered:
+/// - Black/BrightBlack: too dark on light terminals
+/// - Reverse video: just flips which terminal looks good
+/// - 256-color grays: better but not universally supported
+/// - No background: loses the visual separation we want
+pub const GUTTER: Style = Style::new().bg_color(Some(Color::Ansi(AnsiColor::BrightWhite)));
+
 // ============================================================================
 // Message Emojis
 // ============================================================================

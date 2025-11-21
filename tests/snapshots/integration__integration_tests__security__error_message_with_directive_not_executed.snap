@@ -11,16 +11,13 @@ info:
     COLUMNS: "150"
     GIT_AUTHOR_DATE: "2025-01-01T00:00:00Z"
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
-    GIT_CONFIG_COUNT: "1"
-    GIT_CONFIG_GLOBAL: /dev/null
-    GIT_CONFIG_KEY_0: advice.mergeConflict
+    GIT_CONFIG_GLOBAL: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpwwZ5t3/test-gitconfig
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_CONFIG_VALUE_0: "false"
     GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
-    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpGcODxo/test-config.toml
+    WORKTRUNK_CONFIG_PATH: /var/folders/wf/s6ycxvvs4ln8qsdbfx40hnc40000gn/T/.tmpwwZ5t3/test-config.toml
 ---
 success: false
 exit_code: 1
@@ -28,4 +25,4 @@ exit_code: 1
 
 ----- stderr -----
 ❌ [31mFailed to create worktree for [1m[31m__WORKTRUNK_EXEC__echo PWNED > /tmp/hacked6[0m[0m
-[100m [0m  fatal: invalid reference: __WORKTRUNK_EXEC__echo PWNED > /tmp/hacked6
+[107m [0m  fatal: invalid reference: __WORKTRUNK_EXEC__echo PWNED > /tmp/hacked6

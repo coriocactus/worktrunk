@@ -124,10 +124,10 @@ command = "npm install"
             "Should contain cyan or bold for tables"
         );
 
-        // Check that gutter background is present (BrightBlack background = 100)
+        // Check that gutter is present (BrightWhite background = 107)
         assert!(
-            output.contains("\x1b[100m"),
-            "Should contain gutter background color (BrightBlack = 100)"
+            output.contains("\x1b[107m"),
+            "Should contain gutter (BrightWhite background)"
         );
 
         // Check that lines have content (not just gutter)
@@ -293,8 +293,8 @@ command = "npm install"
         // Each line should have the gutter
         for line in result.lines() {
             assert!(
-                line.contains("\x1b[100m"),
-                "Each line should contain gutter (BrightBlack background = 100)"
+                line.contains("\x1b[107m"),
+                "Each line should contain gutter (BrightWhite background)"
             );
         }
     }
@@ -322,11 +322,11 @@ command = "npm install"
         let result = format_with_gutter(commit_msg, "", Some(80));
 
         insta::assert_snapshot!(result, @r"
-        [100m [0m  This commit refactors the authentication system to use a more secure
-        [100m [0m  token-based approach instead of the previous session-based system which had
-        [100m [0m  several security vulnerabilities that were identified during the security
-        [100m [0m  audit last month. The new implementation follows industry best practices and
-        [100m [0m  includes proper token rotation and expiration handling.
+        [107m [0m  This commit refactors the authentication system to use a more secure
+        [107m [0m  token-based approach instead of the previous session-based system which had
+        [107m [0m  several security vulnerabilities that were identified during the security
+        [107m [0m  audit last month. The new implementation follows industry best practices and
+        [107m [0m  includes proper token rotation and expiration handling.
         ");
     }
 

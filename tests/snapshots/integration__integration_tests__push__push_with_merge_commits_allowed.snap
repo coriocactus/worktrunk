@@ -12,11 +12,8 @@ info:
     COLUMNS: "150"
     GIT_AUTHOR_DATE: "2025-01-01T00:00:00Z"
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
-    GIT_CONFIG_COUNT: "1"
-    GIT_CONFIG_GLOBAL: /dev/null
-    GIT_CONFIG_KEY_0: advice.mergeConflict
+    GIT_CONFIG_GLOBAL: "[TEST_GIT_CONFIG]"
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_CONFIG_VALUE_0: "false"
     GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
@@ -27,14 +24,14 @@ success: true
 exit_code: 0
 ----- stdout -----
 🔄 [36mPushing 3 commits to [1m[36mmain[0m[36m @ [2m[SHA][0m (merge commits allowed)
-[100m [0m  *   [SHA][33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature[m[33m)[m Merge temp
-[100m [0m  [31m|[m[32m/[m  
-[100m [0m  [31m|[m * [SHA][33m ([m[1;32mtemp[m[33m)[m Commit 2
-[100m [0m  [31m|[m[31m/[m  
-[100m [0m  * [SHA] Commit 1
-[100m [0m   file1.txt | 1 [32m+[m
-[100m [0m   file2.txt | 1 [32m+[m
-[100m [0m   2 files changed, 2 insertions(+)
+[107m [0m  *   [SHA][33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature[m[33m)[m Merge temp
+[107m [0m  [31m|[m[32m/[m  
+[107m [0m  [31m|[m * [SHA][33m ([m[1;32mtemp[m[33m)[m Commit 2
+[107m [0m  [31m|[m[31m/[m  
+[107m [0m  * [SHA] Commit 1
+[107m [0m   file1.txt | 1 [32m+[m
+[107m [0m   file2.txt | 1 [32m+[m
+[107m [0m   2 files changed, 2 insertions(+)
 ✅ [32mPushed to [1m[32mmain[0m[0m (3 commits, 2 files, [32m+2[0m)
 
 ----- stderr -----

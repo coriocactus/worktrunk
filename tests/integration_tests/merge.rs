@@ -2353,9 +2353,9 @@ fn test_merge_no_commit_with_clean_tree() {
         exit_code: 0
         ----- stdout -----
         🔄 [36mMerging 1 commit to [1m[36mmain[0m[36m @ [2m[SHA][0m (no commit/squash/rebase needed)
-        [100m [0m  * [SHA][33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature[m[33m)[m Add feature file
-        [100m [0m   feature.txt | 1 [32m+[m
-        [100m [0m   1 file changed, 1 insertion(+)
+        [107m [0m  * [SHA][33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature[m[33m)[m Add feature file
+        [107m [0m   feature.txt | 1 [32m+[m
+        [107m [0m   1 file changed, 1 insertion(+)
         ✅ [32mMerged to [1m[32mmain[0m[0m (1 commit, 1 file, [32m+1[0m)
         ✅ [32mWorktree preserved (--no-remove)[0m
 
@@ -2457,9 +2457,9 @@ fn test_merge_no_commit_no_squash_no_remove_redundant() {
         exit_code: 0
         ----- stdout -----
         🔄 [36mMerging 1 commit to [1m[36mmain[0m[36m @ [2m[SHA][0m (no commit/squash/rebase needed)
-        [100m [0m  * [SHA][33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature[m[33m)[m Add feature file
-        [100m [0m   feature.txt | 1 [32m+[m
-        [100m [0m   1 file changed, 1 insertion(+)
+        [107m [0m  * [SHA][33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature[m[33m)[m Add feature file
+        [107m [0m   feature.txt | 1 [32m+[m
+        [107m [0m   1 file changed, 1 insertion(+)
         ✅ [32mMerged to [1m[32mmain[0m[0m (1 commit, 1 file, [32m+1[0m)
         ✅ [32mWorktree preserved (--no-remove)[0m
 

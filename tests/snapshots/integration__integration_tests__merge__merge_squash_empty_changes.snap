@@ -10,11 +10,8 @@ info:
     COLUMNS: "150"
     GIT_AUTHOR_DATE: "2025-01-01T00:00:00Z"
     GIT_COMMITTER_DATE: "2025-01-01T00:00:00Z"
-    GIT_CONFIG_COUNT: "1"
-    GIT_CONFIG_GLOBAL: /dev/null
-    GIT_CONFIG_KEY_0: advice.mergeConflict
+    GIT_CONFIG_GLOBAL: "[TEST_GIT_CONFIG]"
     GIT_CONFIG_SYSTEM: /dev/null
-    GIT_CONFIG_VALUE_0: "false"
     GIT_EDITOR: ""
     LANG: C
     LC_ALL: C
@@ -27,12 +24,12 @@ exit_code: 0
 🔄 [36mSquashing 3 commits into 1...[0m
 🔄 [36mGenerating squash commit message...[0m
 💡 [2mUsing fallback commit message. Run 'wt config --help' for LLM setup guide[0m
-[100m [0m  [1mSquash commits from main[0m
-[100m [0m  
-[100m [0m  Combined commits:
-[100m [0m  - Change 1
-[100m [0m  - Change 2
-[100m [0m  - Revert to initial
+[107m [0m  [1mSquash commits from main[0m
+[107m [0m  
+[107m [0m  Combined commits:
+[107m [0m  - Change 1
+[107m [0m  - Change 2
+[107m [0m  - Revert to initial
 ⚪ [2mNo changes after squashing 3 commits[0m
 ✅ [32mMerged to [1m[32mmain[0m[0m (no new commits, no rebase needed)
 🔄 [36mRemoving worktree & branch...[0m

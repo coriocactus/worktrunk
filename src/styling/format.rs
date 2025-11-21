@@ -3,7 +3,6 @@
 //! Provides functions for formatting commands and configuration with visual gutters.
 
 use ansi_str::AnsiStr;
-use anstyle::{AnsiColor, Color, Style};
 use unicode_width::UnicodeWidthStr;
 
 #[cfg(feature = "syntax-highlighting")]
@@ -115,7 +114,7 @@ pub(super) fn wrap_text_at_width(text: &str, max_width: usize) -> Vec<String> {
 /// print!("{}", format_with_gutter(&config, "", None));
 /// ```
 pub fn format_with_gutter(content: &str, left_margin: &str, max_width: Option<usize>) -> String {
-    let gutter = Style::new().bg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
+    let gutter = super::GUTTER;
     let mut output = String::new();
 
     // Use provided width or detect terminal width (respects COLUMNS env var)
@@ -152,7 +151,7 @@ pub fn format_with_gutter(content: &str, left_margin: &str, max_width: Option<us
 pub fn format_bash_with_gutter(content: &str, left_margin: &str) -> String {
     use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
-    let gutter = Style::new().bg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
+    let gutter = super::GUTTER;
     let mut output = String::new();
 
     // Calculate available width for wrapping
@@ -258,7 +257,7 @@ pub fn format_bash_with_gutter(content: &str, left_margin: &str) -> String {
 /// It provides the same gutter formatting without tree-sitter dependencies.
 #[cfg(not(feature = "syntax-highlighting"))]
 pub fn format_bash_with_gutter(content: &str, left_margin: &str) -> String {
-    let gutter = Style::new().bg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
+    let gutter = super::GUTTER;
     let mut output = String::new();
 
     // Calculate available width for wrapping

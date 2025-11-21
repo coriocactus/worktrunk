@@ -3,6 +3,6 @@ source: tests/git_error_display.rs
 expression: msg
 ---
 ❌ [31mPush failed[0m
-[100m [0m  To /Users/user/workspace/repo/.git
-[100m [0m   ! [remote rejected] HEAD -> main (Up-to-date check failed)
-[100m [0m  error: failed to push some refs to '/Users/user/workspace/repo/.git'
+[107m [0m  To /Users/user/workspace/repo/.git
+[107m [0m   ! [remote rejected] HEAD -> main (Up-to-date check failed)
+[107m [0m  error: failed to push some refs to '/Users/user/workspace/repo/.git'
