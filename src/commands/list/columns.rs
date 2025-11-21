@@ -1,7 +1,7 @@
 /// Logical identifier for each column rendered by `wt list`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ColumnKind {
-    Gutter, // Type indicator: `@` (current), `^` (primary), `+` (worktree), space (branch-only)
+    Gutter, // Type indicator: `@` (current), `^` (main), `+` (worktree), space (branch-only)
     Branch,
     Status, // Includes both git status symbols and user-defined status
     WorkingDiff,

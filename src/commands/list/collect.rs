@@ -457,7 +457,7 @@ pub fn collect(
         .iter()
         .find(|wt| wt.branch.as_deref() == Some(default_branch.as_str()))
         .cloned()
-        .unwrap_or_else(|| worktrees.worktrees[0].clone());
+        .unwrap_or_else(|| worktrees.main().clone());
     let current_worktree_path = repo.worktree_root().ok();
 
     // Sort worktrees for display order

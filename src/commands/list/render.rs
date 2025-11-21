@@ -549,11 +549,11 @@ impl ColumnLayout {
             ColumnKind::Gutter => {
                 let mut cell = StyledLine::new();
                 let symbol = if let Some(data) = ctx.worktree_data {
-                    // Worktree: priority is current > primary > regular
+                    // Worktree: priority is current > main > regular
                     if ctx.is_current {
                         "@ " // Current worktree
                     } else if data.is_main {
-                        "^ " // Primary worktree
+                        "^ " // Main worktree
                     } else {
                         "+ " // Regular worktree
                     }

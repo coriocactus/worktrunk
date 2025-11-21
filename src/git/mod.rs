@@ -77,11 +77,11 @@ pub struct Worktree {
     pub prunable: Option<String>,
 }
 
-/// A list of worktrees with automatic bare worktree filtering and primary identification.
+/// A list of worktrees with automatic bare worktree filtering.
 ///
 /// This type ensures:
 /// - Bare worktrees are filtered out (only worktrees with working trees are included)
-/// - The main worktree is always identifiable (first non-bare worktree at index 0)
+/// - The main worktree is always at index 0 (accessible via `.main()`)
 /// - Construction fails if no valid worktrees exist
 #[derive(Debug, Clone)]
 pub struct WorktreeList {
@@ -89,7 +89,7 @@ pub struct WorktreeList {
 }
 
 impl WorktreeList {
-    /// Create from raw worktrees, filtering bare entries and identifying primary.
+    /// Create from raw worktrees, filtering bare entries.
     pub(crate) fn from_raw(raw_worktrees: Vec<Worktree>) -> anyhow::Result<Self> {
         let worktrees: Vec<_> = raw_worktrees.into_iter().filter(|wt| !wt.bare).collect();
 
@@ -98,6 +98,11 @@ impl WorktreeList {
         }
 
         Ok(Self { worktrees })
+    }
+
+    /// Returns the main worktree (always at index 0).
+    pub fn main(&self) -> &Worktree {
+        &self.worktrees[0]
     }
 }
 
@@ -198,7 +203,7 @@ mod tests {
     }
 
     #[test]
-    fn test_worktree_list_primary() {
+    fn test_worktree_list_main() {
         let worktrees = vec![
             Worktree {
                 path: PathBuf::from("/repo"),
@@ -222,8 +227,9 @@ mod tests {
 
         let list = WorktreeList::from_raw(worktrees).unwrap();
 
-        assert_eq!(list.worktrees[0].branch, Some("main".to_string()));
-        assert_eq!(list.worktrees[0].path, PathBuf::from("/repo/main"));
+        let main = list.main();
+        assert_eq!(main.branch, Some("main".to_string()));
+        assert_eq!(main.path, PathBuf::from("/repo/main"));
     }
 
     #[test]

@@ -95,8 +95,8 @@ pub fn handle_merge(
     let target_worktree_path = repo.worktree_for_branch(&target_branch)?;
 
     // When current == target or we're in the main worktree, force --no-remove (can't remove it)
-    let in_primary = !repo.is_in_worktree().unwrap_or(false);
-    let no_remove_effective = no_remove || current_branch == target_branch || in_primary;
+    let in_main = !repo.is_in_worktree().unwrap_or(false);
+    let no_remove_effective = no_remove || current_branch == target_branch || in_main;
 
     // Collect and approve all commands upfront for batch permission request
     let (all_commands, project_id) = MergeCommandCollector {
@@ -176,10 +176,10 @@ pub fn handle_merge(
         }),
     )?;
 
-    // Destination: prefer the target branch's worktree; fall back to primary when absent
+    // Destination: prefer the target branch's worktree; fall back to main when absent
     let destination_path = target_worktree_path
         .clone()
-        .unwrap_or_else(|| worktrees.worktrees[0].path.clone());
+        .unwrap_or_else(|| worktrees.main().path.clone());
 
     // Finish worktree unless --no-remove was specified
     if !no_remove_effective {
@@ -232,7 +232,7 @@ fn format_merge_summary(main_path: Option<&std::path::Path>) -> String {
     // Show where we ended up
     if let Some(path) = main_path {
         format!(
-            "{GREEN}Returned to primary at {GREEN_BOLD}{}{GREEN_BOLD:#}{GREEN:#}",
+            "{GREEN}Returned to main at {GREEN_BOLD}{}{GREEN_BOLD:#}{GREEN:#}",
             format_path_for_display(path)
         )
     } else {

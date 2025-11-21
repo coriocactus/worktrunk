@@ -424,7 +424,7 @@ The merge operation follows a strict order designed for fail-fast execution:
    worktree so they don't block the push, then restores them after success.
 
 7. **Clean up worktree and branch**
-   Removes current worktree, deletes the branch, and switches primary worktree to target
+   Removes current worktree, deletes the branch, and switches to the main worktree or target
    branch if needed. Skip removal with --no-remove.
 
 **EXAMPLES:**

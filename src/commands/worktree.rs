@@ -148,7 +148,7 @@ impl SwitchResult {
 
 /// Result of a worktree remove operation
 pub enum RemoveResult {
-    /// Removed worktree and returned to primary (if needed)
+    /// Removed worktree and returned to main (if needed)
     RemovedWorktree {
         main_path: PathBuf,
         worktree_path: PathBuf,

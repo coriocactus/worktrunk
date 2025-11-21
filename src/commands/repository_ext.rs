@@ -96,7 +96,7 @@ impl RepositoryCliExt for Repository {
 
         let (main_path, changed_directory) = if removing_current {
             let worktrees = self.list_worktrees()?;
-            (worktrees.worktrees[0].path.clone(), true)
+            (worktrees.main().path.clone(), true)
         } else {
             (current_worktree, false)
         };

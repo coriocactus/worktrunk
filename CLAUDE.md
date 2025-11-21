@@ -261,7 +261,7 @@ println!("{HINT_EMOJI} {HINT}Use 'wt list' to see all worktrees{HINT:#}");
 
 ### Composing Styles
 
-Compose styles using anstyle methods (`.bold()`, `.fg_color()`, etc.). Branch names in messages (not tables) should be bolded. Tables (`wt list`) use conditional styling for branch names to indicate worktree state (current/primary/other).
+Compose styles using anstyle methods (`.bold()`, `.fg_color()`, etc.). Branch names in messages (not tables) should be bolded. Tables (`wt list`) use conditional styling for branch names to indicate worktree state (current/main/other).
 
 Nested style resets leak color. Compose all attributes into a single style object:
 
@@ -536,7 +536,7 @@ Use `wt list --format=json` for structured data access. The output is an array o
 - `working_tree_diff`: `{added, deleted}` - uncommitted changes
 - `working_tree_diff_with_main`: `{added, deleted}` or null (null = not computed, `{0,0}` = matches main exactly)
 - `worktree_state`: "rebase" | "merge" | null - git operation in progress
-- `is_primary`: boolean - is main worktree
+- `is_main`: boolean - is main worktree
 
 ### Branch-Specific Fields
 
