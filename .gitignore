@@ -1,6 +1,6 @@
 /target
-scripts/wt-demo/out/*
-!scripts/wt-demo/out/wt-demo.gif
+dev/wt-demo/out/*
+!dev/wt-demo/out/wt-demo.gif
 
 # Lychee link checker cache
 .lycheecache

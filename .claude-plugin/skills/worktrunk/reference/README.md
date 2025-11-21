@@ -20,7 +20,7 @@ Worktrunk offers control, transparency & automation for this workflow.
 
 ## Demo
 
-![Worktrunk Demo](scripts/wt-demo/out/wt-demo.gif)
+![Worktrunk Demo](dev/wt-demo/out/wt-demo.gif)
 
 ## Quick Start
 
@@ -138,7 +138,7 @@ commit message prompts. Customize the prompts by setting `template` (inline) or
 `template-file` (external file) in the `[commit-generation]` section. Use
 `squash-template` / `squash-template-file` for squash commits.
 
-See [`config.example.toml`](config.example.toml) for complete template examples
+See [`config.example.toml`](dev/config.example.toml) for complete template examples
 with all available variables (`git_diff`, `branch`, `recent_commits`, `commits`,
 `target_branch`, `repo`).
 

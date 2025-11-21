@@ -9,7 +9,7 @@ use worktrunk::styling::{
 };
 
 /// Example configuration file content
-const CONFIG_EXAMPLE: &str = include_str!("../../config.example.toml");
+const CONFIG_EXAMPLE: &str = include_str!("../../dev/config.example.toml");
 
 /// Handle the config create command
 pub fn handle_config_create() -> anyhow::Result<()> {

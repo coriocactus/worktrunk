@@ -18,7 +18,7 @@
 #   cargo run -- beta run-hook pre-merge  # All tests (via pre-merge hook)
 #
 # Usage:
-#   ./scripts/setup-claude-code-web.sh
+#   ./dev/setup-claude-code-web.sh
 #
 ###############################################################################
 

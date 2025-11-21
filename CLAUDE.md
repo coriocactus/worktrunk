@@ -54,7 +54,7 @@ The pre-merge hook runs the full test suite and is the recommended way to verify
 When working in Claude Code web, run the setup script first:
 
 ```bash
-./scripts/setup-claude-code-web.sh
+./dev/setup-claude-code-web.sh
 ```
 
 This installs required shells (zsh, fish) and builds the project. The permission tests (`test_permission_error_prevents_save`, `test_approval_prompt_permission_error`) automatically skip when running as root, which is common in containerized environments.

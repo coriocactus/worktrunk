@@ -5,19 +5,19 @@
 Build and record the demo GIF:
 
 ```bash
-./scripts/wt-demo-build.sh
+./dev/wt-demo-build.sh
 ```
 
 This creates:
-- `scripts/wt-demo/out/wt-demo.gif` - The animated demo
-- `scripts/wt-demo/out/run.txt` - Text log of the output
+- `dev/wt-demo/out/wt-demo.gif` - The animated demo
+- `dev/wt-demo/out/run.txt` - Text log of the output
 
 ## Viewing Results
 
 **Do NOT use `open` on the GIF** - that's for the user to do manually.
 
 To inspect what the demo produces:
-- Read `scripts/wt-demo/out/run.txt` to see the text output
+- Read `dev/wt-demo/out/run.txt` to see the text output
 - The GIF can be viewed in a browser or image viewer by the user
 
 Claude Code cannot view GIFs directly. Use `run.txt` for verification.
