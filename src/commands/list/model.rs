@@ -441,25 +441,26 @@ pub struct PositionMask {
 }
 
 impl PositionMask {
-    const POS_3_WORKING_TREE: usize = 0;
-    const POS_0A_BRANCH_STATE: usize = 1;
-    const POS_0C_GIT_OPERATION: usize = 2;
-    const POS_1_MAIN_DIVERGENCE: usize = 3;
-    const POS_2_UPSTREAM_DIVERGENCE: usize = 4;
-    const POS_0D_WORKTREE_ATTRS: usize = 5;
-    const POS_4_USER_STATUS: usize = 6;
+    // Render order indices (0-6) - symbols appear in this order left-to-right
+    const WORKING_TREE: usize = 0;
+    const BRANCH_STATE: usize = 1;
+    const GIT_OPERATION: usize = 2;
+    const MAIN_DIVERGENCE: usize = 3;
+    const UPSTREAM_DIVERGENCE: usize = 4;
+    const ITEM_ATTRS: usize = 5;
+    const USER_STATUS: usize = 6;
 
     /// Full mask with all positions enabled (for JSON output and progressive rendering)
     /// Allocates realistic widths based on common symbol sizes to ensure proper grid alignment
     pub const FULL: Self = Self {
         widths: [
-            5, // POS_3_WORKING_TREE: ?!+»✘ (max 5 symbols)
-            1, // POS_0A_BRANCH_STATE: ✖⚠≡∅ (1 char, mutually exclusive)
-            1, // POS_0C_GIT_OPERATION: ↻ or ⋈ (1 char)
-            1, // POS_1_MAIN_DIVERGENCE: ↑, ↓, ↕ (1 char)
-            1, // POS_2_UPSTREAM_DIVERGENCE: ⇡, ⇣, ⇅ (1 char)
-            1, // POS_0D_WORKTREE_ATTRS: ⎇ for branches, ⌫⊠ for worktrees (priority-only: prunable > locked)
-            2, // POS_4_USER_STATUS: single emoji or two chars (allocate 2)
+            5, // WORKING_TREE: ?!+»✘ (max 5 symbols)
+            1, // BRANCH_STATE: ✖⚠≡∅ (1 char, mutually exclusive)
+            1, // GIT_OPERATION: ↻ or ⋈ (1 char)
+            1, // MAIN_DIVERGENCE: ↑, ↓, ↕ (1 char)
+            1, // UPSTREAM_DIVERGENCE: ⇡, ⇣, ⇅ (1 char)
+            1, // ITEM_ATTRS: ⎇ for branches, ⌫⊠ for worktrees (priority-only: prunable > locked)
+            2, // USER_STATUS: single emoji or two chars (allocate 2)
         ],
     };
 
@@ -474,11 +475,11 @@ impl PositionMask {
 /// Symbols are categorized to enable vertical alignment in table output:
 /// - Position 0a: Conflicts or branch state (✖, ⚠, ≡, ∅) - mutually exclusive
 /// - Position 0c: Git operation (↻, ⋈)
-/// - Position 0d: Item attributes (⎇ for branches, ⌫⊠ for worktrees - priority-only)
-/// - Position 1: Main branch divergence (↑, ↓, ↕)
-/// - Position 2: Remote/upstream divergence (⇡, ⇣, ⇅)
-/// - Position 3: Working tree symbols (?, !, +, », ✘)
-/// - Position 4: User status (custom labels, emoji)
+/// - Item attributes: ⎇ for branches, ⌫⊠ for worktrees (priority-only)
+/// - Main divergence: ↑, ↓, ↕
+/// - Upstream divergence: ⇡, ⇣, ⇅
+/// - Working tree: ?, !, +, », ✘
+/// - User status: custom labels, emoji
 ///
 /// ## Mutual Exclusivity
 ///
@@ -506,8 +507,9 @@ pub struct StatusSymbols {
     pub(crate) git_operation: GitOperation,
 
     /// Item type attributes: ⎇ for branches, ⌫⊠ for worktrees (priority-only: prunable > locked)
-    /// Position 0d - Priority-only rendering (shows highest priority symbol when multiple states exist)
-    pub(crate) worktree_attrs: String,
+    /// Priority-only rendering (shows highest priority symbol when multiple states exist)
+    /// Note: Serialized as "worktree_attrs" in JSON for API compatibility
+    pub(crate) item_attrs: String,
 
     /// Worktree locked status - None for branches, Some("reason") or None for worktrees
     pub(crate) locked: Option<String>,
@@ -601,12 +603,12 @@ impl StatusSymbols {
         } else {
             String::new()
         };
-        let worktree_attrs_str = if !self.worktree_attrs.is_empty() {
+        let item_attrs_str = if !self.item_attrs.is_empty() {
             // Branch indicator (⎇) is informational (dimmed), worktree attrs (⌫⊠) are warnings (yellow)
-            if self.worktree_attrs == "⎇" {
-                format!("{HINT}{}{HINT:#}", self.worktree_attrs)
+            if self.item_attrs == "⎇" {
+                format!("{HINT}{}{HINT:#}", self.item_attrs)
             } else {
-                format!("{WARNING}{}{WARNING:#}", self.worktree_attrs)
+                format!("{WARNING}{}{WARNING:#}", self.item_attrs)
             }
         } else {
             String::new()
@@ -621,13 +623,13 @@ impl StatusSymbols {
         // Tests will break if you change this, but that's expected - update the tests, not this order.
         let positions_data: [(usize, &str, usize, bool); 7] = [
             (
-                PositionMask::POS_3_WORKING_TREE,
+                PositionMask::WORKING_TREE,
                 working_tree_str.as_str(),
                 self.working_tree.width(),
                 !self.working_tree.is_empty(),
             ),
             (
-                PositionMask::POS_0A_BRANCH_STATE,
+                PositionMask::BRANCH_STATE,
                 branch_state_str.as_str(),
                 if self.branch_state != BranchState::None {
                     1
@@ -637,31 +639,31 @@ impl StatusSymbols {
                 self.branch_state != BranchState::None,
             ),
             (
-                PositionMask::POS_0C_GIT_OPERATION,
+                PositionMask::GIT_OPERATION,
                 git_operation_str.as_str(),
                 self.git_operation.to_string().width(),
                 self.git_operation != GitOperation::None,
             ),
             (
-                PositionMask::POS_1_MAIN_DIVERGENCE,
+                PositionMask::MAIN_DIVERGENCE,
                 main_divergence_str.as_str(),
                 self.main_divergence.to_string().width(),
                 self.main_divergence != MainDivergence::None,
             ),
             (
-                PositionMask::POS_2_UPSTREAM_DIVERGENCE,
+                PositionMask::UPSTREAM_DIVERGENCE,
                 upstream_divergence_str.as_str(),
                 self.upstream_divergence.to_string().width(),
                 self.upstream_divergence != UpstreamDivergence::None,
             ),
             (
-                PositionMask::POS_0D_WORKTREE_ATTRS,
-                worktree_attrs_str.as_str(),
-                self.worktree_attrs.width(),
-                !self.worktree_attrs.is_empty(),
+                PositionMask::ITEM_ATTRS,
+                item_attrs_str.as_str(),
+                self.item_attrs.width(),
+                !self.item_attrs.is_empty(),
             ),
             (
-                PositionMask::POS_4_USER_STATUS,
+                PositionMask::USER_STATUS,
                 user_status_str.as_str(),
                 self.user_status.as_ref().map(|s| s.width()).unwrap_or(0),
                 self.user_status.is_some(),
@@ -697,7 +699,7 @@ impl StatusSymbols {
     pub fn is_empty(&self) -> bool {
         self.branch_state == BranchState::None
             && self.git_operation == GitOperation::None
-            && self.worktree_attrs.is_empty()
+            && self.item_attrs.is_empty()
             && self.main_divergence == MainDivergence::None
             && self.upstream_divergence == UpstreamDivergence::None
             && self.working_tree.is_empty()
@@ -727,20 +729,20 @@ impl WorkingTreeChanges {
     }
 }
 
-/// Worktree attributes in status (locked/prunable info)
+/// Worktree attributes (locked/prunable info)
 #[derive(Debug, Clone, serde::Serialize)]
-struct WorktreeAttrsStatus {
+struct WorktreeAttrs {
     locked: Option<String>,
     prunable: Option<String>,
 }
 
 /// Status variant names (for queryability)
 #[derive(Debug, Clone, serde::Serialize)]
-struct StatusValues {
+struct QueryableStatus {
     branch_state: &'static str,
     git_operation: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    worktree_attrs: Option<WorktreeAttrsStatus>,
+    worktree_attrs: Option<WorktreeAttrs>,
     main_divergence: &'static str,
     upstream_divergence: &'static str,
     working_tree: WorkingTreeChanges,
@@ -750,7 +752,7 @@ struct StatusValues {
 
 /// Status symbols (for display)
 #[derive(Debug, Clone, serde::Serialize)]
-struct StatusSymbolsOnly {
+struct DisplaySymbols {
     branch_state: String,
     git_operation: String,
     worktree_attrs: String,
@@ -798,9 +800,9 @@ impl serde::Serialize for StatusSymbols {
             UpstreamDivergence::Diverged => "Diverged",
         };
 
-        // Create worktree_attrs status if this is a worktree (has locked/prunable)
-        let worktree_attrs_status = if self.locked.is_some() || self.prunable.is_some() {
-            Some(WorktreeAttrsStatus {
+        // Create worktree_attrs if this is a worktree (has locked/prunable)
+        let worktree_attrs = if self.locked.is_some() || self.prunable.is_some() {
+            Some(WorktreeAttrs {
                 locked: self.locked.clone(),
                 prunable: self.prunable.clone(),
             })
@@ -808,28 +810,28 @@ impl serde::Serialize for StatusSymbols {
             None
         };
 
-        let status_values = StatusValues {
+        let queryable_status = QueryableStatus {
             branch_state: branch_state_variant,
             git_operation: git_operation_variant,
-            worktree_attrs: worktree_attrs_status,
+            worktree_attrs,
             main_divergence: main_divergence_variant,
             upstream_divergence: upstream_divergence_variant,
             working_tree: WorkingTreeChanges::from_symbols(&self.working_tree),
             user_status: self.user_status.clone(),
         };
 
-        let status_symbols = StatusSymbolsOnly {
+        let display_symbols = DisplaySymbols {
             branch_state: self.branch_state.to_string(),
             git_operation: self.git_operation.to_string(),
-            worktree_attrs: self.worktree_attrs.clone(),
+            worktree_attrs: self.item_attrs.clone(),
             main_divergence: self.main_divergence.to_string(),
             upstream_divergence: self.upstream_divergence.to_string(),
             working_tree: self.working_tree.clone(),
             user_status: self.user_status.clone(),
         };
 
-        state.serialize_field("status", &status_values)?;
-        state.serialize_field("status_symbols", &status_symbols)?;
+        state.serialize_field("status", &queryable_status)?;
+        state.serialize_field("status_symbols", &display_symbols)?;
 
         state.end()
     }

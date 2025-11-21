@@ -227,8 +227,8 @@ fn compute_item_status_symbols(
             // Full status computation for worktrees
             // Use base_branch directly (None for main worktree)
 
-            // Worktree attributes - priority: prunable > locked (1 char max)
-            let worktree_attrs = if data.prunable.is_some() {
+            // Item attributes - priority: prunable > locked (1 char max)
+            let item_attrs = if data.prunable.is_some() {
                 "⌫".to_string() // Prunable (directory missing)
             } else if data.locked.is_some() {
                 "⊠".to_string() // Locked (protected)
@@ -265,7 +265,7 @@ fn compute_item_status_symbols(
             item.status_symbols = Some(StatusSymbols {
                 branch_state,
                 git_operation,
-                worktree_attrs,
+                item_attrs,
                 locked: data.locked.clone(),
                 prunable: data.prunable.clone(),
                 main_divergence,
@@ -299,7 +299,7 @@ fn compute_item_status_symbols(
             item.status_symbols = Some(StatusSymbols {
                 branch_state,
                 git_operation: GitOperation::None,
-                worktree_attrs: "⎇".to_string(), // Branch indicator
+                item_attrs: "⎇".to_string(), // Branch indicator
                 locked: None,
                 prunable: None,
                 main_divergence,

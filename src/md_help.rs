@@ -14,30 +14,30 @@ pub fn render_markdown_in_help(help: &str) -> String {
 
     let rendered = format!("{}", skin.text(help, Some(width)));
 
-    // Color the CI status circles to match their descriptions
-    colorize_status_circles(&rendered)
+    // Color status symbols to match their descriptions
+    colorize_status_symbols(&rendered)
 }
 
 /// Add colors to status symbols in help text (matching wt list output colors)
-fn colorize_status_circles(text: &str) -> String {
+fn colorize_status_symbols(text: &str) -> String {
     use anstyle::{AnsiColor, Color as AnsiStyleColor, Style};
 
-    // Define colors matching src/commands/list/model.rs StatusSymbols::render_with_mask
-    let error = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Red))); // ERROR
-    let warning = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Yellow))); // WARNING
-    let cyan = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Cyan))); // CYAN
-    let dim = Style::new().dimmed(); // HINT
-    let green = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Green)));
-    let blue = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Blue)));
-    let gray = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::BrightBlack)));
+    // Define semantic styles matching src/commands/list/model.rs StatusSymbols::render_with_mask
+    let error = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Red)));
+    let warning = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Yellow)));
+    let hint = Style::new().dimmed();
+    let success = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Green)));
+    let progress = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Blue)));
+    let disabled = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::BrightBlack)));
+    let working_tree = Style::new().fg_color(Some(AnsiStyleColor::Ansi(AnsiColor::Cyan)));
 
     text
         // CI status circles
-        .replace("● passed", &format!("{green}●{green:#} passed"))
-        .replace("● running", &format!("{blue}●{blue:#} running"))
+        .replace("● passed", &format!("{success}●{success:#} passed"))
+        .replace("● running", &format!("{progress}●{progress:#} running"))
         .replace("● failed", &format!("{error}●{error:#} failed"))
         .replace("● conflicts", &format!("{warning}●{warning:#} conflicts"))
-        .replace("● no-ci", &format!("{gray}●{gray:#} no-ci"))
+        .replace("● no-ci", &format!("{disabled}●{disabled:#} no-ci"))
         // Conflicts: ✖ is ERROR (red), ⚠ is WARNING (yellow)
         .replace(
             "✖ Merge conflicts",
@@ -56,16 +56,34 @@ fn colorize_status_circles(text: &str) -> String {
         // Branch state: HINT (dimmed)
         .replace(
             "≡ Working tree matches",
-            &format!("{dim}≡{dim:#} Working tree matches"),
+            &format!("{hint}≡{hint:#} Working tree matches"),
         )
-        .replace("∅ No commits", &format!("{dim}∅{dim:#} No commits"))
-        .replace("· Branch without", &format!("{dim}·{dim:#} Branch without"))
+        .replace("∅ No commits", &format!("{hint}∅{hint:#} No commits"))
+        .replace(
+            "· Branch without",
+            &format!("{hint}·{hint:#} Branch without"),
+        )
         // Main/upstream divergence: NO COLOR (plain text in actual output)
         // ↑, ↓, ↕, ⇡, ⇣, ⇅ remain uncolored
         // Working tree changes: CYAN
-        .replace("? Untracked", &format!("{cyan}?{cyan:#} Untracked"))
-        .replace("! Modified", &format!("{cyan}!{cyan:#} Modified"))
-        .replace("+ Staged", &format!("{cyan}+{cyan:#} Staged"))
-        .replace("» Renamed", &format!("{cyan}»{cyan:#} Renamed"))
-        .replace("✘ Deleted", &format!("{cyan}✘{cyan:#} Deleted"))
+        .replace(
+            "? Untracked",
+            &format!("{working_tree}?{working_tree:#} Untracked"),
+        )
+        .replace(
+            "! Modified",
+            &format!("{working_tree}!{working_tree:#} Modified"),
+        )
+        .replace(
+            "+ Staged",
+            &format!("{working_tree}+{working_tree:#} Staged"),
+        )
+        .replace(
+            "» Renamed",
+            &format!("{working_tree}»{working_tree:#} Renamed"),
+        )
+        .replace(
+            "✘ Deleted",
+            &format!("{working_tree}✘{working_tree:#} Deleted"),
+        )
 }
