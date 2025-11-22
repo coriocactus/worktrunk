@@ -90,11 +90,12 @@ choices optimize for parallel AI agent workflow:
 
 ...and that means...
 
-- Total focus on zero cost of an additional agent
-- Fairly small surface area: three core commands
+- Total focus on zero cost of additional parallel agents
+- A fairly small surface area: three core commands
+  - Worktrees are addressed by their branch
 - Maximum automation: LLM commit messages, lifecycle hooks, Claude Code hooks
-  - A robust "run auto-merge when 'local-CI' passes" command
-- Worktrees are addressed by their branch
+  - A robust "run auto-merge when 'local-CI' passes" approach
+- Default is to commit everything and squash marge (but configurable)
 - Extreme UI responsiveness; slow ops can't delay fast ones
 - Pluggable; adopting Worktrunk for a portion of a workflow doesn't require
   adopting it for everything. standard `git worktree` commands continue working
@@ -272,12 +273,8 @@ Then:
 wsl new-feature
 ```
 
-...creates a branch, sets up the worktree, runs initialization hooks, and launches Claude in that directory.
-
-**View Claude Code status from `wt list`** — The Claude Code integration shows
-which branches have active sessions in `wt list`. When Claude starts working,
-the branch shows `🤖`; hen waiting for input, it shows `💬`. Setup instructions:
-[Custom Worktree Status](#custom-worktree-status).
+...creates a branch, sets up the worktree, runs initialization hooks, and
+launches Claude Code in that directory.
 
 **Auto-generate commit messages** — Configure an LLM to generate commit
 messages during merge. See [LLM Commit Messages](#llm-commit-messages).
@@ -289,8 +286,13 @@ eliminating cold compiles (see [worktrunk's config](.config/wt.toml)). See
 [Project Hooks](#project-hooks) for details.
 
 **Use `post-merge-command` as a "local CI"** — Running `wt merge` on a worktree
-and knowing it'll get merged iff passes tests — means `main` is protected from
-an agent forgetting to run all tests (without having to babysit it).
+and gating the merge on tests passing is very freeing — `main` is protected from
+one agent forgetting to run all tests, without you having to babysit it.
+
+**View Claude Code status from `wt list`** — The Claude Code integration shows
+which branches have active sessions in `wt list`. When Claude starts working,
+the branch shows `🤖`; hen waiting for input, it shows `💬`. Setup instructions:
+[Custom Worktree Status](#custom-worktree-status).
 
 **Delegate to task runners** — Reference existing Taskfile/Justfile/Makefile commands
 instead of duplicating logic:
@@ -365,31 +367,37 @@ Global Options:
 ## Examples
 
 Switch to existing worktree:
+
 ```
 wt switch feature-branch
 ```
 
 Create new worktree from main:
+
 ```
 wt switch --create new-feature
 ```
 
 Switch to previous worktree:
+
 ```
 wt switch -
 ```
 
 Create from specific base:
+
 ```
 wt switch --create hotfix --base production
 ```
 
 Create and run command:
+
 ```
 wt switch --create docs --execute "code ."
 ```
 
 Skip hooks during creation:
+
 ```
 wt switch --create temp --no-verify
 ```
@@ -397,6 +405,7 @@ wt switch --create temp --no-verify
 ## Shortcuts
 
 Use `@` for current HEAD, `-` for previous, `^` for main:
+
 ```
 wt switch @                              # Switch to current branch's worktree
 wt switch -                              # Switch to previous worktree
@@ -467,21 +476,25 @@ Worktree and branch are removed. Skip with `--no-remove`.
 ## Examples
 
 Basic merge to main:
+
 ```
 wt merge
 ```
 
 Merge without squashing:
+
 ```
 wt merge --no-squash
 ```
 
 Keep worktree after merging:
+
 ```
 wt merge --no-remove
 ```
 
 Skip all hooks:
+
 ```
 wt merge --no-verify
 ```
@@ -536,31 +549,37 @@ Stops any git fsmonitor daemon for the worktree before removal. This prevents or
 ## Examples
 
 Remove current worktree and branch:
+
 ```
 wt remove
 ```
 
 Remove specific worktree and branch:
+
 ```
 wt remove feature-branch
 ```
 
 Remove worktree but keep branch:
+
 ```
 wt remove --no-delete-branch feature-branch
 ```
 
 Remove multiple worktrees:
+
 ```
 wt remove old-feature another-branch
 ```
 
 Remove in foreground (blocking):
+
 ```
 wt remove --no-background feature-branch
 ```
 
 Switch to default in main:
+
 ```
 wt remove  # (when already in main worktree)
 ```
