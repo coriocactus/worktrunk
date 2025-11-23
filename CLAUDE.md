@@ -71,7 +71,6 @@ Keep the first line of flag and argument descriptions brief—aim for 3-6 words.
 
 **Bad examples (too verbose):**
 - `/// Auto-approve project commands without saving approvals.`
-- `/// Run as if worktrunk was started in <path> instead of the current working directory`
 - `/// Show CI status, conflict detection, and complete diff statistics`
 
 The help text should be scannable. Users reading `wt switch --help` need to quickly understand what each flag does without parsing long sentences.

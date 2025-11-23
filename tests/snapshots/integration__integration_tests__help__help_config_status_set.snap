@@ -32,7 +32,7 @@ Options:
 
 Global Options:
   -C <path>
-          Change working directory
+          Working directory for this command
 
       --config <path>
           User config file path

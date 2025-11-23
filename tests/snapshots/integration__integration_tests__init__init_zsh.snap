@@ -183,7 +183,7 @@ _wt() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -202,7 +202,7 @@ _wt() {
         case $line[1] in
             (config)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -220,7 +220,7 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (shell)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -239,7 +239,7 @@ _arguments "${_arguments_options[@]}" : \
             (init)
 _arguments "${_arguments_options[@]}" : \
 '--command-name=[Command name]:COMMAND_NAME:_default' \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -251,7 +251,7 @@ _arguments "${_arguments_options[@]}" : \
 (install)
 _arguments "${_arguments_options[@]}" : \
 '--command-name=[Command name]:COMMAND_NAME:_default' \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip confirmation prompt]' \
 '--force[Skip confirmation prompt]' \
@@ -268,7 +268,7 @@ esac
 ;;
 (create)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -278,7 +278,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (list)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -288,7 +288,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (refresh-cache)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -298,7 +298,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (status)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -317,7 +317,7 @@ _arguments "${_arguments_options[@]}" : \
             (set)
 _arguments "${_arguments_options[@]}" : \
 '--branch=[Target branch (defaults to current)]:BRANCH:_default' \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -328,7 +328,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (unset)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -343,7 +343,7 @@ esac
 ;;
 (approvals)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -361,7 +361,7 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (ask)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
@@ -374,7 +374,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (clear)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-g[Clear global approvals]' \
 '--global[Clear global approvals]' \
@@ -394,7 +394,7 @@ esac
 ;;
 (step)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -415,7 +415,7 @@ _arguments "${_arguments_options[@]}" : \
 '--stage=[What to stage before committing \[default\: all\]]:STAGE:((all\:"Stage everything\: untracked files + unstaged tracked changes"
 tracked\:"Stage tracked changes only (like git add -u)"
 none\:"Stage nothing, commit only what'\''s already in the index"))' \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
@@ -431,7 +431,7 @@ _arguments "${_arguments_options[@]}" : \
 '--stage=[What to stage before committing \[default\: all\]]:STAGE:((all\:"Stage everything\: untracked files + unstaged tracked changes"
 tracked\:"Stage tracked changes only (like git add -u)"
 none\:"Stage nothing, commit only what'\''s already in the index"))' \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
@@ -445,7 +445,7 @@ none\:"Stage nothing, commit only what'\''s already in the index"))' \
 ;;
 (push)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '--allow-merge-commits[Allow merge commits]' \
 '-v[Show commands and debug info]' \
@@ -457,7 +457,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (rebase)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -468,7 +468,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (post-create)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
@@ -480,7 +480,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (post-start)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
@@ -492,7 +492,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (pre-commit)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
@@ -504,7 +504,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (pre-merge)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
@@ -516,7 +516,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (post-merge)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-f[Skip approval prompts]' \
 '--force[Skip approval prompts]' \
@@ -532,7 +532,7 @@ esac
 ;;
 (beta)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -550,7 +550,7 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (select)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-v[Show commands and debug info]' \
 '--verbose[Show commands and debug info]' \
@@ -566,7 +566,7 @@ esac
 _arguments "${_arguments_options[@]}" : \
 '--format=[Output format (table, json)]:FORMAT:((table\:"Human-readable table format"
 json\:"JSON output"))' \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '--branches[Include branches without worktrees]' \
 '--remotes[Include remote branches]' \
@@ -585,7 +585,7 @@ _arguments "${_arguments_options[@]}" : \
 '--base=[Base branch]:BASE:_default' \
 '-x+[Command to run after switch]:EXECUTE:_default' \
 '--execute=[Command to run after switch]:EXECUTE:_default' \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '-c[Create a new branch]' \
 '--create[Create a new branch]' \
@@ -601,7 +601,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (remove)
 _arguments "${_arguments_options[@]}" : \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '--no-delete-branch[Keep branch after removal]' \
 '-D[Delete unmerged branches]' \
@@ -619,7 +619,7 @@ _arguments "${_arguments_options[@]}" : \
 '--stage=[What to stage before committing \[default\: all\]]:STAGE:((all\:"Stage everything\: untracked files + unstaged tracked changes"
 tracked\:"Stage tracked changes only (like git add -u)"
 none\:"Stage nothing, commit only what'\''s already in the index"))' \
-'-C+[Change working directory]:path:_files' \
+'-C+[Working directory for this command]:path:_files' \
 '--config=[User config file path]:path:_files' \
 '--squash[Force commit squashing]' \
 '--no-squash[Skip commit squashing]' \

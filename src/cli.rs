@@ -100,7 +100,7 @@ pub enum OutputFormat {
     after_long_help = r#"See `wt config --help` for configuration file locations and setup."#
 )]
 pub struct Cli {
-    /// Change working directory
+    /// Working directory for this command
     #[arg(
         short = 'C',
         global = true,
