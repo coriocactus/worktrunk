@@ -77,6 +77,12 @@ struct ShellOutput {
     exit_code: i32,
 }
 
+/// Regex for detecting bash job control messages
+/// Matches patterns like "[1] 12345" (job start) and "[1]+ Done" (job completion)
+static JOB_CONTROL_REGEX: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"\[\d+\][+-]?\s+(Done|\d+)").expect("Invalid job control regex pattern")
+});
+
 impl ShellOutput {
     /// Check if output contains no directive leaks
     fn assert_no_directive_leaks(&self) {
@@ -88,6 +94,19 @@ impl ShellOutput {
         assert!(
             !self.combined.contains("__WORKTRUNK_EXEC__"),
             "Output contains leaked __WORKTRUNK_EXEC__ directive:\n{}",
+            self.combined
+        );
+    }
+
+    /// Check if output contains no bash job control messages
+    ///
+    /// Job control messages like "[1] 12345" (job start) and "[1]+ Done ..." (job completion)
+    /// should not appear in user-facing output. These are internal shell artifacts from
+    /// background process management that leak implementation details.
+    fn assert_no_job_control_messages(&self) {
+        assert!(
+            !JOB_CONTROL_REGEX.is_match(&self.combined),
+            "Output contains job control messages (e.g., '[1] 12345' or '[1]+ Done'):\n{}",
             self.combined
         );
     }
@@ -232,8 +251,15 @@ fn build_shell_script(shell: &str, repo: &TestRepo, subcommand: &str, args: &[&s
             // (see templates/fish.fish - psub causes buffering). Tests document current behavior.
             format!("begin\n{}\nend 2>&1", script)
         }
+        "bash" => {
+            // For bash, we don't use a subshell wrapper because it would isolate job control messages.
+            // Instead, we use exec to redirect stderr to stdout, then run the script.
+            // This ensures job control messages (like "[1] 12345" and "[1]+ Done") are captured,
+            // allowing tests to catch these leaks.
+            format!("exec 2>&1\n{}", script)
+        }
         _ => {
-            // bash/zsh use parentheses for subshell grouping
+            // zsh uses parentheses for subshell grouping
             format!("( {} ) 2>&1", script)
         }
     }
@@ -307,17 +333,22 @@ fn exec_in_pty_interactive(
     cmd.env("USER", "testuser");
     cmd.env("SHELL", shell);
 
-    // For zsh, isolate from user rc files
-    // Note: We no longer pass NO_MONITOR here - job control notifications are now
-    // suppressed by the shell integration code itself (setopt LOCAL_OPTIONS NO_MONITOR
-    // in wt_exec). This ensures tests match real user experience.
+    // Run in interactive mode to simulate real user environment.
+    // This ensures tests catch job control message leaks like "[1] 12345" and "[1]+ Done".
+    // Interactive shells have job control enabled by default.
     if shell == "zsh" {
+        // Isolate from user rc files
         cmd.env("ZDOTDIR", "/dev/null");
+        cmd.arg("-i");
         cmd.arg("--no-rcs");
         cmd.arg("-o");
         cmd.arg("NO_GLOBAL_RCS");
         cmd.arg("-o");
         cmd.arg("NO_RCS");
+    }
+
+    if shell == "bash" {
+        cmd.arg("-i");
     }
 
     cmd.arg("-c");
@@ -560,6 +591,7 @@ mod tests {
         // Shell-agnostic assertions
         assert_eq!(output.exit_code, 0, "{}: Command should succeed", shell);
         output.assert_no_directive_leaks();
+        output.assert_no_job_control_messages();
 
         assert!(
             output.combined.contains("Created new worktree"),
@@ -1056,6 +1088,7 @@ approved-commands = ["echo 'test command executed'"]
         // This is where the bug occurs - "🔄 Starting (background):" is printed with println!
         // which causes it to concatenate with the directive
         output.assert_no_directive_leaks();
+        output.assert_no_job_control_messages();
 
         assert_eq!(output.exit_code, 0, "Command should succeed");
 
