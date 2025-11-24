@@ -203,12 +203,6 @@ fn build_shell_script(shell: &str, repo: &TestRepo, subcommand: &str, args: &[&s
             script.push_str("set -x CLICOLOR_FORCE 1\n");
         }
         "zsh" => {
-            // For zsh, initialize the completion system first
-            // This allows static completions (which call compdef) to work in isolated mode
-            // We run with --no-rcs to prevent user rc files from touching /dev/tty,
-            // but compinit is safe since it only sets up completion functions
-            script.push_str("autoload -Uz compinit && compinit -i 2>/dev/null\n");
-
             script.push_str(&format!("export WORKTRUNK_BIN='{}'\n", wt_bin.display()));
             script.push_str(&format!(
                 "export WORKTRUNK_CONFIG_PATH='{}'\n",
@@ -1399,7 +1393,6 @@ approved-commands = ["echo 'fish background task'"]
                 script.push_str("set -x CLICOLOR_FORCE 1\n");
             }
             "zsh" => {
-                script.push_str("autoload -Uz compinit && compinit -i 2>/dev/null\n");
                 script.push_str(&format!("export WORKTRUNK_BIN='{}'\n", wt_bin.display()));
                 script.push_str(&format!(
                     "export WORKTRUNK_CONFIG_PATH='{}'\n",
@@ -1679,12 +1672,16 @@ approved-commands = ["echo 'bash background'"]
         let wrapper_script = generate_wrapper(&repo, "zsh");
 
         // Script that sources wrapper and checks if completion function exists
+        // Tests deferred registration: compinit runs AFTER wrapper (like real .zshrc)
         let script = format!(
             r#"
-            autoload -Uz compinit && compinit -i 2>/dev/null
             export WORKTRUNK_BIN='{}'
             export WORKTRUNK_CONFIG_PATH='{}'
             {}
+            # Run compinit after wrapper (simulates typical user .zshrc order)
+            autoload -Uz compinit && compinit -i 2>/dev/null
+            # Trigger precmd hook to complete deferred registration
+            for func in $precmd_functions; do $func; done
             # Check if lazy completion stub is registered
             if (( $+functions[_wt_lazy_complete] )); then
                 echo "__COMPLETION_REGISTERED__"
@@ -1784,7 +1781,6 @@ approved-commands = ["echo 'bash background'"]
         let script = match shell {
             "zsh" => format!(
                 r#"
-                autoload -Uz compinit && compinit -i 2>/dev/null
                 # Clear PATH to ensure wt is not found via PATH
                 export PATH="/usr/bin:/bin"
                 export WORKTRUNK_BIN='{}'

@@ -75,8 +75,21 @@ if command -v {{ cmd_prefix }} >/dev/null 2>&1 || [[ -n "${WORKTRUNK_BIN:-}" ]];
         fi
     }
 
-    # Register stub, but only if compdef is available (compinit was run)
-    if (( $+functions[compdef] )); then
-        compdef _wt_lazy_complete {{ cmd_prefix }}
+    # Register completion - either now or deferred until compinit runs
+    _wt_register_completion() {
+        if (( $+functions[compdef] )); then
+            compdef _wt_lazy_complete {{ cmd_prefix }}
+            # Remove hook once registered
+            precmd_functions=(${precmd_functions:#_wt_register_completion})
+            unfunction _wt_register_completion 2>/dev/null
+            return 0
+        fi
+        return 1
+    }
+
+    # Try immediate registration, otherwise defer via precmd hook
+    if ! _wt_register_completion; then
+        # Add to hook only if not already present (handles re-sourcing .zshrc)
+        (( ${precmd_functions[(I)_wt_register_completion]} )) || precmd_functions+=(_wt_register_completion)
     fi
 fi
