@@ -378,10 +378,6 @@ fn prompt_for_confirmation(results: &[ConfigureResult]) -> Result<bool, String> 
     crate::output::flush_for_stderr_prompt().map_err(|e| e.to_string())?;
 
     // Interactive prompts go to stderr so they appear even when stdout is redirected
-    eprintln!();
-    eprintln!("{INFO_EMOJI} Configuration changes:");
-    eprintln!();
-
     for result in results {
         // Skip items that are already configured
         if matches!(result.action, ConfigAction::AlreadyExists) {
@@ -401,9 +397,9 @@ fn prompt_for_confirmation(results: &[ConfigureResult]) -> Result<bool, String> 
 
         // Show the config line that will be added with gutter
         eprint!("{}", format_bash_with_gutter(&result.config_line, ""));
+        eprintln!(); // Blank line after each shell block
     }
 
-    eprintln!();
     let bold = Style::new().bold();
     eprint!("{INFO_EMOJI} Proceed? {bold}[y/N]{bold:#} ");
     io::stderr().flush().map_err(|e| e.to_string())?;
@@ -412,6 +408,9 @@ fn prompt_for_confirmation(results: &[ConfigureResult]) -> Result<bool, String> 
     io::stdin()
         .read_line(&mut input)
         .map_err(|e| e.to_string())?;
+
+    // Blank line after user input to separate from results
+    eprintln!();
 
     let response = input.trim().to_lowercase();
     Ok(response == "y" || response == "yes")

@@ -30,11 +30,11 @@ fn test_configure_shell_with_yes() {
         exit_code: 0
         ----- stdout -----
         ✅ Added [1mzsh[0m ~/.zshrc
-        [107m [0m  [1m[35mif[0m [1m[34mcommand[0m [36m-v[0m wt [36m>[0m/dev/null [33m2[0m>&1; [1m[35mthen[0m [1m[34meval[0m [32m"$([1m[34mcommand[0m wt config shell init zsh)"[0m; [1m[35mfi[0m[0m
+        [107m [0m  [1m[2m[35mif[0m [1m[2m[34mcommand[0m [2m[36m-v[0m wt [2m[36m>[0m/dev/null [2m[33m2[0m>&1; [1m[2m[35mthen[0m [1m[2m[34meval[0m [2m[32m"$([1m[2m[34mcommand[0m wt config shell init zsh)"[0m; [1m[2m[35mfi[0m[0m
+
         💡 [2mbash ~/.bashrc (not found)[0m
         💡 [2mfish ~/.config/fish/conf.d (not found)[0m
-
-        ✅ [32mConfigured 1 shell[0m
+        ✅ Configured 1 shell
 
         💡 [2mRestart your shell or run: source ~/.zshrc[0m
 
@@ -75,9 +75,9 @@ fn test_configure_shell_specific_shell() {
         exit_code: 0
         ----- stdout -----
         ✅ Added [1mzsh[0m ~/.zshrc
-        [107m [0m  [1m[35mif[0m [1m[34mcommand[0m [36m-v[0m wt [36m>[0m/dev/null [33m2[0m>&1; [1m[35mthen[0m [1m[34meval[0m [32m"$([1m[34mcommand[0m wt config shell init zsh)"[0m; [1m[35mfi[0m[0m
+        [107m [0m  [1m[2m[35mif[0m [1m[2m[34mcommand[0m [2m[36m-v[0m wt [2m[36m>[0m/dev/null [2m[33m2[0m>&1; [1m[2m[35mthen[0m [1m[2m[34meval[0m [2m[32m"$([1m[2m[34mcommand[0m wt config shell init zsh)"[0m; [1m[2m[35mfi[0m[0m
 
-        ✅ [32mConfigured 1 shell[0m
+        ✅ Configured 1 shell
 
         💡 [2mRestart your shell or run: source ~/.zshrc[0m
 
@@ -122,7 +122,7 @@ fn test_configure_shell_already_exists() {
         exit_code: 0
         ----- stdout -----
         ⚪ Already configured [1mzsh[0m ~/.zshrc
-        ✅ [32mAll shells already configured[0m
+        ✅ All shells already configured
 
         ----- stderr -----
         ");
@@ -158,9 +158,9 @@ fn test_configure_shell_fish() {
         exit_code: 0
         ----- stdout -----
         ✅ Created [1mfish[0m ~/.config/fish/conf.d/wt.fish
-        [107m [0m  [1m[35mif[0m [1m[34mtype[0m [36m-q[0m wt; [1m[34mcommand[0m wt config shell init fish [36m|[0m [1m[34msource[0m; end[0m
+        [107m [0m  [1m[2m[35mif[0m [1m[2m[34mtype[0m [2m[36m-q[0m wt; [1m[2m[34mcommand[0m wt config shell init fish [2m[36m|[0m [1m[2m[34msource[0m; end[0m
 
-        ✅ [32mConfigured 1 shell[0m
+        ✅ Configured 1 shell
 
         💡 [2mRestart your shell or run: source ~/.config/fish/conf.d/wt.fish[0m
 
@@ -241,12 +241,13 @@ fn test_configure_shell_multiple_configs() {
         exit_code: 0
         ----- stdout -----
         ✅ Added [1mbash[0m ~/.bashrc
-        [107m [0m  [1m[35mif[0m [1m[34mcommand[0m [36m-v[0m wt [36m>[0m/dev/null [33m2[0m>&1; [1m[35mthen[0m [1m[34meval[0m [32m"$([1m[34mcommand[0m wt config shell init bash)"[0m; [1m[35mfi[0m[0m
-        ✅ Added [1mzsh[0m ~/.zshrc
-        [107m [0m  [1m[35mif[0m [1m[34mcommand[0m [36m-v[0m wt [36m>[0m/dev/null [33m2[0m>&1; [1m[35mthen[0m [1m[34meval[0m [32m"$([1m[34mcommand[0m wt config shell init zsh)"[0m; [1m[35mfi[0m[0m
-        💡 [2mfish ~/.config/fish/conf.d (not found)[0m
+        [107m [0m  [1m[2m[35mif[0m [1m[2m[34mcommand[0m [2m[36m-v[0m wt [2m[36m>[0m/dev/null [2m[33m2[0m>&1; [1m[2m[35mthen[0m [1m[2m[34meval[0m [2m[32m"$([1m[2m[34mcommand[0m wt config shell init bash)"[0m; [1m[2m[35mfi[0m[0m
 
-        ✅ [32mConfigured 2 shells[0m
+        ✅ Added [1mzsh[0m ~/.zshrc
+        [107m [0m  [1m[2m[35mif[0m [1m[2m[34mcommand[0m [2m[36m-v[0m wt [2m[36m>[0m/dev/null [2m[33m2[0m>&1; [1m[2m[35mthen[0m [1m[2m[34meval[0m [2m[32m"$([1m[2m[34mcommand[0m wt config shell init zsh)"[0m; [1m[2m[35mfi[0m[0m
+
+        💡 [2mfish ~/.config/fish/conf.d (not found)[0m
+        ✅ Configured 2 shells
 
         💡 [2mRestart your shell or run: source ~/.zshrc[0m
 
@@ -303,12 +304,13 @@ fn test_configure_shell_mixed_states() {
         exit_code: 0
         ----- stdout -----
         ⚪ Already configured [1mbash[0m ~/.bashrc
-        [107m [0m  [1m[35mif[0m [1m[34mcommand[0m [36m-v[0m wt [36m>[0m/dev/null [33m2[0m>&1; [1m[35mthen[0m [1m[34meval[0m [32m"$([1m[34mcommand[0m wt config shell init bash)"[0m; [1m[35mfi[0m[0m
-        ✅ Added [1mzsh[0m ~/.zshrc
-        [107m [0m  [1m[35mif[0m [1m[34mcommand[0m [36m-v[0m wt [36m>[0m/dev/null [33m2[0m>&1; [1m[35mthen[0m [1m[34meval[0m [32m"$([1m[34mcommand[0m wt config shell init zsh)"[0m; [1m[35mfi[0m[0m
-        💡 [2mfish ~/.config/fish/conf.d (not found)[0m
+        [107m [0m  [1m[2m[35mif[0m [1m[2m[34mcommand[0m [2m[36m-v[0m wt [2m[36m>[0m/dev/null [2m[33m2[0m>&1; [1m[2m[35mthen[0m [1m[2m[34meval[0m [2m[32m"$([1m[2m[34mcommand[0m wt config shell init bash)"[0m; [1m[2m[35mfi[0m[0m
 
-        ✅ [32mConfigured 1 shell[0m
+        ✅ Added [1mzsh[0m ~/.zshrc
+        [107m [0m  [1m[2m[35mif[0m [1m[2m[34mcommand[0m [2m[36m-v[0m wt [2m[36m>[0m/dev/null [2m[33m2[0m>&1; [1m[2m[35mthen[0m [1m[2m[34meval[0m [2m[32m"$([1m[2m[34mcommand[0m wt config shell init zsh)"[0m; [1m[2m[35mfi[0m[0m
+
+        💡 [2mfish ~/.config/fish/conf.d (not found)[0m
+        ✅ Configured 1 shell
 
         💡 [2mRestart your shell or run: source ~/.zshrc[0m
 

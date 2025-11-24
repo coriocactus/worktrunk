@@ -130,6 +130,13 @@ pub fn gutter(content: impl Into<String>) -> io::Result<()> {
     with_output(|h| h.gutter(content.into()))
 }
 
+/// Emit a blank line for visual separation
+///
+/// Used to separate logical sections of output.
+pub fn blank() -> io::Result<()> {
+    with_output(|h| h.blank())
+}
+
 /// Emit raw output without emoji decoration
 ///
 /// Used for structured data like JSON. Goes to stdout in interactive mode,

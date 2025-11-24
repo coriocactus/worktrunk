@@ -156,11 +156,12 @@ fn wrap_content_for_gutter(content: &str, left_margin: &str) -> Vec<String> {
 #[cfg(not(feature = "syntax-highlighting"))]
 fn format_wrapped_lines_plain(wrapped_lines: &[String], left_margin: &str) -> String {
     let gutter = super::GUTTER;
+    let dimmed = anstyle::Style::new().dimmed();
     let mut output = String::new();
 
     for line in wrapped_lines {
         output.push_str(&format!("{left_margin}{gutter} {gutter:#}  "));
-        output.push_str(line);
+        output.push_str(&format!("{dimmed}{line}{dimmed:#}"));
         output.push_str(&format!("{}", anstyle::Reset));
         output.push('\n');
     }

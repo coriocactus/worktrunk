@@ -5,7 +5,7 @@ use std::process;
 use worktrunk::config::{WorktrunkConfig, set_config_path};
 use worktrunk::git::{Repository, exit_code, is_command_not_approved, set_base_path};
 use worktrunk::path::format_path_for_display;
-use worktrunk::styling::{SUCCESS_EMOJI, println};
+use worktrunk::styling::println;
 
 mod cli;
 mod commands;
@@ -219,8 +219,7 @@ fn main() {
                     handle_configure_shell(shell, force, command_name)
                         .map_err(|e| anyhow::anyhow!("{}", e))
                         .and_then(|scan_result| {
-                            use anstyle::{AnsiColor, Color};
-                            use worktrunk::styling::{HINT, HINT_EMOJI, format_bash_with_gutter};
+                            use worktrunk::styling::format_bash_with_gutter;
 
                             let changes_count = scan_result
                                 .configured
@@ -233,23 +232,38 @@ fn main() {
                                 let bold = Style::new().bold();
                                 let shell = result.shell;
                                 let path = format_path_for_display(&result.path);
-
-                                println!(
-                                    "{} {} {bold}{shell}{bold:#} {path}",
-                                    result.action.emoji(),
-                                    result.action.description(),
+                                let message = format!(
+                                    "{} {bold}{shell}{bold:#} {path}",
+                                    result.action.description()
                                 );
+
+                                // Use appropriate output function based on action
+                                match result.action {
+                                    ConfigAction::Added | ConfigAction::Created => {
+                                        crate::output::success(message)?;
+                                    }
+                                    ConfigAction::AlreadyExists => {
+                                        crate::output::info(message)?;
+                                    }
+                                    ConfigAction::WouldAdd | ConfigAction::WouldCreate => {
+                                        crate::output::progress(message)?;
+                                    }
+                                }
+
                                 // Show config line only for new additions
                                 if changes_count > 0 {
-                                    print!("{}", format_bash_with_gutter(&result.config_line, ""));
+                                    crate::output::gutter(format_bash_with_gutter(
+                                        &result.config_line,
+                                        "",
+                                    ))?;
+                                    crate::output::blank()?;
                                 }
                             }
 
                             // Show skipped shells
-                            let dimmed = Style::new().dimmed();
                             for (shell, path) in &scan_result.skipped {
                                 let path = format_path_for_display(path);
-                                println!("{HINT_EMOJI} {dimmed}{shell} {path} (not found){dimmed:#}");
+                                crate::output::hint(format!("{shell} {path} (not found)"))?;
                             }
 
                             // Exit with error if no shells configured
@@ -258,38 +272,39 @@ fn main() {
                             }
 
                             // Summary
-                            let green = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
                             if changes_count > 0 {
-                                println!();
                                 let plural = if changes_count == 1 { "" } else { "s" };
-                                println!(
-                                    "{SUCCESS_EMOJI} {green}Configured {changes_count} shell{plural}{green:#}"
-                                );
-                                println!();
+                                crate::output::success(format!(
+                                    "Configured {changes_count} shell{plural}"
+                                ))?;
+                                crate::output::blank()?;
 
                                 // Find the config file for the current shell
                                 let current_shell = std::env::var("SHELL")
                                     .ok()
                                     .and_then(|s| s.rsplit('/').next().map(String::from));
 
-                                let current_shell_path = current_shell.as_ref().and_then(|shell_name| {
-                                    scan_result
-                                        .configured
-                                        .iter()
-                                        .filter(|r| !matches!(r.action, ConfigAction::AlreadyExists))
-                                        .find(|r| r.shell.to_string().eq_ignore_ascii_case(shell_name))
-                                        .map(|r| format_path_for_display(&r.path))
-                                });
+                                let current_shell_path =
+                                    current_shell.as_ref().and_then(|shell_name| {
+                                        scan_result
+                                            .configured
+                                            .iter()
+                                            .filter(|r| {
+                                                !matches!(r.action, ConfigAction::AlreadyExists)
+                                            })
+                                            .find(|r| {
+                                                r.shell.to_string().eq_ignore_ascii_case(shell_name)
+                                            })
+                                            .map(|r| format_path_for_display(&r.path))
+                                    });
 
                                 if let Some(path) = current_shell_path {
-                                    println!(
-                                        "{HINT_EMOJI} {HINT}Restart your shell or run: source {path}{HINT:#}"
-                                    );
+                                    crate::output::hint(format!(
+                                        "Restart your shell or run: source {path}"
+                                    ))?;
                                 }
                             } else {
-                                println!(
-                                    "{SUCCESS_EMOJI} {green}All shells already configured{green:#}"
-                                );
+                                crate::output::success("All shells already configured")?;
                             }
                             Ok(())
                         })

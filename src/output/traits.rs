@@ -59,6 +59,11 @@ pub trait OutputHandler {
     /// without adding additional newlines.
     fn gutter(&mut self, content: String) -> io::Result<()>;
 
+    /// Emit a blank line for visual separation
+    fn blank(&mut self) -> io::Result<()> {
+        self.write_message_line("")
+    }
+
     /// Emit raw output without emoji decoration
     fn raw(&mut self, content: String) -> io::Result<()> {
         self.write_message_line(&content)
