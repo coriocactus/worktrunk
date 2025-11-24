@@ -45,13 +45,6 @@ impl OutputHandler for InteractiveOutput {
         self.hint(message)
     }
 
-    #[cfg(unix)]
-    fn blank_line(&mut self) -> io::Result<()> {
-        // Ensure subsequent output starts on a fresh line after interactive UIs like skim
-        println!();
-        stdout().flush()
-    }
-
     fn change_directory(&mut self, path: &Path) -> io::Result<()> {
         // In interactive mode, we can't actually change directory
         // Just store the target for execute commands

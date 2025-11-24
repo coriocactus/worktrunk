@@ -97,12 +97,6 @@ pub trait OutputHandler {
     /// Interactive shows it, Directive suppresses it
     fn shell_integration_hint(&mut self, message: String) -> io::Result<()>;
 
-    /// Insert a blank line
-    ///
-    /// Interactive prints newline, Directive is no-op
-    #[cfg(unix)]
-    fn blank_line(&mut self) -> io::Result<()>;
-
     /// Request directory change
     ///
     /// Interactive stores path, Directive emits directive

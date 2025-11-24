@@ -116,12 +116,6 @@ pub fn error(message: impl Into<String>) -> io::Result<()> {
     with_output(|h| h.error(message.into()))
 }
 
-/// Insert a blank line between UI output and worktrunk messages
-#[cfg(unix)]
-pub fn blank_line() -> io::Result<()> {
-    with_output(|h| h.blank_line())
-}
-
 /// Emit gutter-formatted content
 ///
 /// Gutter content has its own visual structure (column 0 gutter + content),

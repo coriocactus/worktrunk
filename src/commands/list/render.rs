@@ -337,8 +337,13 @@ impl LayoutConfig {
     }
 
     pub fn format_header_line(&self) -> String {
+        self.render_header_line().render()
+    }
+
+    /// Render header line as StyledLine (for extracting both plain and styled text)
+    pub fn render_header_line(&self) -> StyledLine {
         let style = Style::new().bold();
-        let line = self.render_line(|column| {
+        self.render_line(|column| {
             let mut cell = StyledLine::new();
             if !column.header.is_empty() {
                 // Diff columns have right-aligned values, so right-align headers too
@@ -356,9 +361,7 @@ impl LayoutConfig {
                 cell.push_styled(column.header.to_string(), style);
             }
             cell
-        });
-
-        line.render()
+        })
     }
 
     pub fn format_list_item_line(
@@ -367,17 +370,26 @@ impl LayoutConfig {
         current_worktree_path: Option<&std::path::PathBuf>,
         previous_branch: Option<&str>,
     ) -> String {
+        self.render_list_item_line(item, current_worktree_path, previous_branch)
+            .render()
+    }
+
+    /// Render list item line as StyledLine (for extracting both plain and styled text)
+    pub fn render_list_item_line(
+        &self,
+        item: &ListItem,
+        current_worktree_path: Option<&std::path::PathBuf>,
+        previous_branch: Option<&str>,
+    ) -> StyledLine {
         let ctx = ListRowContext::new(item, current_worktree_path, previous_branch);
-        let line = self.render_line(|column| {
+        self.render_line(|column| {
             column.render_cell(
                 &ctx,
                 &self.status_position_mask,
                 &self.common_prefix,
                 self.max_message_len,
             )
-        });
-
-        line.render()
+        })
     }
 
     /// Render a skeleton row showing known data (branch, path) with placeholders for other columns

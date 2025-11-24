@@ -235,9 +235,15 @@ impl Shell {
                 let reader = BufReader::new(file);
                 for line in reader.lines().map_while(Result::ok) {
                     let trimmed = line.trim();
-                    // Match: eval "$(anything init bash/zsh/etc)"
-                    // This catches both wt and custom prefixes
-                    if (trimmed.starts_with("eval \"$(") || trimmed.starts_with("eval '$("))
+                    // Skip comments
+                    if trimmed.starts_with('#') {
+                        continue;
+                    }
+                    // Match lines containing: eval "$(... init ...)" or eval '$(... init ...)'
+                    // This catches both the direct pattern and the guarded pattern:
+                    //   eval "$(wt config shell init bash)"
+                    //   if command -v wt ...; then eval "$(command wt config shell init zsh)"; fi
+                    if (trimmed.contains("eval \"$(") || trimmed.contains("eval '$("))
                         && trimmed.contains(" init ")
                     {
                         return Ok(Some(path));

@@ -540,7 +540,7 @@ fn main() {
         },
         #[cfg(unix)]
         Commands::Beta { action } => match action {
-            BetaCommand::Select => handle_select(),
+            BetaCommand::Select => handle_select(cli.internal),
         },
         Commands::List {
             format,

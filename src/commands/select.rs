@@ -10,7 +10,7 @@ use worktrunk::git::Repository;
 use super::list::collect;
 use super::list::model::ListItem;
 use super::worktree::handle_switch;
-use crate::output::{blank_line, handle_switch_output};
+use crate::output::handle_switch_output;
 
 /// Preview modes for the interactive selector
 ///
@@ -72,6 +72,21 @@ impl PreviewState {
 impl Drop for PreviewState {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.path);
+    }
+}
+
+/// Header item for column names (non-selectable)
+struct HeaderSkimItem {
+    text: String,
+}
+
+impl SkimItem for HeaderSkimItem {
+    fn text(&self) -> Cow<'_, str> {
+        Cow::Borrowed(&self.text)
+    }
+
+    fn output(&self) -> Cow<'_, str> {
+        Cow::Borrowed("") // Headers produce no output if selected
     }
 }
 
@@ -250,7 +265,7 @@ impl WorktreeSkimItem {
     }
 }
 
-pub fn handle_select() -> anyhow::Result<()> {
+pub fn handle_select(is_directive_mode: bool) -> anyhow::Result<()> {
     let repo = Repository::current();
 
     // Initialize preview mode state file (auto-cleanup on drop)
@@ -270,49 +285,32 @@ pub fn handle_select() -> anyhow::Result<()> {
         return Ok(());
     };
 
-    // Calculate max branch name length for alignment
-    let max_branch_len = list_data
-        .items
-        .iter()
-        .map(|item| item.branch_name().len())
-        .max()
-        .unwrap_or(20);
+    // Get current worktree path for styling
+    let current_worktree_path = repo.worktree_root().ok();
 
-    // Convert to skim items - store full ListItem for preview rendering
-    let items: Vec<Arc<dyn SkimItem>> = list_data
+    // Use the same layout system as `wt list` for proper column alignment
+    let layout = super::list::layout::calculate_layout_from_basics(
+        &list_data.items,
+        false, // show_full
+        false, // fetch_ci
+    );
+
+    // Render header using layout system
+    let header_line = layout.render_header_line();
+    let header_text = header_line.render();
+
+    // Convert to skim items using the layout system for rendering
+    let mut items: Vec<Arc<dyn SkimItem>> = list_data
         .items
         .into_iter()
         .map(|item| {
             let branch_name = item.branch_name().to_string();
-            let commit_details = item.commit_details();
-            let commit_msg = commit_details.commit_message.lines().next().unwrap_or("");
 
-            // Build display text with aligned columns
-            // We need two versions: one with ANSI codes for display, one stripped for matching
-            let mut display_text = format!("{:<width$}", branch_name, width = max_branch_len);
-            let mut display_text_with_ansi = display_text.clone();
-
-            // Add status symbols
-            // For the styled version, we need to pad based on visible width, not byte length
-            let (status_plain, status_styled) =
-                if let Some(ref status_symbols) = item.status_symbols {
-                    let rendered = status_symbols.render();
-                    let stripped = worktrunk::styling::strip_ansi_codes(&rendered);
-                    let visible_width = worktrunk::styling::visual_width(&stripped);
-                    let padding_needed = 8usize.saturating_sub(visible_width);
-                    let styled_with_padding = format!("{}{}", rendered, " ".repeat(padding_needed));
-                    (format!("{:<8}", stripped), styled_with_padding)
-                } else {
-                    ("        ".to_string(), "        ".to_string())
-                };
-            display_text.push_str(&status_plain);
-            display_text_with_ansi.push_str(&status_styled);
-
-            // Add commit message
-            display_text.push_str("  ");
-            display_text.push_str(commit_msg);
-            display_text_with_ansi.push_str("  ");
-            display_text_with_ansi.push_str(commit_msg);
+            // Use layout system to render the line - this handles all column alignment
+            let rendered_line =
+                layout.render_list_item_line(&item, current_worktree_path.as_ref(), None);
+            let display_text_with_ansi = rendered_line.render();
+            let display_text = rendered_line.plain_text();
 
             Arc::new(WorktreeSkimItem {
                 display_text,
@@ -323,12 +321,20 @@ pub fn handle_select() -> anyhow::Result<()> {
         })
         .collect();
 
+    // Insert header row at the beginning (will be non-selectable via header_lines option)
+    items.insert(
+        0,
+        Arc::new(HeaderSkimItem { text: header_text }) as Arc<dyn SkimItem>,
+    );
+
     // Get state path for key bindings
     let state_path_str = _state.path.display().to_string();
 
     // Configure skim options with Rust-based preview and mode switching keybindings
     let options = SkimOptionsBuilder::default()
         .height("50%".to_string())
+        .layout("reverse".to_string())
+        .header_lines(1) // Make first line (header) non-selectable
         .multi(false)
         .preview(Some("".to_string())) // Enable preview (empty string means use SkimItem::preview())
         .preview_window("right:50%".to_string())
@@ -352,10 +358,13 @@ pub fn handle_select() -> anyhow::Result<()> {
             // Preview scrolling
             "ctrl-u:preview-page-up".to_string(),
             "ctrl-d:preview-page-down".to_string(),
+            // Preview toggle (ctrl-p is universally supported, unlike ctrl-/)
+            "ctrl-p:toggle-preview".to_string(),
         ])
         .header(Some(
-            "1: working | 2: history | 3: diff | ctrl-u/d: scroll | ctrl-/: toggle".to_string(),
+            "1: working | 2: history | 3: diff | ctrl-u/d: scroll | ctrl-p: preview".to_string(),
         ))
+        .no_clear(true) // Prevent skim from clearing screen, we'll do it manually
         .build()
         .map_err(|e| anyhow::anyhow!(format!("Failed to build skim options: {}", e)))?;
 
@@ -387,12 +396,14 @@ pub fn handle_select() -> anyhow::Result<()> {
         let (result, resolved_branch) =
             handle_switch(&identifier, false, None, false, false, &config)?;
 
-        // Skim leaves the prompt on the same line, so insert a blank line before our messages
-        blank_line()?;
+        // Clear the terminal screen after skim exits to prevent artifacts
+        use crossterm::{execute, terminal};
+        use std::io::stdout;
+        execute!(stdout(), terminal::Clear(terminal::ClearType::All))?;
+        execute!(stdout(), crossterm::cursor::MoveTo(0, 0))?;
 
-        // Show success message (show shell integration hint if not configured)
-        // select is always interactive (TUI), so is_directive_mode is false
-        handle_switch_output(&result, &resolved_branch, false, false)?;
+        // Show success message; emit cd directive if in directive mode
+        handle_switch_output(&result, &resolved_branch, false, is_directive_mode)?;
     }
 
     Ok(())

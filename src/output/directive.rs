@@ -76,12 +76,6 @@ impl OutputHandler for DirectiveOutput {
         Ok(())
     }
 
-    #[cfg(unix)]
-    fn blank_line(&mut self) -> io::Result<()> {
-        // Blank lines are only meaningful in interactive mode; no-op here to avoid empty directives
-        Ok(())
-    }
-
     // Note: raw() uses the default which calls write_message_line() -> stderr
     // This is correct for directive mode where stdout is reserved for directives
 

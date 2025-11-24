@@ -5,6 +5,7 @@ use crate::commands::worktree::{RemoveResult, SwitchResult};
 use crate::output::global::format_switch_success;
 use worktrunk::git::{branch_deletion_failed, worktree_removal_failed};
 use worktrunk::path::format_path_for_display;
+use worktrunk::shell::Shell;
 use worktrunk::styling::{
     CYAN, CYAN_BOLD, GREEN, GREEN_BOLD, WARNING, WARNING_BOLD, format_with_gutter,
 };
@@ -99,11 +100,14 @@ pub fn handle_switch_output(
             ))?;
         }
         SwitchResult::Existing(path) => {
-            if is_directive_mode || has_execute_command {
-                // Shell integration active or --execute provided - show success
+            // Check if we can cd or if shell integration is at least configured
+            let is_configured = Shell::is_integration_configured().ok().flatten().is_some();
+
+            if is_directive_mode || has_execute_command || is_configured {
+                // Shell integration active, --execute provided, or configured - show success
                 super::success(format_switch_success(branch, path, false, None))?;
             } else {
-                // No shell integration - show warning that we can't cd
+                // Shell integration not configured - show warning and setup hint
                 let bold = worktrunk::styling::AnstyleStyle::new().bold();
                 super::warning(format!(
                     "{WARNING}Worktree for {bold}{branch}{bold:#}{WARNING} at {bold}{}{bold:#}{WARNING}; cannot cd (no shell integration){WARNING:#}",
@@ -124,7 +128,7 @@ pub fn handle_switch_output(
                 *created_branch,
                 base_branch.as_deref(),
             ))?;
-            // Show hint if no shell integration and no --execute
+            // Show setup hint if shell integration not active
             if !is_directive_mode && !has_execute_command {
                 super::shell_integration_hint(shell_integration_hint())?;
             }

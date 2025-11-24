@@ -67,11 +67,6 @@ pub use global::{
     hint, info, initialize, progress, raw, raw_terminal, shell_integration_hint, success,
     terminate_output, warning,
 };
-
-// blank_line is only used by select command which is Unix-only
-#[cfg(unix)]
-pub use global::blank_line;
-
 // Re-export output handlers
 pub use handlers::{
     execute_command_in_worktree, execute_user_command, handle_remove_output, handle_switch_output,

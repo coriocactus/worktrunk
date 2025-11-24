@@ -548,16 +548,6 @@ pub struct StatusSymbols {
 }
 
 impl StatusSymbols {
-    /// Render symbols with full alignment (all positions)
-    ///
-    /// This is used for the display fields in JSON output. Skipped on Windows
-    /// to avoid an unused/dead-code warning in clippy (the interactive selector
-    /// that calls this exists only on Unix).
-    #[cfg(unix)]
-    pub fn render(&self) -> String {
-        self.render_with_mask(&PositionMask::FULL)
-    }
-
     /// Render symbols with selective alignment based on position mask
     ///
     /// Only includes positions present in the mask. This ensures vertical

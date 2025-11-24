@@ -1,6 +1,7 @@
 use crate::common::{TestRepo, make_snapshot_cmd_with_global_flags, setup_snapshot_settings};
 use insta_cmd::assert_cmd_snapshot;
 use std::path::Path;
+use tempfile::TempDir;
 
 /// Common setup for switch tests - creates repo with initial commit
 fn setup_switch_repo() -> TestRepo {
@@ -25,6 +26,10 @@ fn snapshot_switch_with_global_flags(
 }
 
 /// Helper that also allows setting a custom HOME directory and global flags
+///
+/// IMPORTANT: Always uses an isolated HOME to prevent tests from being affected
+/// by the developer's real shell configuration (e.g., shell integration in ~/.zshrc).
+/// Pass `temp_home` to use a specific HOME (e.g., with shell integration configured).
 fn snapshot_switch_with_home(
     test_name: &str,
     repo: &TestRepo,
@@ -32,12 +37,14 @@ fn snapshot_switch_with_home(
     temp_home: Option<&Path>,
     global_flags: &[&str],
 ) {
+    // Create isolated HOME if not provided to ensure test determinism
+    let default_home = TempDir::new().unwrap();
+    let home = temp_home.unwrap_or_else(|| default_home.path());
+
     let settings = setup_snapshot_settings(repo);
     settings.bind(|| {
         let mut cmd = make_snapshot_cmd_with_global_flags(repo, "switch", args, None, global_flags);
-        if let Some(home) = temp_home {
-            cmd.env("HOME", home);
-        }
+        cmd.env("HOME", home);
         assert_cmd_snapshot!(test_name, cmd);
     });
 }
@@ -114,6 +121,40 @@ fn test_switch_existing_branch() {
 
     // Switch to it (should find existing worktree)
     snapshot_switch("switch_existing_branch", &repo, &["feature-z"]);
+}
+
+/// Test switching to existing worktree when shell integration is configured but not active.
+///
+/// When shell integration is configured in user's rc files (e.g., .zshrc) but the user
+/// runs `wt switch` directly (not through the shell wrapper), we should show success
+/// with a hint to use `wt switch` for cd, not a warning about missing shell integration.
+#[test]
+fn test_switch_existing_with_shell_integration_configured() {
+    use std::fs;
+
+    let temp_home = TempDir::new().unwrap();
+    let mut repo = setup_switch_repo();
+
+    // Simulate shell integration configured in user's shell rc files
+    let zshrc_path = temp_home.path().join(".zshrc");
+    fs::write(
+        &zshrc_path,
+        "# Existing user zsh config\nif command -v wt >/dev/null 2>&1; then eval \"$(command wt config shell init zsh)\"; fi\n",
+    )
+    .unwrap();
+
+    // Create a worktree first
+    repo.add_worktree("shell-configured", "shell-configured");
+
+    // Switch to existing worktree - should show success + "cd with: wt switch" hint
+    // NOT the warning about "cannot cd (no shell integration)"
+    snapshot_switch_with_home(
+        "switch_existing_with_shell_configured",
+        &repo,
+        &["shell-configured"],
+        Some(temp_home.path()),
+        &[],
+    );
 }
 
 #[test]

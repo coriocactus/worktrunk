@@ -120,11 +120,11 @@ mod ci_status;
 pub(crate) mod collect;
 mod collect_progressive_impl;
 mod columns;
-mod layout;
+pub(crate) mod layout;
 pub mod model;
 pub mod progressive;
 mod progressive_table;
-mod render;
+pub(crate) mod render;
 
 #[cfg(test)]
 mod spacing_test;

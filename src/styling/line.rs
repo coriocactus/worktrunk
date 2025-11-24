@@ -133,6 +133,11 @@ impl StyledLine {
         self.segments.iter().map(|s| s.render()).collect()
     }
 
+    /// Returns the plain text without any styling
+    pub fn plain_text(&self) -> String {
+        self.segments.iter().map(|s| s.text.as_str()).collect()
+    }
+
     /// Truncate if the line exceeds the given width, preserving ANSI codes.
     /// Returns a new StyledLine with truncated content and ellipsis.
     pub fn truncate_to_width(self, max_width: usize) -> StyledLine {

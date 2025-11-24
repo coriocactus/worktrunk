@@ -7,6 +7,7 @@ use insta_cmd::assert_cmd_snapshot;
 use std::fs;
 use std::thread;
 use std::time::Duration;
+use tempfile::TempDir;
 
 /// Wait duration when checking file absence (testing command did NOT run).
 /// Must be long enough that a background command would have started and created
@@ -16,10 +17,15 @@ const SLEEP_FOR_ABSENCE_CHECK: Duration = Duration::from_millis(500);
 /// Helper to create snapshot with normalized paths and SHAs
 ///
 /// Tests should write to repo.test_config_path() to pre-approve commands.
+/// Uses an isolated HOME to prevent tests from being affected by developer's shell config.
 fn snapshot_switch(test_name: &str, repo: &TestRepo, args: &[&str]) {
+    // Create isolated HOME to ensure test determinism
+    let temp_home = TempDir::new().unwrap();
+
     let settings = setup_snapshot_settings(repo);
     settings.bind(|| {
         let mut cmd = make_snapshot_cmd(repo, "switch", args, None);
+        cmd.env("HOME", temp_home.path());
         assert_cmd_snapshot!(test_name, cmd);
     });
 }
