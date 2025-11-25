@@ -17,12 +17,16 @@ info:
     LANG: C
     LC_ALL: C
     SOURCE_DATE_EPOCH: "1761609600"
+    WORKTRUNK_BIN: ""
     WORKTRUNK_CONFIG_PATH: "[TEST_CONFIG]"
+    WT_ASSUME_COMPINIT: "1"
     XDG_CONFIG_HOME: "[TEST_CONFIG_HOME]"
 ---
 success: true
 exit_code: 0
 ----- stdout -----
+
+----- stderr -----
 ⚪ Global Config: [1m~/.config/worktrunk/config.toml[0m
 💡 [2mEmpty file (using defaults)[0m
 
@@ -32,5 +36,3 @@ exit_code: 0
 ⚪ Already configured shell extension & completions for [1mzsh[0m @ ~/.zshrc
 [2m⚪ Skipped bash; ~/.bashrc not found[0m
 [2m⚪ Skipped fish; ~/.config/fish/conf.d not found[0m
-
------ stderr -----

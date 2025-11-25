@@ -8,11 +8,14 @@ info:
     CLICOLOR_FORCE: "1"
     COLUMNS: "150"
     GIT_EDITOR: ""
+    WORKTRUNK_BIN: ""
     WORKTRUNK_CONFIG_PATH: /nonexistent/test/config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
+
+----- stderr -----
 wt - Git worktree management
 Usage: wt [OPTIONS] <COMMAND>
 
@@ -42,5 +45,3 @@ Global Options:
           Show commands and debug info
 
 See [2mwt config --help[0m for configuration file locations and setup.
-
------ stderr -----

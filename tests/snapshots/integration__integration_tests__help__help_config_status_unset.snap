@@ -11,11 +11,14 @@ info:
     CLICOLOR_FORCE: "1"
     COLUMNS: "150"
     GIT_EDITOR: ""
+    WORKTRUNK_BIN: ""
     WORKTRUNK_CONFIG_PATH: /nonexistent/test/config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
+
+----- stderr -----
 wt config status unset - Clear status emoji
 Usage: wt config status unset [OPTIONS] [TARGET]
 
@@ -40,5 +43,3 @@ Global Options:
           Show commands and debug info
 
 Removes status marker from branch(es). Use [2m*[0m to clear all statuses.
-
------ stderr -----

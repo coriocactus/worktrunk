@@ -10,11 +10,14 @@ info:
     CLICOLOR_FORCE: "1"
     COLUMNS: "150"
     GIT_EDITOR: ""
+    WORKTRUNK_BIN: ""
     WORKTRUNK_CONFIG_PATH: /nonexistent/test/config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
+
+----- stderr -----
 wt config approvals - Manage command approvals
 Usage: wt config approvals [OPTIONS] <COMMAND>
 
@@ -65,5 +68,3 @@ Clear approvals for current project:
 
 Clear global approvals:
   [2mwt config approvals clear --global[0m
-
------ stderr -----

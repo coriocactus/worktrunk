@@ -55,13 +55,17 @@ fn detect_help_pager() -> Option<String> {
 /// Show help text through a pager with TTY access for interactive scrolling.
 ///
 /// Only uses pager when stdout is a terminal. Falls back to direct output if:
-/// - No pager configured (prints directly)
-/// - stdout is not a TTY (prints directly)
+/// - No pager configured (prints to stderr)
+/// - stdout is not a TTY (prints to stderr)
 /// - Pager spawn fails (returns error)
+///
+/// Note: All fallbacks output to stderr for consistency with pager behavior
+/// (which sends output to stderr via `>&2`). This ensures `config show --internal`
+/// works correctly in directive mode where stdout is reserved for shell directives.
 pub fn show_help_in_pager(help_text: &str) -> std::io::Result<()> {
     let Some(pager_cmd) = detect_help_pager() else {
-        log::debug!("No pager configured, printing help directly");
-        print!("{}", help_text);
+        log::debug!("No pager configured, printing help directly to stderr");
+        eprint!("{}", help_text);
         return Ok(());
     };
 
@@ -72,7 +76,7 @@ pub fn show_help_in_pager(help_text: &str) -> std::io::Result<()> {
 
     if !is_tty {
         log::debug!("Neither stdout nor stderr is a TTY, skipping pager");
-        print!("{}", help_text);
+        eprint!("{}", help_text);
         return Ok(());
     }
 

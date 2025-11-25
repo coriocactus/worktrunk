@@ -9,11 +9,14 @@ info:
     CLICOLOR_FORCE: "1"
     COLUMNS: "150"
     GIT_EDITOR: ""
+    WORKTRUNK_BIN: ""
     WORKTRUNK_CONFIG_PATH: /nonexistent/test/config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
+
+----- stderr -----
 wt beta - Experimental commands
 Usage: wt beta [OPTIONS] <COMMAND>
 
@@ -34,5 +37,3 @@ Global Options:
 
   -v, --verbose
           Show commands and debug info
-
------ stderr -----

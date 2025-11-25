@@ -50,6 +50,8 @@ server = "npm run dev"
         success: true
         exit_code: 0
         ----- stdout -----
+
+        ----- stderr -----
         ⚪ Global Config: [1m~/.config/worktrunk/config.toml[0m
         [107m [0m  worktree-path = [32m"../{{ main_worktree }}.{{ branch }}"[0m
         [107m [0m  
@@ -66,8 +68,6 @@ server = "npm run dev"
         [2m⚪ Skipped bash; ~/.bashrc not found[0m
         [2m⚪ Skipped zsh; ~/.zshrc not found[0m
         [2m⚪ Skipped fish; ~/.config/fish/conf.d not found[0m
-
-        ----- stderr -----
         "#);
     });
 }
@@ -99,6 +99,8 @@ fn test_config_show_no_project_config() {
         success: true
         exit_code: 0
         ----- stdout -----
+
+        ----- stderr -----
         ⚪ Global Config: [1m~/.config/worktrunk/config.toml[0m
         [107m [0m  worktree-path = [32m"../{{ main_worktree }}.{{ branch }}"[0m
 
@@ -108,8 +110,6 @@ fn test_config_show_no_project_config() {
         [2m⚪ Skipped bash; ~/.bashrc not found[0m
         [2m⚪ Skipped zsh; ~/.zshrc not found[0m
         [2m⚪ Skipped fish; ~/.config/fish/conf.d not found[0m
-
-        ----- stderr -----
         "#);
     });
 }
@@ -140,6 +140,8 @@ fn test_config_show_outside_git_repo() {
         success: true
         exit_code: 0
         ----- stdout -----
+
+        ----- stderr -----
         ⚪ Global Config: [1m~/.config/worktrunk/config.toml[0m
         [107m [0m  worktree-path = [32m"../{{ main_worktree }}.{{ branch }}"[0m
 
@@ -148,8 +150,6 @@ fn test_config_show_outside_git_repo() {
         [2m⚪ Skipped bash; ~/.bashrc not found[0m
         [2m⚪ Skipped zsh; ~/.zshrc not found[0m
         [2m⚪ Skipped fish; ~/.config/fish/conf.d not found[0m
-
-        ----- stderr -----
         "#);
     });
 }

@@ -9,11 +9,14 @@ info:
     CLICOLOR_FORCE: "1"
     COLUMNS: "150"
     GIT_EDITOR: ""
+    WORKTRUNK_BIN: ""
     WORKTRUNK_CONFIG_PATH: /nonexistent/test/config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
+
+----- stderr -----
 wt list - List worktrees and optionally branches
 Usage: wt list [OPTIONS]
 
@@ -141,5 +144,3 @@ Note: [2mlocked[0m and [2mprunable[0m are top-level fields on worktree objec
   [2m[0m
   [2m# Get current worktree info (useful for statusline tools)[0m
   [2mjq '.[] | select(.is_current == true)'[0m
-
------ stderr -----

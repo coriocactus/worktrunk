@@ -10,11 +10,14 @@ info:
     CLICOLOR_FORCE: "1"
     COLUMNS: "150"
     GIT_EDITOR: ""
+    WORKTRUNK_BIN: ""
     WORKTRUNK_CONFIG_PATH: /nonexistent/test/config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
+
+----- stderr -----
 wt config show - Show configuration files & locations
 Usage: wt config show [OPTIONS]
 
@@ -36,5 +39,3 @@ Shows location and contents of global config ([2m~/.config/worktrunk/config.tom
 and project config ([2m.config/wt.toml[0m).
 
 If a config file doesn't exist, shows defaults that would be used.
-
------ stderr -----

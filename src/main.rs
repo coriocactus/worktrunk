@@ -11,7 +11,7 @@ mod cli;
 mod commands;
 mod completion;
 mod display;
-mod help_pager;
+pub(crate) mod help_pager;
 mod help_resolver;
 mod llm;
 mod md_help;

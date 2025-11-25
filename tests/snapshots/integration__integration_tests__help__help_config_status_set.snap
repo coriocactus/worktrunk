@@ -11,11 +11,14 @@ info:
     CLICOLOR_FORCE: "1"
     COLUMNS: "150"
     GIT_EDITOR: ""
+    WORKTRUNK_BIN: ""
     WORKTRUNK_CONFIG_PATH: /nonexistent/test/config.toml
 ---
 success: true
 exit_code: 0
 ----- stdout -----
+
+----- stderr -----
 wt config status set - Set status emoji for branch
 Usage: wt config status set [OPTIONS] <VALUE>
 
@@ -44,5 +47,3 @@ Sets a custom status marker that appears in [2mwt list[0m output.
 
 Use emojis or short text to indicate work state (e.g., 🚧 WIP, ✅ ready, 🔒 blocked).
 Stored in git config under [2mworktrunk.status.<branch>[0m.
-
------ stderr -----
