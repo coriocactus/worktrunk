@@ -6,13 +6,13 @@
 //! This command reuses the data collection infrastructure from `wt list`,
 //! avoiding duplication of git operations.
 
+use crate::output;
 use anyhow::{Context, Result};
 use std::env;
 use std::io::{self, Read};
 use std::path::Path;
 use std::time::Duration;
 use worktrunk::git::Repository;
-use worktrunk::styling::print;
 
 use super::list::{self, CollectOptions};
 
@@ -116,6 +116,9 @@ fn format_directory_fish_style(path: &str) -> String {
 }
 
 /// Run the statusline command.
+///
+/// Uses the output system like other commands - output goes to stderr in both interactive
+/// and directive modes, keeping stdout clean for shell directives.
 pub fn run(claude_code: bool) -> Result<()> {
     // Get context - either from stdin (claude-code mode) or current directory
     let (cwd, model_name) = if claude_code {
@@ -158,13 +161,13 @@ pub fn run(claude_code: bool) -> Result<()> {
         output.push_str(&model);
     }
 
-    // Output with ANSI reset prefix
+    // Output via output system (goes to stderr, like `wt list`)
     if !output.is_empty() {
         if claude_code {
             let reset = anstyle::Reset;
-            print!("{reset} {output}");
+            output::raw(format!("{reset} {output}"))?;
         } else {
-            print!("{output}");
+            output::raw(output)?;
         }
     }
 
