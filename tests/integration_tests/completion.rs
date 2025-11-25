@@ -294,8 +294,8 @@ fn test_complete_list_command() {
 }
 
 #[test]
-fn test_init_fish_references_completion_location() {
-    // Test that fish init references the completion file location
+fn test_init_fish_no_inline_completions() {
+    // Test that fish init does NOT have inline completions (they're in a separate file)
     let mut cmd = wt_command();
     let output = cmd
         .arg("config")
@@ -308,14 +308,15 @@ fn test_init_fish_references_completion_location() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Verify completions are loaded from native fish completions directory
+    // Verify completions are NOT inline - they go to ~/.config/fish/completions/wt.fish
     assert!(
-        stdout.contains("~/.config/fish/completions/wt.fish"),
-        "Fish template should reference native completion location"
+        !stdout.contains("complete --keep-order --exclusive --command wt --arguments"),
+        "Fish init should NOT have inline completions (they go to separate file)"
     );
+    // But should reference where completions are
     assert!(
-        stdout.contains("wt config shell install"),
-        "Fish template should mention install command"
+        stdout.contains("Completions are in"),
+        "Fish init should mention where completions are"
     );
 }
 

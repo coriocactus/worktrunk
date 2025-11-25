@@ -225,24 +225,6 @@ Detects various forms of the integration pattern regardless of:
         #[arg(short, long)]
         force: bool,
     },
-
-    /// Generate shell completion script
-    #[command(after_long_help = r#"## Usage
-
-Generate completions for manual shell setup:
-
-```console
-wt config shell completions fish > ~/.config/fish/completions/wt.fish
-```
-
-Note: Bash and Zsh completions are automatically included via
-`wt config shell install` using inline lazy loading. This command
-is primarily for Fish or manual configuration."#)]
-    Completions {
-        /// Shell to generate completions for
-        #[arg(value_enum)]
-        shell: Shell,
-    },
 }
 
 #[derive(Subcommand)]

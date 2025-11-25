@@ -30,10 +30,8 @@ exit_code: 0
 
 # Only initialize if wt is available (in PATH or via WORKTRUNK_BIN)
 if command -v wt >/dev/null 2>&1 || [[ -n "${WORKTRUNK_BIN:-}" ]]; then
-    # Use WORKTRUNK_BIN if set, otherwise resolve binary path
-    # Must resolve BEFORE defining shell function, so lazy completion can call binary directly
-    # This allows testing development builds: export WORKTRUNK_BIN=./target/debug/wt
-    _WORKTRUNK_CMD="${WORKTRUNK_BIN:-$(command -v wt)}"
+    # Resolve binary path once at init. WORKTRUNK_BIN can override (for testing dev builds).
+    export WORKTRUNK_BIN="${WORKTRUNK_BIN:-$(command -v wt)}"
 
 # Simple shell integration for POSIX shells (bash, zsh).
 #
@@ -42,14 +40,12 @@ if command -v wt >/dev/null 2>&1 || [[ -n "${WORKTRUNK_BIN:-}" ]]; then
 #
 # This pattern (stderr for logs, stdout for script) is proven by direnv.
 # No FIFOs, no background processes, no job control suppression needed.
-#
-# Set WORKTRUNK_BIN to test development builds: WORKTRUNK_BIN=./target/debug/wt
 wt_exec() {
     local script exit_code=0
 
     # Run wt with stderr attached to terminal (2>&2)
     # Capture stdout (the shell script) into $script
-    script="$(command "${WORKTRUNK_BIN:-wt}" "$@" 2>&2)" || exit_code=$?
+    script="$(command "$WORKTRUNK_BIN" "$@" 2>&2)" || exit_code=$?
 
     # Eval the script (cd, exec command, etc.) even on failure
     # This ensures cd happens before returning the error code
@@ -66,14 +62,14 @@ wt_exec() {
 
     # Override wt command to add --internal flag
     wt() {
-        # Initialize _WORKTRUNK_CMD if not set (e.g., after shell snapshot restore)
-        if [[ -z "$_WORKTRUNK_CMD" ]]; then
-            _WORKTRUNK_CMD="${WORKTRUNK_BIN:-$(command -v wt)}"
+        # Re-resolve if unset (e.g., after shell snapshot restore)
+        if [[ -z "$WORKTRUNK_BIN" ]]; then
+            export WORKTRUNK_BIN="$(command -v wt)"
         fi
 
         local use_source=false
         local -a args
-        local saved_cmd="$_WORKTRUNK_CMD"
+        local saved_bin="$WORKTRUNK_BIN"
 
         # Check for --source flag and strip it
         for arg in "$@"; do
@@ -87,10 +83,9 @@ wt_exec() {
         # If --source was specified, build and use local debug binary
         if [[ "$use_source" == true ]]; then
             if ! cargo build --quiet; then
-                _WORKTRUNK_CMD="$saved_cmd"
                 return 1
             fi
-            _WORKTRUNK_CMD="./target/debug/wt"
+            export WORKTRUNK_BIN="./target/debug/wt"
         fi
 
         # Force colors if stderr is a TTY (directive mode outputs to stderr)
@@ -104,7 +99,7 @@ wt_exec() {
 
         # Restore original command
         local result=$?
-        _WORKTRUNK_CMD="$saved_cmd"
+        export WORKTRUNK_BIN="$saved_bin"
         return $result
     }
 
@@ -112,7 +107,7 @@ wt_exec() {
     _wt_lazy_complete() {
         # Generate completions function once (check if clap's function exists)
         if ! (( $+functions[_clap_dynamic_completer_wt] )); then
-            eval "$(COMPLETE=zsh "$_WORKTRUNK_CMD" 2>/dev/null)" || return
+            eval "$(COMPLETE=zsh "$WORKTRUNK_BIN" 2>/dev/null)" || return
         fi
         _clap_dynamic_completer_wt "$@"
     }

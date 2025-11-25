@@ -181,10 +181,10 @@ fn test_configure_shell_fish() {
     );
 }
 
-/// Test `wt config shell install` when extension exists but completions don't (Fish-specific)
-/// Regression test: previously showed "All shells already configured" even when completions were added
+/// Test `wt config shell install` when fish extension already exists
+/// Fish completions are now inline in the init script, so no separate file is needed
 #[test]
-fn test_configure_shell_fish_completions_only() {
+fn test_configure_shell_fish_extension_exists() {
     let repo = TestRepo::new();
     let temp_home = TempDir::new().unwrap();
 
@@ -197,8 +197,6 @@ fn test_configure_shell_fish_completions_only() {
         "if type -q wt; command wt config shell init fish | source; end",
     )
     .unwrap();
-
-    // But NO completions file exists
 
     let settings = setup_home_snapshot_settings(&temp_home);
     settings.bind(|| {
@@ -213,8 +211,8 @@ fn test_configure_shell_fish_completions_only() {
             .arg("--force")
             .current_dir(repo.root_path());
 
-        // Should say "Configured 1 shell" because completions were added,
-        // NOT "All shells already configured"
+        // Fish completions are inline in the init script, so when extension exists,
+        // it should say "All shells already configured"
         assert_cmd_snapshot!(cmd, @r"
         success: true
         exit_code: 0
@@ -228,11 +226,16 @@ fn test_configure_shell_fish_completions_only() {
         ");
     });
 
-    // Verify the completions file was created
+    // Fish completions should be in a separate file using $WORKTRUNK_BIN
     let completions_file = temp_home.path().join(".config/fish/completions/wt.fish");
     assert!(
         completions_file.exists(),
         "Fish completions file should be created"
+    );
+    let contents = std::fs::read_to_string(&completions_file).unwrap();
+    assert!(
+        contents.contains("$WORKTRUNK_BIN"),
+        "Fish completions should use $WORKTRUNK_BIN to bypass shell wrapper"
     );
 }
 

@@ -55,11 +55,10 @@ impl Shell {
 
     /// Returns the path to the native completion directory for this shell
     ///
-    /// Note: Only Fish uses static completion files. Bash and Zsh use inline
-    /// lazy loading in the init script, so these paths are for reference only:
-    /// - Bash: `~/.local/share/bash-completion/completions/` (not used by install)
-    /// - Zsh: `~/.zfunc/` (not used by install)
-    /// - Fish: `~/.config/fish/completions/` (used by install)
+    /// Note: Bash and Zsh use inline lazy completions in the init script.
+    /// Only Fish uses a separate completion file at ~/.config/fish/completions/wt.fish
+    /// (installed by `wt config shell install`) that uses $WORKTRUNK_BIN to bypass
+    /// the shell function wrapper.
     pub fn completion_path(&self) -> Result<PathBuf, std::io::Error> {
         let home = home_dir()?;
 
@@ -210,7 +209,7 @@ impl ShellInit {
     pub fn generate(&self) -> Result<String, askama::Error> {
         match self.shell {
             Shell::Bash => {
-                let posix_shim = PosixDirectivesTemplate { cmd_prefix: "wt" }.render()?;
+                let posix_shim = PosixDirectivesTemplate {}.render()?;
                 let template = BashTemplate {
                     shell_name: self.shell.to_string(),
                     cmd_prefix: "wt",
@@ -219,7 +218,7 @@ impl ShellInit {
                 template.render()
             }
             Shell::Zsh => {
-                let posix_shim = PosixDirectivesTemplate { cmd_prefix: "wt" }.render()?;
+                let posix_shim = PosixDirectivesTemplate {}.render()?;
                 let template = ZshTemplate {
                     cmd_prefix: "wt",
                     posix_shim: &posix_shim,
@@ -237,9 +236,7 @@ impl ShellInit {
 /// POSIX directive shim template (shared by bash, zsh, oil)
 #[derive(Template)]
 #[template(path = "posix_directives.sh", escape = "none")]
-struct PosixDirectivesTemplate<'a> {
-    cmd_prefix: &'a str,
-}
+struct PosixDirectivesTemplate {}
 
 /// Bash shell template
 #[derive(Template)]

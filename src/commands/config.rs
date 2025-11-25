@@ -6,7 +6,7 @@ use worktrunk::path::format_path_for_display;
 use worktrunk::shell::Shell;
 use worktrunk::styling::{AnstyleStyle, CYAN, GREEN, GREEN_BOLD, format_toml};
 
-use super::configure_shell::{ConfigAction, process_shell_completions, scan_shell_configs};
+use super::configure_shell::{ConfigAction, scan_shell_configs};
 use crate::output;
 
 /// Example configuration file content (displayed in help with values uncommented)
@@ -185,22 +185,20 @@ fn display_shell_status() -> anyhow::Result<()> {
         }
     };
 
-    // Get completion status for fish (bash/zsh completions are inline in init script)
-    let shells: Vec<_> = scan_result.configured.iter().map(|r| r.shell).collect();
-    let completion_results = process_shell_completions(&shells, true).unwrap_or_default();
-
     let mut any_configured = false;
     let mut any_not_configured = false;
 
     // Show configured and not-configured shells (matching `config shell install` format exactly)
+    // Bash/Zsh: inline completions, show "shell extension & completions"
+    // Fish: separate completion file, show "shell extension" for conf.d and "completions" for completions/
     for result in &scan_result.configured {
         let shell = result.shell;
         let path = format_path_for_display(&result.path);
-        // Match the format from `wt config shell install`
-        let what = if matches!(shell, Shell::Bash | Shell::Zsh) {
-            "shell extension & completions"
-        } else {
+        // Fish has separate completion file; bash/zsh have inline completions
+        let what = if matches!(shell, Shell::Fish) {
             "shell extension"
+        } else {
+            "shell extension & completions"
         };
 
         match result.action {
@@ -221,6 +219,23 @@ fn display_shell_status() -> anyhow::Result<()> {
                         None,
                     ))?;
                 }
+
+                // For fish, check completions file separately
+                if matches!(shell, Shell::Fish)
+                    && let Ok(completion_path) = shell.completion_path()
+                {
+                    let completion_display = format_path_for_display(&completion_path);
+                    if completion_path.exists() {
+                        output::info(format!(
+                            "Already configured completions for {bold}{shell}{bold:#} @ {completion_display}"
+                        ))?;
+                    } else {
+                        any_not_configured = true;
+                        output::hint(format!(
+                            "Not configured completions for {bold}{shell}{bold:#} @ {completion_display}"
+                        ))?;
+                    }
+                }
             }
             ConfigAction::WouldAdd | ConfigAction::WouldCreate => {
                 any_not_configured = true;
@@ -229,28 +244,6 @@ fn display_shell_status() -> anyhow::Result<()> {
                 ))?;
             }
             _ => {} // Added/Created won't appear in dry_run mode
-        }
-    }
-
-    // Show fish completions separately (fish has separate completion files)
-    for result in &completion_results {
-        let shell = result.shell;
-        let path = format_path_for_display(&result.path);
-
-        match result.action {
-            ConfigAction::AlreadyExists => {
-                any_configured = true;
-                output::info(format!(
-                    "Already configured completions for {bold}{shell}{bold:#} @ {path}"
-                ))?;
-            }
-            ConfigAction::WouldAdd | ConfigAction::WouldCreate => {
-                any_not_configured = true;
-                output::hint(format!(
-                    "Not configured completions for {bold}{shell}{bold:#} @ {path}"
-                ))?;
-            }
-            _ => {}
         }
     }
 

@@ -1,5 +1,6 @@
 ---
 source: tests/integration_tests/select.rs
+assertion_line: 268
 expression: normalized
 ---
 > [QUERY]                                                     │[PREVIEW_HEADER]

@@ -464,11 +464,6 @@ fn main() {
                                 Ok(())
                             })
                     }
-                    ConfigShellCommand::Completions { shell } => {
-                        // Generate completion script to stdout
-                        completion::generate_completions(shell)
-                            .map_err(|e| anyhow::anyhow!("Failed to generate completions: {}", e))
-                    }
                 }
             }
             ConfigCommand::Create => handle_config_create(),

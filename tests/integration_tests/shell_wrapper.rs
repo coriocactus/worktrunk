@@ -176,34 +176,22 @@ fn generate_wrapper(repo: &TestRepo, shell: &str) -> String {
 }
 
 /// Generate shell completions script for the given shell
-fn generate_completions(repo: &TestRepo, shell: &str) -> String {
-    let wt_bin = get_cargo_bin("wt");
-
-    let mut cmd = Command::new(&wt_bin);
-    cmd.arg("config").arg("shell").arg("completions").arg(shell);
-
-    // Configure environment
-    repo.clean_cli_env(&mut cmd);
-
-    let output = cmd
-        .output()
-        .unwrap_or_else(|_| panic!("Failed to run wt config shell completions {}", shell));
-
-    if !output.status.success() {
-        panic!(
-            "wt config shell completions {} failed with exit code: {:?}\nOutput:\n{}",
-            shell,
-            output.status.code(),
-            String::from_utf8_lossy(&output.stderr)
-        );
+///
+/// Note: Fish completions are custom (use $WORKTRUNK_BIN to bypass shell wrapper).
+/// Bash and Zsh use inline lazy loading in the init script.
+fn generate_completions(_repo: &TestRepo, shell: &str) -> String {
+    match shell {
+        "fish" => {
+            // Fish uses a custom completion that bypasses the shell wrapper
+            r#"# worktrunk completions for fish - uses $WORKTRUNK_BIN to bypass shell wrapper
+complete --keep-order --exclusive --command wt --arguments "(COMPLETE=fish \$WORKTRUNK_BIN -- (commandline --current-process --tokenize --cut-at-cursor) (commandline --current-token))"
+"#.to_string()
+        }
+        _ => {
+            // Bash and Zsh use inline lazy loading in the init script
+            String::new()
+        }
     }
-
-    String::from_utf8(output.stdout).unwrap_or_else(|_| {
-        panic!(
-            "wt config shell completions {} produced invalid UTF-8",
-            shell
-        )
-    })
 }
 
 /// Quote a shell argument if it contains special characters
