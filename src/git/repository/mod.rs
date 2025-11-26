@@ -6,8 +6,8 @@ use anyhow::{Context, bail};
 
 // Import types and functions from parent module (mod.rs)
 use super::{
-    BranchCategory, CompletionBranch, DefaultBranchName, DiffStats, LineDiff, SwitchHistory,
-    Worktree, WorktreeList, detached_head, error_message, parse_error, uncommitted_changes,
+    BranchCategory, CompletionBranch, DefaultBranchName, DiffStats, GitError, LineDiff,
+    SwitchHistory, Worktree, WorktreeList,
 };
 
 /// Global base path for repository operations, set by -C flag
@@ -99,7 +99,12 @@ impl Repository {
         } else {
             git_common_dir
                 .parent()
-                .ok_or_else(|| anyhow::anyhow!("{}", error_message("Invalid git directory")))?
+                .ok_or_else(|| {
+                    GitError::Other {
+                        message: "Invalid git directory".into(),
+                    }
+                    .styled_err()
+                })?
                 .to_path_buf()
         };
 
@@ -182,8 +187,12 @@ impl Repository {
     ///
     /// `action` describes what requires being on a branch (e.g., "merge").
     pub fn require_current_branch(&self, action: &str) -> anyhow::Result<String> {
-        self.current_branch()?
-            .ok_or_else(|| detached_head(Some(action)))
+        self.current_branch()?.ok_or_else(|| {
+            GitError::DetachedHead {
+                action: Some(action.into()),
+            }
+            .styled_err()
+        })
     }
 
     /// Read a user-defined status from `worktrunk.status.<branch>` in git config.
@@ -258,7 +267,10 @@ impl Repository {
     pub fn resolve_worktree_name(&self, name: &str) -> anyhow::Result<String> {
         match name {
             "@" => self.current_branch()?.ok_or_else(|| {
-                anyhow::anyhow!("{}", detached_head(Some("resolve '@' to current branch")))
+                GitError::DetachedHead {
+                    action: Some("resolve '@' to current branch".into()),
+                }
+                .styled_err()
             }),
             "-" => {
                 // Read from worktrunk.history (recorded by wt switch operations)
@@ -266,9 +278,12 @@ impl Repository {
                 self.get_switch_history()
                     .and_then(|h| h.previous)
                     .ok_or_else(|| {
-                        anyhow::anyhow!("{}", error_message(
-                            "No previous branch found in history. Use 'wt list' to see available worktrees.",
-                        ))
+                        GitError::Other {
+                            message:
+                                "No previous branch found in history. Use 'wt list' to see available worktrees."
+                                    .into(),
+                        }
+                        .styled_err()
                     })
             }
             "^" => self.default_branch(),
@@ -356,12 +371,12 @@ impl Repository {
         }
 
         // 4. Give up - can't infer
-        bail!(
-            "{}",
-            error_message(
+        Err(GitError::Other {
+            message:
                 "Could not infer default branch. Please specify target branch explicitly or set up a remote."
-            )
-        )
+                    .into(),
+        }
+        .styled_err())
     }
 
     /// List all local branches.
@@ -428,7 +443,10 @@ impl Repository {
     /// `action` describes what was blocked (e.g., "remove worktree").
     pub fn ensure_clean_working_tree(&self, action: Option<&str>) -> anyhow::Result<()> {
         if self.is_dirty()? {
-            return Err(uncommitted_changes(action));
+            return Err(GitError::UncommittedChanges {
+                action: action.map(String::from),
+            }
+            .styled_err());
         }
         Ok(())
     }
@@ -465,10 +483,10 @@ impl Repository {
         let stdout = self.run_command(&["rev-list", "--count", &range])?;
 
         stdout.trim().parse().map_err(|e| {
-            anyhow::anyhow!(
-                "{}",
-                parse_error(format!("Failed to parse commit count: {}", e))
-            )
+            GitError::ParseError {
+                message: format!("Failed to parse commit count: {}", e),
+            }
+            .styled_err()
         })
     }
 
@@ -490,10 +508,10 @@ impl Repository {
     pub fn commit_timestamp(&self, commit: &str) -> anyhow::Result<i64> {
         let stdout = self.run_command(&["show", "-s", "--format=%ct", commit])?;
         stdout.trim().parse().map_err(|e| {
-            anyhow::anyhow!(
-                "{}",
-                parse_error(format!("Failed to parse timestamp: {}", e))
-            )
+            GitError::ParseError {
+                message: format!("Failed to parse timestamp: {}", e),
+            }
+            .styled_err()
         })
     }
 
@@ -577,7 +595,10 @@ impl Repository {
         // git rev-list --left-right outputs left (base) first, then right (head)
         let parts: Vec<&str> = output.trim().split('\t').collect();
         if parts.len() != 2 {
-            bail!("Unexpected rev-list output format: {}", output);
+            return Err(crate::git::GitError::ParseError {
+                message: format!("Unexpected rev-list output format: {}", output),
+            }
+            .styled_err());
         }
 
         let behind: usize = parts[0].parse().context("Failed to parse behind count")?;
@@ -749,7 +770,10 @@ impl Repository {
 
         // Validate that we got a SHA back
         if backup_sha.is_empty() {
-            bail!("git stash create returned empty SHA - no changes to backup");
+            return Err(crate::git::GitError::Other {
+                message: "git stash create returned empty SHA - no changes to backup".into(),
+            }
+            .styled_err());
         }
 
         // Get current branch name to use in the ref name
@@ -1006,7 +1030,10 @@ impl Repository {
     /// Remove a worktree at the specified path.
     pub fn remove_worktree(&self, path: &std::path::Path) -> anyhow::Result<()> {
         let path_str = path.to_str().ok_or_else(|| {
-            anyhow::anyhow!("{}", error_message("Invalid UTF-8 in worktree path"))
+            GitError::Other {
+                message: "Invalid UTF-8 in worktree path".into(),
+            }
+            .styled_err()
         })?;
         self.run_command(&["worktree", "remove", path_str])?;
         Ok(())
@@ -1115,7 +1142,10 @@ impl Repository {
             .file_name()
             .and_then(|name| name.to_str())
             .ok_or_else(|| {
-                anyhow::anyhow!("{}", error_message("Could not determine repository name"))
+                GitError::Other {
+                    message: "Could not determine repository name".into(),
+                }
+                .styled_err()
             })?;
 
         Ok(repo_name.to_string())

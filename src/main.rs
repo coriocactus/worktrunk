@@ -299,7 +299,10 @@ fn main() {
 
                             // Exit with error if no shells configured
                             if scan_result.configured.is_empty() {
-                                return Err(anyhow::anyhow!("No shell config files found"));
+                                return Err(worktrunk::git::GitError::Other {
+                                    message: "No shell config files found".into(),
+                                }
+                                .styled_err());
                             }
 
                             // Summary
@@ -656,7 +659,10 @@ fn main() {
         } => (|| -> anyhow::Result<()> {
             // Validate conflicting flags
             if !delete_branch && force_delete {
-                anyhow::bail!("Cannot use --force-delete with --no-delete-branch");
+                return Err(worktrunk::git::GitError::Other {
+                    message: "Cannot use --force-delete with --no-delete-branch".into(),
+                }
+                .styled_err());
             }
 
             let repo = Repository::current();

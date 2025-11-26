@@ -2911,6 +2911,7 @@ dependencies = [
  "synoptic",
  "tempfile",
  "terminal_size",
+ "thiserror 2.0.17",
  "toml",
  "toml_edit",
  "tree-sitter",

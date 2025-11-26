@@ -2,9 +2,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::bail;
-
-use super::{Worktree, finalize_worktree, parse_error};
+use super::{GitError, Worktree, finalize_worktree};
 
 impl Worktree {
     pub(crate) fn parse_porcelain_list(output: &str) -> anyhow::Result<Vec<Self>> {
@@ -27,7 +25,10 @@ impl Worktree {
             match key {
                 "worktree" => {
                     let Some(path) = value else {
-                        return Err(parse_error("worktree line missing path"));
+                        return Err(GitError::ParseError {
+                            message: "worktree line missing path".into(),
+                        }
+                        .styled_err());
                     };
                     current = Some(Worktree {
                         path: PathBuf::from(path),
@@ -42,14 +43,20 @@ impl Worktree {
                 key => match (key, current.as_mut()) {
                     ("HEAD", Some(wt)) => {
                         let Some(sha) = value else {
-                            return Err(parse_error("HEAD line missing SHA"));
+                            return Err(GitError::ParseError {
+                                message: "HEAD line missing SHA".into(),
+                            }
+                            .styled_err());
                         };
                         wt.head = sha.to_string();
                     }
                     ("branch", Some(wt)) => {
                         // Strip refs/heads/ prefix if present
                         let Some(branch_ref) = value else {
-                            return Err(parse_error("branch line missing ref"));
+                            return Err(GitError::ParseError {
+                                message: "branch line missing ref".into(),
+                            }
+                            .styled_err());
                         };
                         let branch = branch_ref
                             .strip_prefix("refs/heads/")
@@ -97,10 +104,10 @@ impl DefaultBranchName {
         let branch = trimmed.strip_prefix(&prefix).unwrap_or(trimmed);
 
         if branch.is_empty() {
-            bail!(
-                "{}",
-                parse_error(format!("Empty branch name from {}/HEAD", remote))
-            );
+            return Err(GitError::ParseError {
+                message: format!("Empty branch name from {}/HEAD", remote),
+            }
+            .styled_err());
         }
 
         Ok(Self(branch.to_string()))
@@ -118,10 +125,10 @@ impl DefaultBranchName {
             })
             .map(Self)
             .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "{}",
-                    parse_error("Could not find symbolic ref in ls-remote output")
-                )
+                GitError::ParseError {
+                    message: "Could not find symbolic ref in ls-remote output".into(),
+                }
+                .styled_err()
             })
     }
 

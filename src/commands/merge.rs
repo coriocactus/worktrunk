@@ -84,10 +84,10 @@ pub fn handle_merge(
 
     // Validate --no-commit: requires clean working tree
     if !commit && repo.is_dirty()? {
-        return Err(anyhow::anyhow!(
-            "{}",
-            worktrunk::git::uncommitted_changes(Some("merge with --no-commit"))
-        ));
+        return Err(worktrunk::git::GitError::UncommittedChanges {
+            action: Some("merge with --no-commit".into()),
+        }
+        .styled_err());
     }
 
     // Validate --no-commit flag compatibility

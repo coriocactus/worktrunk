@@ -3,7 +3,7 @@
 use crate::commands::process::spawn_detached;
 use crate::commands::worktree::{RemoveResult, SwitchResult};
 use crate::output::global::format_switch_success;
-use worktrunk::git::{branch_deletion_failed, worktree_removal_failed};
+use worktrunk::git::GitError;
 use worktrunk::path::format_path_for_display;
 use worktrunk::shell::Shell;
 use worktrunk::styling::{
@@ -284,7 +284,11 @@ fn handle_branch_only_output(
         }
         Err(e) => {
             if strict_branch_deletion {
-                anyhow::bail!("{}", branch_deletion_failed(branch_name, &e.to_string()));
+                return Err(GitError::BranchDeletionFailed {
+                    branch: branch_name.into(),
+                    error: e.to_string(),
+                }
+                .styled_err());
             }
 
             // If branch deletion fails in non-strict mode, show a warning but don't error
@@ -381,10 +385,12 @@ fn handle_removed_worktree_output(
 
         // Track whether branch was actually deleted (will be computed based on deletion attempt)
         if let Err(err) = repo.remove_worktree(worktree_path) {
-            anyhow::bail!(
-                "{}",
-                worktree_removal_failed(branch_name, worktree_path, &err.to_string())
-            );
+            return Err(GitError::WorktreeRemovalFailed {
+                branch: branch_name.into(),
+                path: worktree_path.to_path_buf(),
+                error: err.to_string(),
+            }
+            .styled_err());
         }
 
         // Delete the branch (unless --no-delete-branch was specified)
@@ -418,7 +424,11 @@ fn handle_removed_worktree_output(
                 Ok(_) => true,
                 Err(e) => {
                     if strict_branch_deletion {
-                        anyhow::bail!("{}", branch_deletion_failed(branch_name, &e.to_string()));
+                        return Err(GitError::BranchDeletionFailed {
+                            branch: branch_name.into(),
+                            error: e.to_string(),
+                        }
+                        .styled_err());
                     }
 
                     // If branch deletion fails in non-strict mode, show a warning but don't error
@@ -495,12 +505,20 @@ pub(crate) fn execute_streaming(
         // Add more VERGEN_* variables here if we expand build.rs and hit similar issues.
         .env_remove("VERGEN_GIT_DESCRIBE")
         .spawn()
-        .map_err(|e| anyhow::anyhow!("Failed to execute command: {}", e))?;
+        .map_err(|e| {
+            worktrunk::git::GitError::Other {
+                message: format!("Failed to execute command: {}", e),
+            }
+            .styled_err()
+        })?;
 
     // Wait for command to complete
-    let status = child
-        .wait()
-        .map_err(|e| anyhow::anyhow!("Failed to wait for command: {}", e))?;
+    let status = child.wait().map_err(|e| {
+        worktrunk::git::GitError::Other {
+            message: format!("Failed to wait for command: {}", e),
+        }
+        .styled_err()
+    })?;
 
     // Check if child was killed by a signal (Unix only)
     // This handles Ctrl-C: when SIGINT is sent, the child receives it and terminates,

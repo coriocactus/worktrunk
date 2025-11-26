@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use super::worktree::RemoveResult;
 use anyhow::Context;
 use worktrunk::config::ProjectConfig;
-use worktrunk::git::{Repository, conflicting_changes, no_worktree_found, worktree_missing};
+use worktrunk::git::{GitError, Repository};
 use worktrunk::path::format_path_for_display;
 use worktrunk::styling::{
     CYAN, CYAN_BOLD, ERROR, ERROR_EMOJI, HINT, HINT_BOLD, HINT_EMOJI, WARNING, WARNING_BOLD,
@@ -89,12 +89,18 @@ impl RepositoryCliExt for Repository {
                         force_delete,
                     });
                 }
-                return Err(no_worktree_found(branch_name));
+                return Err(GitError::NoWorktreeFound {
+                    branch: branch_name.into(),
+                }
+                .styled_err());
             }
         };
 
         if !worktree_path.exists() {
-            return Err(worktree_missing(branch_name));
+            return Err(GitError::WorktreeMissing {
+                branch: branch_name.into(),
+            }
+            .styled_err());
         }
 
         let target_repo = Repository::at(&worktree_path);
@@ -153,7 +159,11 @@ impl RepositoryCliExt for Repository {
             .collect();
 
         if !overlapping.is_empty() {
-            return Err(conflicting_changes(&overlapping, wt_path));
+            return Err(GitError::ConflictingChanges {
+                files: overlapping,
+                worktree_path: wt_path.clone(),
+            }
+            .styled_err());
         }
 
         let nanos = SystemTime::now()

@@ -5,7 +5,7 @@
 use crate::output;
 use anyhow::Context;
 use worktrunk::config::{Command, WorktrunkConfig};
-use worktrunk::git::not_interactive;
+use worktrunk::git::GitError;
 use worktrunk::styling::{
     AnstyleStyle, HINT_EMOJI, INFO_EMOJI, WARNING, WARNING_BOLD, WARNING_EMOJI, eprint, eprintln,
     format_bash_with_gutter, stderr,
@@ -109,7 +109,7 @@ fn prompt_for_batch_approval(commands: &[&Command], project_id: &str) -> anyhow:
     // This happens AFTER showing the commands so they appear in CI/CD logs
     // even when the prompt cannot be displayed (fail-fast principle)
     if !io::stdin().is_terminal() {
-        return Err(not_interactive());
+        return Err(GitError::NotInteractive.styled_err());
     }
 
     // Flush stderr before showing prompt to ensure all output is visible

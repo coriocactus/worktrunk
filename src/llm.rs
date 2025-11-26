@@ -2,7 +2,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{self, Stdio};
 use worktrunk::config::CommitGenerationConfig;
-use worktrunk::git::{Repository, llm_command_failed};
+use worktrunk::git::Repository;
 use worktrunk::path::format_path_for_display;
 
 use minijinja::Environment;
@@ -118,7 +118,10 @@ fn execute_llm_command(command: &str, args: &[String], prompt: &str) -> anyhow::
     let message = String::from_utf8_lossy(&output.stdout).trim().to_owned();
 
     if message.is_empty() {
-        anyhow::bail!("LLM returned empty message");
+        return Err(worktrunk::git::GitError::Other {
+            message: "LLM returned empty message".into(),
+        }
+        .styled_err());
     }
 
     Ok(message)
@@ -137,11 +140,14 @@ fn build_commit_prompt(
         (None, Some(path)) => {
             let expanded_path = PathBuf::from(shellexpand::tilde(path).as_ref());
             std::fs::read_to_string(&expanded_path).map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to read template-file '{}': {}",
-                    format_path_for_display(&expanded_path),
-                    e
-                )
+                worktrunk::git::GitError::Other {
+                    message: format!(
+                        "Failed to read template-file '{}': {}",
+                        format_path_for_display(&expanded_path),
+                        e
+                    ),
+                }
+                .styled_err()
             })?
         }
         (None, None) => DEFAULT_TEMPLATE.to_string(),
@@ -152,7 +158,10 @@ fn build_commit_prompt(
 
     // Validate non-empty
     if template.trim().is_empty() {
-        anyhow::bail!("Template is empty");
+        return Err(worktrunk::git::GitError::Other {
+            message: "Template is empty".into(),
+        }
+        .styled_err());
     }
 
     // Render template with minijinja
@@ -182,11 +191,14 @@ fn build_squash_prompt(
         (None, Some(path)) => {
             let expanded_path = PathBuf::from(shellexpand::tilde(path).as_ref());
             std::fs::read_to_string(&expanded_path).map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to read squash-template-file '{}': {}",
-                    format_path_for_display(&expanded_path),
-                    e
-                )
+                worktrunk::git::GitError::Other {
+                    message: format!(
+                        "Failed to read squash-template-file '{}': {}",
+                        format_path_for_display(&expanded_path),
+                        e
+                    ),
+                }
+                .styled_err()
             })?
         }
         (None, None) => DEFAULT_SQUASH_TEMPLATE.to_string(),
@@ -199,7 +211,10 @@ fn build_squash_prompt(
 
     // Validate non-empty
     if template.trim().is_empty() {
-        anyhow::bail!("Squash template is empty");
+        return Err(worktrunk::git::GitError::Other {
+            message: "Squash template is empty".into(),
+        }
+        .styled_err());
     }
 
     // Render template with minijinja
@@ -228,7 +243,11 @@ pub fn generate_commit_message(
         let args = &commit_generation_config.args;
         // Commit generation is explicitly configured - fail if it doesn't work
         return try_generate_commit_message(command, args, commit_generation_config).map_err(|e| {
-            llm_command_failed(&format_command_display(command, args), &e.to_string())
+            worktrunk::git::GitError::LlmCommandFailed {
+                command: format_command_display(command, args),
+                error: e.to_string(),
+            }
+            .styled_err()
         });
     }
 
@@ -322,7 +341,11 @@ pub fn generate_squash_message(
         let prompt =
             build_squash_prompt(commit_generation_config, target_branch, subjects, &context)?;
         return execute_llm_command(command, args, &prompt).map_err(|e| {
-            llm_command_failed(&format_command_display(command, args), &e.to_string())
+            worktrunk::git::GitError::LlmCommandFailed {
+                command: format_command_display(command, args),
+                error: e.to_string(),
+            }
+            .styled_err()
         });
     }
 
@@ -439,7 +462,12 @@ mod tests {
         };
         let result = build_commit_prompt(&config, "diff", None, &context);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "Template is empty");
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Template is empty")
+        );
     }
 
     #[test]
@@ -556,7 +584,12 @@ mod tests {
         };
         let result = build_squash_prompt(&config, "main", &[], &context);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "Squash template is empty");
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Squash template is empty")
+        );
     }
 
     #[test]

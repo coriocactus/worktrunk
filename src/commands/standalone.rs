@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::Context;
 use worktrunk::HookType;
 use worktrunk::git::Repository;
 use worktrunk::styling::{AnstyleStyle, CYAN, CYAN_BOLD, GREEN_BOLD, format_with_gutter};
@@ -54,7 +54,10 @@ pub fn handle_standalone_run_hook(hook_type: HookType, force: bool) -> anyhow::R
 
 fn check_hook_configured<T>(hook: &Option<T>, hook_type: HookType) -> anyhow::Result<()> {
     if hook.is_none() {
-        return Err(anyhow::anyhow!(format!("No {hook_type} hook configured")));
+        return Err(worktrunk::git::GitError::Other {
+            message: format!("No {hook_type} hook configured"),
+        }
+        .styled_err());
     }
     Ok(())
 }
@@ -326,19 +329,27 @@ pub fn handle_rebase(target: Option<&str>) -> anyhow::Result<RebaseResult> {
         {
             // Extract git's stderr output from the error
             let git_output = e.to_string();
-            bail!(
-                "{}",
-                worktrunk::git::rebase_conflict(&target_branch, &git_output)
-            );
+            return Err(worktrunk::git::GitError::RebaseConflict {
+                target_branch: target_branch.clone(),
+                git_output,
+            }
+            .styled_err());
         }
         // Not a rebase conflict, return original error
-        bail!("Failed to rebase onto '{}': {}", target_branch, e);
+        return Err(worktrunk::git::GitError::Other {
+            message: format!("Failed to rebase onto '{}': {}", target_branch, e),
+        }
+        .styled_err());
     }
 
     // Verify rebase completed successfully (safety check for edge cases)
     if let Some(state) = repo.worktree_state()? {
         let _ = state; // used for diagnostics
-        return Err(worktrunk::git::rebase_conflict(&target_branch, ""));
+        return Err(worktrunk::git::GitError::RebaseConflict {
+            target_branch: target_branch.clone(),
+            git_output: String::new(),
+        }
+        .styled_err());
     }
 
     // Success
