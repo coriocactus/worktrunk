@@ -27,6 +27,7 @@
 
 pub mod list_snapshots;
 pub mod progressive_output;
+#[cfg(feature = "shell-integration-tests")]
 pub mod shell;
 
 use insta_cmd::get_cargo_bin;

@@ -1,3 +1,6 @@
+//! End-to-end shell integration tests.
+#![cfg(feature = "shell-integration-tests")]
+
 use crate::common::{
     TestRepo,
     shell::{execute_shell_script, generate_init_code, path_export_syntax, wt_bin_dir},

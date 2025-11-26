@@ -173,9 +173,8 @@ fn get_help_output(command: &str, project_root: &Path) -> Result<String, String>
         return Err(format!("Command must end with '--help-md': {}", command));
     }
 
-    // Build the cargo run command
-    let output = Command::new("cargo")
-        .args(["run", "-q", "--"])
+    // Use the already-built binary from cargo test
+    let output = Command::new(env!("CARGO_BIN_EXE_wt"))
         .args(&args[1..]) // Skip "wt" prefix
         .current_dir(project_root)
         .output()

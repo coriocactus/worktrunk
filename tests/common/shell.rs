@@ -1,58 +1,9 @@
 use super::{TestRepo, wt_command};
-use fs2::FileExt;
 use insta_cmd::get_cargo_bin;
-use std::fs::OpenOptions;
-use std::path::PathBuf;
 use std::process::Command;
 
-/// Get path to dev-detach binary, building it once if needed.
-///
-/// Uses file locking to ensure only one concurrent build across test processes.
-/// This prevents cargo lock contention that was causing SIGKILL failures when
-/// multiple test processes invoked `cargo run -p dev-detach` simultaneously.
-///
-/// The lock prevents concurrent builds but does not protect against the binary
-/// being deleted after the lock is released. In practice, this is not an issue
-/// in the test environment.
-fn get_dev_detach_bin() -> PathBuf {
-    let manifest_dir = std::env::current_dir().unwrap();
-    let bin_path = manifest_dir.join("target/debug/dev-detach");
-
-    // Lock file ensures only one process builds at a time
-    let lock_path = manifest_dir.join("target/.dev-detach.lock");
-    let lock_file = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(&lock_path)
-        .unwrap_or_else(|e| panic!("Failed to create lock file at {:?}: {}", lock_path, e));
-
-    // Acquire exclusive lock (blocks if another process is building)
-    lock_file.lock_exclusive().unwrap_or_else(|e| {
-        panic!(
-            "Failed to acquire exclusive lock on {:?}: {}. \
-             This may indicate a deadlock or filesystem permission issue.",
-            lock_path, e
-        )
-    });
-
-    // While holding lock: build if binary doesn't exist
-    if !bin_path.exists() {
-        let status = Command::new("cargo")
-            .args(["build", "-p", "dev-detach", "--quiet"])
-            .status()
-            .unwrap();
-
-        if !status.success() {
-            panic!("Failed to build dev-detach binary");
-        }
-    }
-
-    // Release lock before returning
-    drop(lock_file);
-
-    bin_path
-}
+/// Path to dev-detach binary (built automatically as part of the crate).
+const DEV_DETACH_BIN: &str = env!("CARGO_BIN_EXE_dev-detach");
 
 /// Convert signal number to human-readable name
 #[cfg(unix)]
@@ -81,10 +32,8 @@ pub fn get_shell_binary(shell: &str) -> &str {
 }
 
 /// Build a command to execute a shell script via dev-detach.
-/// Uses pre-built binary to avoid cargo lock contention during concurrent test execution.
 fn build_shell_command(repo: &TestRepo, shell: &str, script: &str) -> Command {
-    // Use pre-built dev-detach binary (no cargo invocation)
-    let mut cmd = Command::new(get_dev_detach_bin());
+    let mut cmd = Command::new(DEV_DETACH_BIN);
     repo.clean_cli_env(&mut cmd);
 
     // Prevent user shell config from leaking into tests

@@ -1,5 +1,5 @@
 [workspace]
-members = ["tests/helpers/dev-detach", "tests/helpers/setup-select-test"]
+members = ["tests/helpers/setup-select-test"]
 
 [package]
 name = "worktrunk"
@@ -25,7 +25,8 @@ consolidate-commits = true
 default = ["syntax-highlighting"]
 syntax-highlighting = ["dep:tree-sitter", "dep:tree-sitter-bash", "dep:tree-sitter-highlight"]
 # Enable shell integration tests (requires bash, zsh, fish installed on system)
-shell-integration-tests = []
+# Also builds dev-detach helper binary for TTY isolation
+shell-integration-tests = ["dep:nix"]
 
 [lib]
 name = "worktrunk"
@@ -34,6 +35,13 @@ path = "src/lib.rs"
 [[bin]]
 name = "wt"
 path = "src/main.rs"
+
+# Test helper for TTY isolation in shell integration tests (Unix only)
+# Excluded from `cargo install` via required-features
+[[bin]]
+name = "dev-detach"
+path = "src/bin/dev-detach.rs"
+required-features = ["shell-integration-tests"]
 
 [dependencies]
 anyhow = "1.0"
@@ -75,6 +83,8 @@ home = "0.5.12"
 
 [target.'cfg(unix)'.dependencies]
 skim = "0.20"
+# Used by dev-detach binary for TTY isolation in shell integration tests (optional)
+nix = { version = "0.30", default-features = false, features = ["process"], optional = true }
 
 [build-dependencies]
 vergen-gitcl = { version = "1.0.8", features = ["build"] }
@@ -89,7 +99,6 @@ criterion = "0.7"
 portable-pty = "0.9"
 regex = "1.12"
 vt100 = "0.16"
-fs2 = "0.4"
 
 [[bench]]
 name = "completion"
