@@ -30,11 +30,6 @@ pub const HINT: Style = Style::new().dimmed();
 /// Hint bold style (dimmed + bold) - use as `{HINT_BOLD}text{HINT_BOLD:#}`
 pub const HINT_BOLD: Style = Style::new().dimmed().bold();
 
-/// Current worktree style (magenta + bold)
-pub const CURRENT: Style = Style::new()
-    .bold()
-    .fg_color(Some(Color::Ansi(AnsiColor::Magenta)));
-
 /// Addition style for diffs (green)
 pub const ADDITION: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
 
