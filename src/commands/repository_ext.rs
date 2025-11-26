@@ -80,6 +80,15 @@ impl RepositoryCliExt for Repository {
         let worktree_path = match self.worktree_for_branch(branch_name)? {
             Some(path) => path,
             None => {
+                // No worktree found - check if the branch exists
+                if self.local_branch_exists(branch_name)? {
+                    // Branch exists but no worktree - return BranchOnly to attempt branch deletion
+                    return Ok(RemoveResult::BranchOnly {
+                        branch_name: branch_name.to_string(),
+                        no_delete_branch,
+                        force_delete,
+                    });
+                }
                 return Err(no_worktree_found(branch_name));
             }
         };

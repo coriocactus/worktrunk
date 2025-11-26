@@ -252,3 +252,80 @@ fn test_remove_no_delete_branch() {
         None,
     );
 }
+
+#[test]
+fn test_remove_branch_only_merged() {
+    let repo = setup_remove_repo();
+
+    // Create a branch from main without a worktree (already merged)
+    repo.git_command(&["branch", "feature-merged"])
+        .output()
+        .unwrap();
+
+    // Remove the branch (no worktree exists)
+    snapshot_remove(
+        "remove_branch_only_merged",
+        &repo,
+        &["feature-merged"],
+        None,
+    );
+}
+
+#[test]
+fn test_remove_branch_only_unmerged() {
+    let repo = setup_remove_repo();
+
+    // Create a branch with a unique commit (not in main)
+    repo.git_command(&["branch", "feature-unmerged"])
+        .output()
+        .unwrap();
+
+    // Add a commit to the branch that's not in main
+    repo.git_command(&["checkout", "feature-unmerged"])
+        .output()
+        .unwrap();
+    std::fs::write(repo.root_path().join("feature.txt"), "new feature").unwrap();
+    repo.git_command(&["add", "feature.txt"]).output().unwrap();
+    repo.git_command(&["commit", "-m", "Add feature"])
+        .output()
+        .unwrap();
+    repo.git_command(&["checkout", "main"]).output().unwrap();
+
+    // Try to remove the branch (no worktree exists, branch not merged)
+    // Branch deletion should fail but not error
+    snapshot_remove(
+        "remove_branch_only_unmerged",
+        &repo,
+        &["feature-unmerged"],
+        None,
+    );
+}
+
+#[test]
+fn test_remove_branch_only_force_delete() {
+    let repo = setup_remove_repo();
+
+    // Create a branch with a unique commit (not in main)
+    repo.git_command(&["branch", "feature-force"])
+        .output()
+        .unwrap();
+
+    // Add a commit to the branch that's not in main
+    repo.git_command(&["checkout", "feature-force"])
+        .output()
+        .unwrap();
+    std::fs::write(repo.root_path().join("feature.txt"), "new feature").unwrap();
+    repo.git_command(&["add", "feature.txt"]).output().unwrap();
+    repo.git_command(&["commit", "-m", "Add feature"])
+        .output()
+        .unwrap();
+    repo.git_command(&["checkout", "main"]).output().unwrap();
+
+    // Force delete the branch (no worktree exists)
+    snapshot_remove(
+        "remove_branch_only_force_delete",
+        &repo,
+        &["--force-delete", "feature-force"],
+        None,
+    );
+}

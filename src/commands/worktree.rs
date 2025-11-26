@@ -170,6 +170,12 @@ pub enum RemoveResult {
         force_delete: bool,
         target_branch: Option<String>,
     },
+    /// Branch exists but has no worktree - attempt branch deletion only
+    BranchOnly {
+        branch_name: String,
+        no_delete_branch: bool,
+        force_delete: bool,
+    },
 }
 
 pub fn handle_switch(

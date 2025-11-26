@@ -21,36 +21,31 @@ fn get_flag_note(no_delete_branch: bool, force_delete: bool, branch_deleted: boo
     }
 }
 
-/// Format message for remove operation (includes emoji and color for consistency)
+/// Format message for remove worktree operation (includes emoji and color for consistency)
 ///
 /// `branch_deleted` indicates whether branch deletion actually succeeded (not just attempted)
-fn format_remove_message(
-    result: &RemoveResult,
+fn format_remove_worktree_message(
+    main_path: &std::path::Path,
+    changed_directory: bool,
+    branch_name: &str,
     branch: Option<&str>,
+    no_delete_branch: bool,
+    force_delete: bool,
     branch_deleted: bool,
 ) -> String {
-    let RemoveResult::RemovedWorktree {
-        main_path,
-        changed_directory,
-        branch_name,
-        no_delete_branch,
-        force_delete,
-        ..
-    } = result;
-
     // Build the action description based on actual outcome
-    let action = if *no_delete_branch || !branch_deleted {
+    let action = if no_delete_branch || !branch_deleted {
         "Removed worktree"
     } else {
         "Removed worktree & branch"
     };
 
     // Show flag acknowledgment when applicable
-    let flag_note = get_flag_note(*no_delete_branch, *force_delete, branch_deleted);
+    let flag_note = get_flag_note(no_delete_branch, force_delete, branch_deleted);
 
     let branch_display = branch.or(Some(branch_name));
 
-    if *changed_directory {
+    if changed_directory {
         if let Some(b) = branch_display {
             // Re-establish GREEN after each green_bold reset to prevent color leak
             format!(
@@ -197,18 +192,131 @@ pub fn handle_remove_output(
     strict_branch_deletion: bool,
     background: bool,
 ) -> anyhow::Result<()> {
-    let RemoveResult::RemovedWorktree {
-        main_path,
-        worktree_path,
-        changed_directory,
-        branch_name,
-        no_delete_branch,
-        force_delete,
-        target_branch,
-    } = result;
+    match result {
+        RemoveResult::RemovedWorktree {
+            main_path,
+            worktree_path,
+            changed_directory,
+            branch_name,
+            no_delete_branch,
+            force_delete,
+            target_branch,
+        } => handle_removed_worktree_output(
+            main_path,
+            worktree_path,
+            *changed_directory,
+            branch_name,
+            *no_delete_branch,
+            *force_delete,
+            target_branch.as_deref(),
+            branch,
+            strict_branch_deletion,
+            background,
+        ),
+        RemoveResult::BranchOnly {
+            branch_name,
+            no_delete_branch,
+            force_delete,
+        } => handle_branch_only_output(
+            branch_name,
+            *no_delete_branch,
+            *force_delete,
+            strict_branch_deletion,
+        ),
+    }
+}
 
+/// Handle output for BranchOnly removal (branch exists but no worktree)
+fn handle_branch_only_output(
+    branch_name: &str,
+    no_delete_branch: bool,
+    force_delete: bool,
+    strict_branch_deletion: bool,
+) -> anyhow::Result<()> {
+    use worktrunk::styling::GRAY;
+
+    // Show info message that no worktree was found
+    super::info(format!(
+        "{GRAY}No worktree found for branch {branch_name}{GRAY:#}"
+    ))?;
+
+    // Attempt branch deletion (unless --no-delete-branch was specified)
+    if no_delete_branch {
+        // User explicitly requested no branch deletion - nothing more to do
+        super::flush()?;
+        return Ok(());
+    }
+
+    let repo = worktrunk::git::Repository::current();
+
+    // Use git branch -D if force_delete is true, otherwise check if merged first
+    let delete_result = if force_delete {
+        // Force delete - use -D directly
+        repo.run_command(&["branch", "-D", branch_name])
+    } else {
+        // Check if branch is merged to HEAD using is_ancestor
+        match repo.is_ancestor(branch_name, "HEAD") {
+            Ok(true) => {
+                // Branch is an ancestor of HEAD (fully merged), safe to delete
+                repo.run_command(&["branch", "-D", branch_name])
+            }
+            Ok(false) | Err(_) => {
+                // Branch is not fully merged
+                Err(anyhow::anyhow!(
+                    "error: the branch '{}' is not fully merged",
+                    branch_name
+                ))
+            }
+        }
+    };
+
+    match delete_result {
+        Ok(_) => {
+            // Branch removed successfully
+            let flag_note = if force_delete {
+                " (--force-delete)"
+            } else {
+                ""
+            };
+            super::success(format!(
+                "{GREEN}Removed branch {GREEN_BOLD}{branch_name}{GREEN_BOLD:#}{GREEN:#}{flag_note}"
+            ))?;
+        }
+        Err(e) => {
+            if strict_branch_deletion {
+                anyhow::bail!("{}", branch_deletion_failed(branch_name, &e.to_string()));
+            }
+
+            // If branch deletion fails in non-strict mode, show a warning but don't error
+            super::warning(format!(
+                "{WARNING}Could not delete branch {WARNING_BOLD}{branch_name}{WARNING_BOLD:#}{WARNING:#}"
+            ))?;
+
+            // Show the git error in a gutter-formatted block (raw output, no styling)
+            super::gutter(format_with_gutter(&e.to_string(), "", None))?;
+        }
+    }
+
+    super::flush()?;
+    Ok(())
+}
+
+/// Handle output for RemovedWorktree removal
+#[allow(clippy::too_many_arguments)]
+fn handle_removed_worktree_output(
+    main_path: &std::path::Path,
+    worktree_path: &std::path::Path,
+    changed_directory: bool,
+    branch_name: &str,
+    no_delete_branch: bool,
+    force_delete: bool,
+    target_branch: Option<&str>,
+    branch: Option<&str>,
+    strict_branch_deletion: bool,
+    background: bool,
+) -> anyhow::Result<()> {
     // 1. Emit cd directive if needed - shell will execute this immediately
-    if *changed_directory {
+    if changed_directory {
         super::change_directory(main_path)?;
         super::flush()?; // Force flush to ensure shell processes the cd
     }
@@ -219,14 +327,14 @@ pub fn handle_remove_output(
         // Background mode: spawn detached process
 
         // Determine if we should delete the branch (check once upfront)
-        let should_delete_branch = if *no_delete_branch {
+        let should_delete_branch = if no_delete_branch {
             false
-        } else if *force_delete {
+        } else if force_delete {
             // Force delete requested - always delete
             true
         } else {
             // Check if branch is fully merged to target
-            let check_target = target_branch.as_deref().unwrap_or("HEAD");
+            let check_target = target_branch.unwrap_or("HEAD");
             let deletion_repo = worktrunk::git::Repository::at(main_path);
             deletion_repo
                 .is_ancestor(branch_name, check_target)
@@ -234,12 +342,12 @@ pub fn handle_remove_output(
         };
 
         // Show progress message based on what we'll do
-        let action = if *no_delete_branch {
+        let action = if no_delete_branch {
             format!(
                 "{CYAN}Removing {CYAN_BOLD}{branch_name}{CYAN_BOLD:#}{CYAN} worktree in background; retaining branch (--no-delete-branch){CYAN:#}"
             )
         } else if should_delete_branch {
-            if *force_delete {
+            if force_delete {
                 format!(
                     "{CYAN}Removing {CYAN_BOLD}{branch_name}{CYAN_BOLD:#}{CYAN} worktree & branch in background (--force-delete){CYAN:#}"
                 )
@@ -284,11 +392,11 @@ pub fn handle_remove_output(
             let deletion_repo = worktrunk::git::Repository::at(main_path);
 
             // Use git branch -D if force_delete is true, otherwise check if merged first
-            let delete_result = if *force_delete {
+            let delete_result = if force_delete {
                 // Force delete - use -D directly
                 deletion_repo.run_command(&["branch", "-D", branch_name])
             } else {
-                let check_target = target_branch.as_deref().unwrap_or("HEAD");
+                let check_target = target_branch.unwrap_or("HEAD");
 
                 // Check if branch is merged to target using is_ancestor
                 match deletion_repo.is_ancestor(branch_name, check_target) {
@@ -328,7 +436,15 @@ pub fn handle_remove_output(
         };
 
         // Show success message (includes emoji and color)
-        super::success(format_remove_message(result, branch, branch_deleted))?;
+        super::success(format_remove_worktree_message(
+            main_path,
+            changed_directory,
+            branch_name,
+            branch,
+            no_delete_branch,
+            force_delete,
+            branch_deleted,
+        ))?;
         super::flush()?;
         Ok(())
     }
