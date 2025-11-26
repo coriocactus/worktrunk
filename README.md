@@ -26,7 +26,7 @@ We can get that a few ways:
 - one working tree with many branches — constant stashing, rebasing, and conflict risk
 - git worktrees — multiple directories backed by a single `.git` directory
 
-Git worktrees are the right primitive: many working directories, one repository.
+So we use git worktrees: many working directories, one repository.
 
 ## Why Worktrunk?
 
