@@ -322,7 +322,7 @@ pub fn collect(
     let current_worktree_path = repo.worktree_root().ok();
     let previous_branch = repo.get_switch_history().and_then(|h| h.previous);
 
-    // Sort worktrees: main first, current second, then by timestamp descending
+    // Sort worktrees: current first, main second, then by timestamp descending
     let sorted_worktrees = sort_worktrees(
         worktrees.worktrees.clone(),
         &main_worktree,
@@ -708,7 +708,7 @@ where
     indexed.into_iter().map(|(_, item)| item).collect()
 }
 
-/// Sort worktrees: main first, current second, then by timestamp descending.
+/// Sort worktrees: current first, main second, then by timestamp descending.
 fn sort_worktrees(
     worktrees: Vec<Worktree>,
     main_worktree: &Worktree,
@@ -725,10 +725,10 @@ fn sort_worktrees(
 
     let mut indexed: Vec<_> = worktrees.into_iter().enumerate().collect();
     indexed.sort_by_key(|(idx, wt)| {
-        let priority = if wt.path == main_worktree.path {
-            0 // Main first
-        } else if current_path.map(|cp| &wt.path == cp).unwrap_or(false) {
-            1 // Current second
+        let priority = if current_path.map(|cp| &wt.path == cp).unwrap_or(false) {
+            0 // Current first
+        } else if wt.path == main_worktree.path {
+            1 // Main second
         } else {
             2 // Rest by timestamp
         };

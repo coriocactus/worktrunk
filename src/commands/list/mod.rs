@@ -19,7 +19,7 @@
 //!    - Refresh with `wt config cache refresh`
 //!
 //! 3. **Sort worktrees** (<1ms)
-//!    - Orders by: current → main → rest alphabetically
+//!    - Orders by: current → main → rest by timestamp (most recent first)
 //!    - Pure Rust, no git calls
 //!
 //! 4. **Branch listing** (only with `--branches`, ~10-30ms)

@@ -496,9 +496,6 @@ pub fn handle_select(is_directive_mode: bool) -> anyhow::Result<()> {
         return Ok(());
     };
 
-    // Get current worktree path for styling
-    let _current_worktree_path = repo.worktree_root().ok();
-
     // Use the same layout system as `wt list` for proper column alignment
     // Skim uses ~50% of terminal width for the list (rest is preview), so calculate
     // layout based on available width to avoid truncation
