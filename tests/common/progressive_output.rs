@@ -110,9 +110,9 @@ const OUTPUT_POLL_INTERVAL_MS: u64 = 10;
 
 /// Number of consecutive "no data" reads required before considering the stream truly empty.
 /// On Linux, the PTY may return EOF before all data has arrived (kernel scheduling).
-/// With exponential backoff, this means we wait for increasing intervals between attempts,
-/// giving slow systems more time while fast systems complete quickly.
-const STABLE_READ_THRESHOLD: u32 = 3;
+/// With exponential backoff (1ms → 2ms → 4ms → 8ms → 16ms), threshold 6 gives ~31ms
+/// of total waiting, enough for slow CI systems to flush PTY buffers.
+const STABLE_READ_THRESHOLD: u32 = 6;
 
 /// Strategy for capturing progressive output snapshots
 #[derive(Debug, Clone)]
@@ -430,8 +430,7 @@ pub fn capture_progressive_output(
                 // Check if child exited
                 if let Ok(Some(_)) = child.try_wait() {
                     // Drain remaining PTY data using exponential backoff.
-                    // Fast systems: 1ms → 2ms → 4ms → done (~7ms total)
-                    // Slow systems: can wait 100ms+ per attempt if needed
+                    // Requires STABLE_READ_THRESHOLD consecutive EOFs before considering done.
                     let backoff = ExponentialBackoff::fast();
                     let mut attempt = 0u32;
                     let mut consecutive_no_data = 0u32;
