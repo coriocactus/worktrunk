@@ -102,7 +102,7 @@ Order: [2m+!? ✖⚠≡_ ↻⋈ ↑↓↕ ⇡⇣⇅ ⎇⌫⊠[0m
 - [2m⌫[0m Prunable worktree (directory missing, can be pruned)
 - [2m⊠[0m Locked worktree (protected from auto-removal)
 
-*Rows are dimmed when there's no marginal contribution (≡ matches main OR _ no commits).*
+Rows are dimmed when there's no marginal contribution (≡ matches main OR _ no commits).
 
 [32mJSON Output[0m
 

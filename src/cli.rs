@@ -651,7 +651,7 @@ Order: `+!? ✖⚠≡_ ↻⋈ ↑↓↕ ⇡⇣⇅ ⎇⌫⊠`
 - `⌫` Prunable worktree (directory missing, can be pruned)
 - `⊠` Locked worktree (protected from auto-removal)
 
-*Rows are dimmed when there's no marginal contribution (≡ matches main OR _ no commits).*
+Rows are dimmed when there's no marginal contribution (≡ matches main OR _ no commits).
 
 ## JSON Output
 
@@ -743,6 +743,7 @@ Arguments are resolved using **path-first lookup**:
 3. Otherwise, treat the argument as a branch name
 
 **Example**: If `repo.foo/` exists but is on branch `bar`:
+
 - `wt switch foo` switches to `repo.foo/` (the `bar` branch worktree)
 - `wt switch bar` also works (falls back to branch lookup)
 
@@ -885,6 +886,7 @@ Arguments are resolved to worktrees using **path-first lookup**:
 3. Otherwise, treat the argument as a branch name
 
 **Example**: If `repo.foo/` exists but is on branch `bar`:
+
 - `wt remove foo` removes `repo.foo/` and the `bar` branch
 - `wt remove bar` also works (falls back to branch lookup)
 

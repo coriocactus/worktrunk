@@ -67,6 +67,7 @@ Arguments are resolved using [1mpath-first lookup[0m:
 3. Otherwise, treat the argument as a branch name
 
 [1mExample[0m: If [2mrepo.foo/[0m exists but is on branch [2mbar[0m:
+
 - [2mwt switch foo[0m switches to [2mrepo.foo/[0m (the [2mbar[0m branch worktree)
 - [2mwt switch bar[0m also works (falls back to branch lookup)
 
