@@ -17,8 +17,8 @@ use super::worktree::{MergeOperations, RemoveResult, handle_push};
 enum PreserveReason {
     /// User explicitly passed --no-remove
     NoRemoveFlag,
-    /// Running from the main worktree (can't remove main)
-    OnMainBranch,
+    /// Running from the main worktree (can't remove main worktree)
+    IsMainWorktree,
     /// Current branch is the same as the target branch
     AlreadyOnTarget,
 }
@@ -224,9 +224,9 @@ pub fn handle_merge(
         crate::output::handle_remove_output(&remove_result, Some(&current_branch), true)?;
     } else {
         // Print comprehensive summary (worktree preserved)
-        // Priority: main branch > on target > --no-remove flag
+        // Priority: main worktree > on target > --no-remove flag
         let reason = if in_main {
-            PreserveReason::OnMainBranch
+            PreserveReason::IsMainWorktree
         } else if on_target {
             PreserveReason::AlreadyOnTarget
         } else {
@@ -258,7 +258,7 @@ pub fn handle_merge(
 /// Handle output for merge summary using global output context
 fn handle_merge_summary_output(reason: PreserveReason) -> anyhow::Result<()> {
     let message = match reason {
-        PreserveReason::OnMainBranch => "Worktree preserved (on main branch)",
+        PreserveReason::IsMainWorktree => "Worktree preserved (main worktree)",
         PreserveReason::AlreadyOnTarget => "Worktree preserved (already on target)",
         PreserveReason::NoRemoveFlag => "Worktree preserved (--no-remove)",
     };

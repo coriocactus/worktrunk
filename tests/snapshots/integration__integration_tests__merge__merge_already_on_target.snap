@@ -24,4 +24,4 @@ exit_code: 0
 
 ----- stderr -----
 ⚪ Already up to date with [1mmain[22m (no new commits, no rebase needed)
-⚪ Worktree preserved (on main branch)
+⚪ Worktree preserved (main worktree)
