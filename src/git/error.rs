@@ -11,7 +11,7 @@
 
 use std::path::PathBuf;
 
-use color_print::cwrite;
+use color_print::{cformat, cwrite};
 
 use super::HookType;
 use crate::path::format_path_for_display;
@@ -216,7 +216,6 @@ impl std::fmt::Display for GitError {
                 base_branch,
                 error,
             } => {
-                use color_print::cformat;
                 let base_suffix = base_branch
                     .as_ref()
                     .map(|base| format!(" from base <bold>{base}</>"))
@@ -232,7 +231,6 @@ impl std::fmt::Display for GitError {
                 path,
                 error,
             } => {
-                use color_print::cformat;
                 let path_display = format_path_for_display(path);
                 let header = cformat!(
                     "{ERROR_EMOJI} <red>Failed to remove worktree for <bold>{branch}</> at <bold>{path_display}</></>"
@@ -306,7 +304,6 @@ impl std::fmt::Display for GitError {
             }
 
             GitError::PushFailed { error } => {
-                use color_print::cformat;
                 let header = cformat!("{ERROR_EMOJI} <red>Push failed</>");
                 write!(f, "{}", format_error_block(header, error))
             }
@@ -319,7 +316,6 @@ impl std::fmt::Display for GitError {
             }
 
             GitError::LlmCommandFailed { command, error } => {
-                use color_print::cformat;
                 let error_header =
                     cformat!("{ERROR_EMOJI} <red>Commit generation command failed</>");
                 let error_block = format_error_block(error_header, error);

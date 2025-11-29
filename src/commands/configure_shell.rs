@@ -429,8 +429,7 @@ fn configure_fish_file(
     // even if the specific wt.fish file doesn't
     if !explicit_shell && !path.exists() {
         // Check if parent directory exists
-        let parent_exists = path.parent().map(|p| p.exists()).unwrap_or(false);
-        if !parent_exists {
+        if !path.parent().is_some_and(|p| p.exists()) {
             return Ok(None);
         }
     }

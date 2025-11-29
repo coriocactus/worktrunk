@@ -42,11 +42,7 @@ fn comment_out_config(content: &str) -> String {
 
 /// Handle the config create command
 pub fn handle_config_create() -> anyhow::Result<()> {
-    let config_path = get_user_config_path().ok_or_else(|| {
-        anyhow::anyhow!(
-            "Cannot determine config directory. Set $HOME or $XDG_CONFIG_HOME environment variable"
-        )
-    })?;
+    let config_path = require_user_config_path()?;
 
     // Check if file already exists
     if config_path.exists() {
@@ -107,12 +103,7 @@ pub fn handle_config_show() -> anyhow::Result<()> {
 }
 
 fn render_user_config(out: &mut String) -> anyhow::Result<()> {
-    // Get config path
-    let config_path = get_user_config_path().ok_or_else(|| {
-        anyhow::anyhow!(
-            "Cannot determine config directory. Set $HOME or $XDG_CONFIG_HOME environment variable"
-        )
-    })?;
+    let config_path = require_user_config_path()?;
 
     writeln!(
         out,
@@ -390,6 +381,14 @@ fn get_user_config_path() -> Option<PathBuf> {
 
     let strategy = choose_base_strategy().ok()?;
     Some(strategy.config_dir().join("worktrunk").join("config.toml"))
+}
+
+fn require_user_config_path() -> anyhow::Result<PathBuf> {
+    get_user_config_path().ok_or_else(|| {
+        anyhow::anyhow!(
+            "Cannot determine config directory. Set $HOME or $XDG_CONFIG_HOME environment variable"
+        )
+    })
 }
 
 /// Handle the config status set command

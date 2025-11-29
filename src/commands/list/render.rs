@@ -377,8 +377,8 @@ impl LayoutConfig {
         let branch = item.branch_name();
         let wt_data = item.worktree_data();
         let is_main = item.is_main();
-        let is_current = wt_data.map(|d| d.is_current).unwrap_or(false);
-        let is_previous = wt_data.map(|d| d.is_previous).unwrap_or(false);
+        let is_current = wt_data.is_some_and(|d| d.is_current);
+        let is_previous = wt_data.is_some_and(|d| d.is_previous);
         let shortened_path = item
             .worktree_path()
             .map(|p| shorten_path(p, &self.common_prefix))
@@ -458,12 +458,10 @@ impl<'a> ListRowContext<'a> {
         let head = item.head();
 
         // Use stored values for worktrees, compute for branches
-        let is_current = worktree_data.map(|d| d.is_current).unwrap_or(false);
+        let is_current = worktree_data.is_some_and(|d| d.is_current);
         let is_previous = worktree_data.map(|d| d.is_previous).unwrap_or_else(|| {
             // Branches don't have WorktreeData, compute from previous_branch
-            previous_branch
-                .map(|prev| item.branch.as_deref() == Some(prev))
-                .unwrap_or(false)
+            previous_branch.is_some_and(|prev| item.branch.as_deref() == Some(prev))
         });
 
         let mut ctx = Self {

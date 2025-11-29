@@ -723,7 +723,7 @@ fn sort_worktrees(
 
     let mut indexed: Vec<_> = worktrees.into_iter().enumerate().collect();
     indexed.sort_by_key(|(idx, wt)| {
-        let priority = if current_path.map(|cp| &wt.path == cp).unwrap_or(false) {
+        let priority = if current_path.is_some_and(|cp| &wt.path == cp) {
             0 // Current first
         } else if wt.path == main_worktree.path {
             1 // Main second
