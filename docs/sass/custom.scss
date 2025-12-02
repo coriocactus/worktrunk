@@ -354,22 +354,41 @@ table {
 
     th, td {
         border: 1px solid var(--wt-color-border-subtle);
-        padding: 0.75rem 1rem;
+        padding: 0.6rem 0.875rem;
         text-align: left;
+        vertical-align: top;
     }
 
     th {
         background-color: var(--wt-color-bg-soft);
+        font-size: 0.8rem;
         font-weight: 600;
+        color: var(--wt-color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    td {
+        font-size: 0.9rem;
+    }
+
+    // First column - row labels
+    td:first-child {
+        font-weight: 550;
         color: var(--wt-color-text);
     }
 
-    tr:nth-child(even) {
-        background-color: var(--wt-color-bg-soft);
-    }
+    // Row dividers instead of zebra striping
+    tbody tr {
+        border-bottom: 1px solid var(--wt-color-border-subtle);
 
-    tr:hover {
-        background-color: var(--wt-color-accent-soft);
+        &:last-child {
+            border-bottom: none;
+        }
+
+        &:hover {
+            background-color: var(--wt-color-accent-soft);
+        }
     }
 }
 

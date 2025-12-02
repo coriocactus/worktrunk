@@ -9,9 +9,9 @@ When working with multiple AI agents (or multiple tasks), you have a few options
 
 | Approach | Pros | Cons |
 |----------|------|------|
-| **One working tree, many branches** | Simple setup | Agents step on each other, can't use git for staging/committing |
-| **Multiple clones** | Full isolation | Slow to set up, drift out of sync |
-| **Git worktrees** | Isolation + shared history | Requires management |
+| One working tree, many branches | Simple setup | Agents step on each other, can't use git for staging/committing |
+| Multiple clones | Full isolation | Slow to set up, drift out of sync |
+| Git worktrees | Isolation + shared history | Requires management |
 
 Git worktrees give you multiple directories backed by a single `.git` directory. Each worktree has its own branch and working tree, but shares the repository history and refs.
 
