@@ -470,7 +470,7 @@ main {
                 border-left: 3px solid var(--wt-color-accent);
                 background: var(--wt-color-accent-soft);
                 color: var(--wt-color-text);
-                font-weight: 550;
+                // No font-weight change - prevents layout shift
                 padding-left: calc(0.5rem - 3px);
             }
         }
@@ -674,7 +674,6 @@ footer {
     &:hover {
         background: var(--wt-color-accent-strong);
         text-decoration: none;
-        transform: translateY(-1px);
     }
 }
 
@@ -798,6 +797,78 @@ input:focus-visible {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+// ============================================================================
+// Micro-interactions
+// ============================================================================
+
+// Search - subtle glow on focus
+#userinput:focus {
+    box-shadow: 0 0 0 3px rgba(27, 127, 75, 0.12);
+}
+
+// Content links - animated underline
+.content a:not(.button) {
+    position: relative;
+    text-decoration: none;
+
+    &::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 0;
+        height: 1.5px;
+        background: var(--wt-color-accent);
+        transition: width 200ms ease-out;
+    }
+
+    &:hover::after {
+        width: 100%;
+    }
+
+    &:hover {
+        text-decoration: none;
+    }
+}
+
+// Button - enhanced hover (subtle shadow only, no lift)
+.button {
+    box-shadow: 0 2px 4px rgba(27, 127, 75, 0.15);
+
+    &:hover {
+        box-shadow: 0 4px 12px rgba(27, 127, 75, 0.25);
+    }
+
+    &:active {
+        box-shadow: 0 1px 2px rgba(27, 127, 75, 0.2);
+    }
+}
+
+// Custom scrollbar (webkit browsers)
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--wt-color-border-subtle);
+    border-radius: 4px;
+
+    &:hover {
+        background: var(--wt-color-text-soft);
+    }
+}
+
+// Firefox scrollbar
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--wt-color-border-subtle) transparent;
 }
 
 // ============================================================================
