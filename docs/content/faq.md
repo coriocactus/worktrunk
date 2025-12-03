@@ -32,7 +32,7 @@ Commands from project hooks and LLM configuration require approval on first run.
 ⚪ post-create test:
    echo 'Running tests...'
 
-💡 Allow and remember? [y/N]
+❓ Allow and remember? [y/N]
 ```
 
 <!-- END AUTO-GENERATED -->

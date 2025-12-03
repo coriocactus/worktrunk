@@ -189,7 +189,7 @@ spawn_background(build_command_that_checks_merge_again());  // Duplicate check!
 
 ### Message Types
 
-Six canonical message patterns with their emojis:
+Seven canonical message patterns with their emojis:
 
 1. **Progress**: 🔄 (operations in progress)
 2. **Success**: ✅ (successful completion)
@@ -197,6 +197,7 @@ Six canonical message patterns with their emojis:
 4. **Warnings**: 🟡 (non-blocking issues)
 5. **Hints**: 💡 (actionable suggestions, tips for user)
 6. **Info**: ⚪ (neutral status, system feedback, metadata)
+7. **Prompts**: ❓ (questions requiring user input)
 
 **Output functions automatically add emoji AND semantic color.** Callers provide content with optional inner styling (like `<bold>`):
 
@@ -247,7 +248,7 @@ println!("Branch created");
 
 Interactive prompts must flush stderr before blocking on stdin:
 ```rust
-eprint!("💡 Allow and remember? [y/N] ");
+eprint!("❓ Allow and remember? [y/N] ");
 stderr().flush()?;
 io::stdin().read_line(&mut response)?;
 ```
@@ -294,7 +295,7 @@ Style constants in `src/styling/constants.rs` (minimal set for programmatic styl
 - `DELETION`: Red (diffs, deletions) - used in table rendering
 - `GUTTER`: BrightWhite background (quoted content)
 
-Emoji constants: `PROGRESS_EMOJI` (🔄), `SUCCESS_EMOJI` (✅), `ERROR_EMOJI` (❌), `WARNING_EMOJI` (🟡), `HINT_EMOJI` (💡), `INFO_EMOJI` (⚪)
+Emoji constants: `PROGRESS_EMOJI` (🔄), `SUCCESS_EMOJI` (✅), `ERROR_EMOJI` (❌), `WARNING_EMOJI` (🟡), `HINT_EMOJI` (💡), `INFO_EMOJI` (⚪), `PROMPT_EMOJI` (❓)
 
 For all other styling, use color-print tags in `cformat!`: `<red>`, `<green>`, `<yellow>`, `<cyan>`, `<dim>`, `<bold>`, `<bright-black>`
 

@@ -8,7 +8,7 @@ use color_print::cformat;
 use worktrunk::config::{Command, WorktrunkConfig};
 use worktrunk::git::GitError;
 use worktrunk::styling::{
-    HINT_EMOJI, INFO_EMOJI, WARNING_EMOJI, eprint, eprintln, format_bash_with_gutter, stderr,
+    INFO_EMOJI, PROMPT_EMOJI, WARNING_EMOJI, eprint, eprintln, format_bash_with_gutter, stderr,
 };
 
 /// Batch approval helper used when multiple commands are queued for execution.
@@ -119,7 +119,7 @@ fn prompt_for_batch_approval(commands: &[&Command], project_id: &str) -> anyhow:
 
     eprint!(
         "{}",
-        cformat!("{HINT_EMOJI} Allow and remember? <bold>[y/N]</> ")
+        cformat!("{PROMPT_EMOJI} Allow and remember? <bold>[y/N]</> ")
     );
     stderr().flush()?;
 

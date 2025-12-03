@@ -589,7 +589,7 @@ fn exec_through_wrapper_from(
 ///     repo.root_path(),
 ///     &["y\n"],  // Approve the merge
 /// );
-/// // Output will show: "💡 Allow and remember? [y/N] y"
+/// // Output will show: "❓ Allow and remember? [y/N] y"
 /// ```
 #[cfg(test)]
 fn exec_through_wrapper_interactive(

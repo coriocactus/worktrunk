@@ -128,7 +128,7 @@ fn test_configure_shell_already_exists() {
 
         ----- stderr -----
         ⚪ Already configured shell extension & completions for [1mzsh[22m @ [1m~/.zshrc[22m
-        ⚪ All shells already configured
+        ✅ [32mAll shells already configured[39m
         ");
     });
 
@@ -818,7 +818,7 @@ fn test_configure_shell_no_warning_when_already_configured() {
 
         ----- stderr -----
         ⚪ Already configured shell extension & completions for [1mzsh[22m @ [1m~/.zshrc[22m
-        ⚪ All shells already configured
+        ✅ [32mAll shells already configured[39m
         ");
     });
 }

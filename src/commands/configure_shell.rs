@@ -540,10 +540,10 @@ fn prompt_for_confirmation(
 fn prompt_yes_no() -> Result<bool, String> {
     use anstyle::Style;
     use std::io::Write;
-    use worktrunk::styling::{INFO_EMOJI, eprint, eprintln};
+    use worktrunk::styling::{PROMPT_EMOJI, eprint, eprintln};
 
     let bold = Style::new().bold();
-    eprint!("{INFO_EMOJI} Proceed? {bold}[y/N]{bold:#} ");
+    eprint!("{PROMPT_EMOJI} Proceed? {bold}[y/N]{bold:#} ");
     io::stderr().flush().map_err(|e| e.to_string())?;
 
     let mut input = String::new();

@@ -201,7 +201,7 @@ Project commands require approval on first run. When a project defines hooks, th
 ⚪ post-create test:
    echo 'Running tests...'
 
-💡 Allow and remember? [y/N]
+❓ Allow and remember? [y/N]
 ```
 
 <!-- END AUTO-GENERATED -->

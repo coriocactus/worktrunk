@@ -536,7 +536,7 @@ fn main() {
                                 ))?;
                             } else {
                                 // No action: all shells were already configured
-                                crate::output::info("All shells already configured")?;
+                                crate::output::success("All shells already configured")?;
                             }
 
                             // Restart hint: only shown if the current shell's extension changed

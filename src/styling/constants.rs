@@ -73,3 +73,7 @@ pub const HINT_EMOJI: &str = "💡";
 /// Primary status: `output::info("All commands already approved")?;`
 /// Metadata: `cformat!("{INFO_EMOJI} <dim>Showing 5 worktrees...</>")`
 pub const INFO_EMOJI: &str = "⚪";
+
+/// Prompt emoji - use for questions requiring user input
+/// `eprint!("{PROMPT_EMOJI} Proceed? [y/N] ")`
+pub const PROMPT_EMOJI: &str = "❓";

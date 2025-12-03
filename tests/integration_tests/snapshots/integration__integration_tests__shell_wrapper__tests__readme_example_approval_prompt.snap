@@ -13,4 +13,4 @@ expression: prompt_only
 ⚪ post-create test:
    echo 'Running tests...'
 
-💡 Allow and remember? [y/N]
+❓ Allow and remember? [y/N]
