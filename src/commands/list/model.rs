@@ -728,7 +728,7 @@ pub enum WorktreeState {
     /// Normal worktree (path matches template, not locked or prunable)
     #[default]
     None,
-    /// Path doesn't match what the template would generate (white flag = "not at home")
+    /// Path doesn't match what the template would generate (red flag = "not at home")
     PathMismatch,
     /// Prunable (worktree directory missing)
     Prunable,
@@ -742,7 +742,7 @@ impl std::fmt::Display for WorktreeState {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::None => Ok(()),
-            Self::PathMismatch => write!(f, "⚐"),
+            Self::PathMismatch => write!(f, "⚑"),
             Self::Prunable => write!(f, "⌫"),
             Self::Locked => write!(f, "⊠"),
             Self::Branch => write!(f, "⎇"),
@@ -887,7 +887,7 @@ impl PositionMask {
             1, // BRANCH_OP_STATE: ✖↻⋈⚠≡_ (1 char, priority: conflicts > rebase > merge > merge-tree > no-commits > matches)
             1, // MAIN_DIVERGENCE: ^, ↑, ↓, ↕ (1 char)
             1, // UPSTREAM_DIVERGENCE: ⇡, ⇣, ⇅ (1 char)
-            1, // WORKTREE_STATE: ⎇ for branches, ⚐⌫⊠ for worktrees (priority: path_mismatch > prunable > locked)
+            1, // WORKTREE_STATE: ⎇ for branches, ⚑⌫⊠ for worktrees (priority: path_mismatch > prunable > locked)
             2, // USER_MARKER: single emoji or two chars (allocate 2)
         ],
     };
@@ -905,7 +905,7 @@ impl PositionMask {
 /// - Branch/op state: ✖, ↻, ⋈, ⚠, ≡, _ (combined position with priority)
 /// - Main divergence: ^, ↑, ↓, ↕
 /// - Upstream divergence: ⇡, ⇣, ⇅
-/// - Worktree state: ⎇ for branches, ⚐⌫⊠ for worktrees (priority-only)
+/// - Worktree state: ⎇ for branches, ⚑⌫⊠ for worktrees (priority-only)
 /// - User marker: custom labels, emoji
 ///
 /// ## Mutual Exclusivity
@@ -924,8 +924,8 @@ impl PositionMask {
 /// - ⇡ vs ⇣ vs ⇅: Upstream divergence (UpstreamDivergence enum)
 ///
 /// **Priority-only (can co-occur but only highest priority shown):**
-/// - ⚐ vs ⌫ vs ⊠: Worktree attrs (priority: path_mismatch ⚐ > prunable ⌫ > locked ⊠)
-/// - ⎇: Branch indicator (mutually exclusive with ⚐⌫⊠ as branches can't have worktree attrs)
+/// - ⚑ vs ⌫ vs ⊠: Worktree attrs (priority: path_mismatch ⚑ > prunable ⌫ > locked ⊠)
+/// - ⎇: Branch indicator (mutually exclusive with ⚑⌫⊠ as branches can't have worktree attrs)
 ///
 /// **NOT mutually exclusive (can co-occur):**
 /// - Working tree symbols (+!?): Can have multiple types of changes
@@ -935,7 +935,7 @@ pub struct StatusSymbols {
     /// Priority: Conflicts (✖) > Rebase (↻) > Merge (⋈) > MergeTreeConflicts (⊘) > MatchesMain (≡) > NoCommits (∅)
     pub(crate) branch_op_state: BranchOpState,
 
-    /// Worktree state: ⎇ for branches, ⚐⌫⊠ for worktrees (priority: path_mismatch > prunable > locked)
+    /// Worktree state: ⎇ for branches, ⚑⌫⊠ for worktrees (priority: path_mismatch > prunable > locked)
     pub(crate) worktree_state: WorktreeState,
 
     /// Main branch divergence state (mutually exclusive)
@@ -1054,7 +1054,9 @@ impl StatusSymbols {
             WorktreeState::None => String::new(),
             // Branch indicator (⎇) is informational (dimmed)
             WorktreeState::Branch => cformat!("<dim>{}</>", self.worktree_state),
-            // Worktree attrs (⚐⌫⊠) are warnings (yellow)
+            // Path mismatch (⚑) is a stronger warning (red)
+            WorktreeState::PathMismatch => cformat!("<red>{}</>", self.worktree_state),
+            // Other worktree attrs (⌫⊠) are warnings (yellow)
             _ => cformat!("<yellow>{}</>", self.worktree_state),
         };
 

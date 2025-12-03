@@ -63,6 +63,7 @@ Symbols appear in the Status column in this order:
 
 **Other:**
 - `⎇` — Branch without worktree
+- `⚑` — Path mismatch (not at expected location)
 - `⌫` — Prunable (directory missing)
 - `⊠` — Locked worktree
 
