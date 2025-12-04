@@ -42,6 +42,6 @@ Beyond simplifying common tasks, Worktrunk adds features that git worktrees don'
 
 **[Unified status](@/list.md)** shows changes, ahead/behind counts, diff stats, and commit messages across all worktrees. With `--full`, it adds CI status (GitHub/GitLab), conflict detection, and line-level diffs against main.
 
-**Safe cleanup** validates that changes are integrated before deleting worktrees and branches.
-
 **[Merge workflow](@/merge.md)** handles the full pipeline: stage, squash, rebase, run hooks, push, and clean up.
+
+**[Safe cleanup](@/remove.md#branch-cleanup)** validates that changes are integrated before deleting worktrees and branches.
