@@ -79,6 +79,85 @@ static RUST_RAW_STRING_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
+/// Regex to find command placeholder comments in help pages
+/// Matches: <!-- wt <args> -->\n```bash\n$ wt <args>\n```
+/// The HTML comment triggers expansion, the code block shows in terminal help
+/// Note: Pattern expects ```bash``` because --help-page converts ```console``` first
+static COMMAND_PLACEHOLDER_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"<!-- (wt [^>]+) -->\n```bash\n\$ wt [^\n]+\n```").unwrap());
+
+/// Map commands to their snapshot files for help page expansion
+fn command_to_snapshot(command: &str) -> Option<&'static str> {
+    match command {
+        "wt list" => Some("integration__integration_tests__list__readme_example_list.snap"),
+        "wt list --full" => {
+            Some("integration__integration_tests__list__readme_example_list_full.snap")
+        }
+        "wt list --branches --full" => {
+            Some("integration__integration_tests__list__readme_example_list_branches.snap")
+        }
+        _ => None,
+    }
+}
+
+/// Expand command placeholders in help page content to terminal shortcodes
+///
+/// Finds ```bash\nwt <cmd>\n``` blocks (```console``` is already converted
+/// to ```bash``` by --help-page) and replaces them with {% terminal() %}
+/// shortcodes containing snapshot output.
+///
+/// Commands without a snapshot mapping are left as plain code blocks.
+fn expand_command_placeholders(content: &str, snapshots_dir: &Path) -> Result<String, String> {
+    let mut result = content.to_string();
+    let mut errors = Vec::new();
+
+    // Find all placeholder blocks
+    for cap in COMMAND_PLACEHOLDER_PATTERN.captures_iter(content) {
+        let full_match = cap.get(0).unwrap().as_str();
+        let command = cap.get(1).unwrap().as_str();
+
+        // Skip commands without snapshot mappings - leave as plain code blocks
+        let Some(snapshot_name) = command_to_snapshot(command) else {
+            continue;
+        };
+
+        let snapshot_path = snapshots_dir.join(snapshot_name);
+        if !snapshot_path.exists() {
+            errors.push(format!(
+                "Snapshot file not found: {} (for command '{}')",
+                snapshot_path.display(),
+                command
+            ));
+            continue;
+        }
+
+        let snapshot_content = fs::read_to_string(&snapshot_path)
+            .map_err(|e| format!("Failed to read {}: {}", snapshot_path.display(), e))?;
+
+        let html = parse_snapshot_content_for_docs(&snapshot_content)?;
+        let normalized = normalize_for_docs(&html);
+
+        // Build the terminal shortcode with standard template markers
+        let replacement = format!(
+            "<!-- ⚠️ AUTO-GENERATED from tests/snapshots/{} — edit source to update -->\n\n\
+             {{% terminal() %}}\n\
+             <span class=\"prompt\">$</span> <span class=\"cmd\">{}</span>\n\
+             {}\n\
+             {{% end %}}\n\n\
+             <!-- END AUTO-GENERATED -->",
+            snapshot_name, command, normalized
+        );
+
+        result = result.replace(full_match, &replacement);
+    }
+
+    if !errors.is_empty() {
+        return Err(errors.join("\n"));
+    }
+
+    Ok(result)
+}
+
 /// Strip ANSI escape codes from text
 fn strip_ansi(text: &str) -> String {
     let text = ANSI_ESCAPE_REGEX.replace_all(text, "");
@@ -332,6 +411,13 @@ fn parse_snapshot_content_for_docs(content: &str) -> Result<String, String> {
     // Remove empty spans (e.g., <span style='opacity:0.67'></span>)
     let empty_span_regex = Regex::new(r"<span[^>]*></span>").unwrap();
     let html = empty_span_regex.replace_all(&html, "").to_string();
+
+    // Replace verbose inline styles with CSS classes for cleaner output
+    let html = html
+        .replace("<span style='opacity:0.67'>", "<span class=d>")
+        .replace("<span style='color:var(--green,#0a0)'>", "<span class=g>")
+        .replace("<span style='color:var(--red,#a00)'>", "<span class=r>")
+        .replace("<span style='color:var(--cyan,#0aa)'>", "<span class=c>");
 
     Ok(html)
 }
@@ -909,6 +995,19 @@ fn test_command_pages_are_in_sync() {
             ));
             continue;
         }
+
+        // Expand command placeholders ($ wt list -> terminal shortcode with snapshot output)
+        let snapshots_dir = project_root.join("tests/snapshots");
+        let expected = match expand_command_placeholders(&expected, &snapshots_dir) {
+            Ok(expanded) => expanded,
+            Err(e) => {
+                errors.push(format!(
+                    "Failed to expand placeholders for '{}': {}",
+                    cmd, e
+                ));
+                continue;
+            }
+        };
 
         let current = fs::read_to_string(&doc_path)
             .unwrap_or_else(|e| panic!("Failed to read {}: {}", doc_path.display(), e));

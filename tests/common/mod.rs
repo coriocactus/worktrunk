@@ -384,35 +384,23 @@ impl TestRepo {
             .unwrap();
     }
 
-    /// Create a commit with a specific age in a given directory (e.g., a worktree)
+    /// Commit already-staged changes with a specific age
     ///
-    /// Like `commit_with_age()` but for any git working directory.
-    /// Uses `file.txt` with the message as content for deterministic commits.
+    /// This does NOT create or modify any files - it only commits staged changes.
+    /// Use this when you've already staged specific files and want clean diffs
+    /// (no spurious file.txt changes).
     ///
     /// # Example
     /// ```ignore
-    /// let feature_wt = repo.add_worktree("feature", "feature");
-    /// repo.commit_with_age_in("Feature work", 2 * HOUR, &feature_wt);
+    /// std::fs::write(wt.join("feature.rs"), "...").unwrap();
+    /// run_git(&repo, &["add", "feature.rs"], &wt);
+    /// repo.commit_staged_with_age("Add feature", 2 * HOUR, &wt);
     /// ```
-    pub fn commit_with_age_in(&self, message: &str, age_seconds: i64, dir: &Path) {
-        // SOURCE_DATE_EPOCH used in tests - must match configure_git_cmd/test_env_vars
-        // This is Jan 2, 2025 00:00:00 UTC
+    pub fn commit_staged_with_age(&self, message: &str, age_seconds: i64, dir: &Path) {
         const SOURCE_DATE_EPOCH: i64 = 1735776000;
         let commit_time = SOURCE_DATE_EPOCH - age_seconds;
-        // Use ISO 8601 format for consistent behavior across git versions
         let timestamp = unix_to_iso8601(commit_time);
 
-        // Use file.txt with message as content - deterministic for same message
-        let file_path = dir.join("file.txt");
-        std::fs::write(&file_path, message).unwrap();
-
-        // Stage the file
-        let mut cmd = Command::new("git");
-        cmd.env("GIT_CONFIG_GLOBAL", &self.git_config_path);
-        cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");
-        cmd.args(["add", "."]).current_dir(dir).output().unwrap();
-
-        // Create commit with custom timestamp
         let mut cmd = Command::new("git");
         cmd.env("GIT_CONFIG_GLOBAL", &self.git_config_path);
         cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");

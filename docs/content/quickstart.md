@@ -29,7 +29,7 @@ $ wt config shell install
 
 {% terminal() %}
 <span class="prompt">$</span> wt switch --create fix-auth
-✅ <span style='color:var(--green,#0a0)'>Created new worktree for <b>fix-auth</b> from <b>main</b> at <b>../repo.fix-auth</b></span>
+✅ <span class=g>Created new worktree for <b>fix-auth</b> from <b>main</b> at <b>../repo.fix-auth</b></span>
 {% end %}
 
 <!-- END AUTO-GENERATED -->
@@ -42,23 +42,23 @@ This creates `../repo.fix-auth` on branch `fix-auth`.
 
 {% terminal() %}
 <span class="prompt">$</span> wt switch feature-api
-✅ <span style='color:var(--green,#0a0)'>Switched to worktree for <b>feature-api</b> at <b>../repo.feature-api</b></span>
+✅ <span class=g>Switched to worktree for <b>feature-api</b> at <b>../repo.feature-api</b></span>
 {% end %}
 
 <!-- END AUTO-GENERATED -->
 
 ## List worktrees
 
-<!-- ⚠️ AUTO-GENERATED-HTML from tests/snapshots/integration__integration_tests__list__readme_example_simple_list.snap — edit source to update -->
+<!-- ⚠️ AUTO-GENERATED-HTML from tests/snapshots/integration__integration_tests__list__readme_example_list.snap — edit source to update -->
 
 {% terminal() %}
 <span class="prompt">$</span> wt list
   <b>Branch</b>       <b>Status</b>         <b>HEAD±</b>    <b>main↕</b>  <b>Path</b>                <b>Remote⇅</b>  <b>Commit</b>    <b>Age</b>   <b>Message</b>
-@ <b>feature-api</b>  <span style='color:var(--cyan,#0aa)'>+</span>   <span style='opacity:0.67'>↑</span><span style='opacity:0.67'>⇡</span>      <span style='color:var(--green,#0a0)'>+36</span>  <span style='color:var(--red,#a00)'>-11</span>   <span style='color:var(--green,#0a0)'>↑4</span>      <b>./repo.feature-api</b>   <span style='color:var(--green,#0a0)'>⇡3</span>      <span style='opacity:0.67'>b1554967</span>  <span style='opacity:0.67'>30m</span>   <span style='opacity:0.67'>Add API tests</span>
-^ main             <span style='opacity:0.67'>^</span><span style='opacity:0.67'>⇣</span>                         ./repo                   <span style='opacity:0.67'><span style='color:var(--red,#a00)'>⇣1</span></span>  <span style='opacity:0.67'>b834638e</span>  <span style='opacity:0.67'>1d</span>    <span style='opacity:0.67'>Initial commit</span>
-+ <span style='opacity:0.67'>fix-auth</span>        <span style='opacity:0.67'>_</span>                           <span style='opacity:0.67'>./repo.fix-auth</span>              <span style='opacity:0.67'>b834638e</span>  <span style='opacity:0.67'>1d</span>    <span style='opacity:0.67'>Initial commit</span>
+@ <b>feature-api</b>  <span class=c>+</span>   <span class=d>↕</span><span class=d>⇡</span>      <span class=g>+54</span>   <span class=r>-5</span>   <span class=g>↑4</span>  <span class=d><span class=r>↓1</span></span>  <b>./repo.feature-api</b>   <span class=g>⇡3</span>      <span class=d>28d38c20</span>  <span class=d>30m</span>   <span class=d>Add API tests</span>
+^ main             <span class=d>^</span><span class=d>⇅</span>                         ./repo               <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=d>2e6b7a8f</span>  <span class=d>4d</span>    <span class=d>Merge fix-auth:…</span>
++ fix-auth         <span class=d>↕</span><span class=d>|</span>                 <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>  ./repo.fix-auth        <span class=d>|</span>     <span class=d>1d697d5b</span>  <span class=d>5h</span>    <span class=d>Add secure token…</span>
 
-⚪ <span style='opacity:0.67'>Showing 3 worktrees, 1 with changes, 1 ahead</span>
+⚪ <span class=d>Showing 3 worktrees, 1 with changes, 2 ahead</span>
 {% end %}
 
 <!-- END AUTO-GENERATED -->
@@ -73,7 +73,7 @@ When you're done with a worktree (e.g., after merging via CI):
 
 {% terminal() %}
 <span class="prompt">$</span> wt remove
-🔄 <span style='color:var(--cyan,#0aa)'>Removing <b>feature-api</b> worktree &amp; branch in background (already in main)</span>
+🔄 <span class=c>Removing <b>feature-api</b> worktree &amp; branch in background (already in main)</span>
 {% end %}
 
 <!-- END AUTO-GENERATED -->

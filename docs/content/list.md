@@ -16,26 +16,58 @@ The table renders progressively: branch names, paths, and commit hashes appear i
 
 List all worktrees:
 
-```bash
-wt list
-```
+<!-- ⚠️ AUTO-GENERATED from tests/snapshots/integration__integration_tests__list__readme_example_list.snap — edit source to update -->
+
+{% terminal() %}
+<span class="prompt">$</span> <span class="cmd">wt list</span>
+  <b>Branch</b>       <b>Status</b>         <b>HEAD±</b>    <b>main↕</b>  <b>Path</b>                <b>Remote⇅</b>  <b>Commit</b>    <b>Age</b>   <b>Message</b>
+@ <b>feature-api</b>  <span class=c>+</span>   <span class=d>↕</span><span class=d>⇡</span>      <span class=g>+54</span>   <span class=r>-5</span>   <span class=g>↑4</span>  <span class=d><span class=r>↓1</span></span>  <b>./repo.feature-api</b>   <span class=g>⇡3</span>      <span class=d>28d38c20</span>  <span class=d>30m</span>   <span class=d>Add API tests</span>
+^ main             <span class=d>^</span><span class=d>⇅</span>                         ./repo               <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=d>2e6b7a8f</span>  <span class=d>4d</span>    <span class=d>Merge fix-auth:…</span>
++ fix-auth         <span class=d>↕</span><span class=d>|</span>                 <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>  ./repo.fix-auth        <span class=d>|</span>     <span class=d>1d697d5b</span>  <span class=d>5h</span>    <span class=d>Add secure token…</span>
+
+⚪ <span class=d>Showing 3 worktrees, 1 with changes, 2 ahead</span>
+{% end %}
+
+<!-- END AUTO-GENERATED -->
 
 Include CI status and conflict detection:
 
-```bash
-wt list --full
-```
+<!-- ⚠️ AUTO-GENERATED from tests/snapshots/integration__integration_tests__list__readme_example_list_full.snap — edit source to update -->
+
+{% terminal() %}
+<span class="prompt">$</span> <span class="cmd">wt list --full</span>
+  <b>Branch</b>       <b>Status</b>         <b>HEAD±</b>    <b>main↕</b>     <b>main…±</b>  <b>Path</b>                <b>Remote⇅</b>  <b>CI</b>  <b>Commit</b>    <b>Age</b>
+@ <b>feature-api</b>  <span class=c>+</span>   <span class=d>↕</span><span class=d>⇡</span>      <span class=g>+54</span>   <span class=r>-5</span>   <span class=g>↑4</span>  <span class=d><span class=r>↓1</span></span>  <span class=g>+234</span>  <span class=r>-24</span>  <b>./repo.feature-api</b>   <span class=g>⇡3</span>      <span class=d><span style='color:var(--blue,#00a)'>●</span></span>   <span class=d>28d38c20</span>  <span class=d>30m</span>
+^ main             <span class=d>^</span><span class=d>⇅</span>                                    ./repo               <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=g>●</span>   <span class=d>2e6b7a8f</span>  <span class=d>4d</span>
++ fix-auth         <span class=d>↕</span><span class=d>|</span>                 <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+25</span>  <span class=r>-11</span>  ./repo.fix-auth        <span class=d>|</span>     <span class=g>●</span>   <span class=d>1d697d5b</span>  <span class=d>5h</span>
+
+⚪ <span class=d>Showing 3 worktrees, 1 with changes, 2 ahead, 1 column hidden</span>
+{% end %}
+
+<!-- END AUTO-GENERATED -->
 
 Include branches that don't have worktrees:
 
-```bash
-wt list --branches
-```
+<!-- ⚠️ AUTO-GENERATED from tests/snapshots/integration__integration_tests__list__readme_example_list_branches.snap — edit source to update -->
+
+{% terminal() %}
+<span class="prompt">$</span> <span class="cmd">wt list --branches --full</span>
+  <b>Branch</b>       <b>Status</b>         <b>HEAD±</b>    <b>main↕</b>     <b>main…±</b>  <b>Path</b>                <b>Remote⇅</b>  <b>CI</b>  <b>Commit</b>    <b>Age</b>
+@ <b>feature-api</b>  <span class=c>+</span>   <span class=d>↕</span><span class=d>⇡</span>      <span class=g>+54</span>   <span class=r>-5</span>   <span class=g>↑4</span>  <span class=d><span class=r>↓1</span></span>  <span class=g>+234</span>  <span class=r>-24</span>  <b>./repo.feature-api</b>   <span class=g>⇡3</span>      <span class=d><span style='color:var(--blue,#00a)'>●</span></span>   <span class=d>28d38c20</span>  <span class=d>30m</span>
+^ main             <span class=d>^</span><span class=d>⇅</span>                                    ./repo               <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=g>●</span>   <span class=d>2e6b7a8f</span>  <span class=d>4d</span>
++ fix-auth         <span class=d>↕</span><span class=d>|</span>                 <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+25</span>  <span class=r>-11</span>  ./repo.fix-auth        <span class=d>|</span>     <span class=g>●</span>   <span class=d>1d697d5b</span>  <span class=d>5h</span>
+  exp              <span class=d>↕</span> <span class=d>⎇</span>                <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>  <span class=g>+137</span>                                        <span class=d>32936618</span>  <span class=d>2d</span>
+  wip              <span class=d>↕</span> <span class=d>⎇</span>                <span class=g>↑1</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+33</span>                                        <span class=d>6844b101</span>  <span class=d>3d</span>
+
+⚪ <span class=d>Showing 3 worktrees, 2 branches, 1 with changes, 4 ahead, 1 column hidden</span>
+{% end %}
+
+<!-- END AUTO-GENERATED -->
 
 Output as JSON for scripting:
 
 ```bash
-wt list --format=json
+$ wt list --format=json
 ```
 
 ## Columns

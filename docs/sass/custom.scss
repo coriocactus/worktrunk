@@ -396,6 +396,24 @@ main {
         color: var(--wt-color-text-soft);
     }
 
+    // Command text after prompt - bold amber for visibility
+    .cmd {
+        color: var(--wt-color-accent);
+        font-weight: 600;
+    }
+
+    // Softer bold for table headers and branch names
+    // Default <b> is 700 (too heavy), reduce to semibold
+    b {
+        font-weight: 550;
+    }
+
+    // ANSI color classes for terminal output
+    .d { opacity: 0.67; }              // dim
+    .g { color: var(--green, #0a0); }  // green
+    .r { color: var(--red, #a00); }    // red
+    .c { color: var(--cyan, #0aa); }   // cyan
+
     // Gutter spans - extend vertically to form continuous line
     // These are single-space spans with background color at line start
     // Math: gap = (line-height - 1) / 2 = (1.5 - 1) / 2 = 0.25

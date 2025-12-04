@@ -829,26 +829,29 @@ The table renders progressively: branch names, paths, and commit hashes appear i
 
 List all worktrees:
 
+<!-- wt list -->
 ```console
-wt list
+$ wt list
 ```
 
 Include CI status and conflict detection:
 
+<!-- wt list --full -->
 ```console
-wt list --full
+$ wt list --full
 ```
 
 Include branches that don't have worktrees:
 
+<!-- wt list --branches --full -->
 ```console
-wt list --branches
+$ wt list --branches --full
 ```
 
 Output as JSON for scripting:
 
 ```console
-wt list --format=json
+$ wt list --format=json
 ```
 
 ## Columns

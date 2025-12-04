@@ -94,6 +94,31 @@ fn snapshot_list_task_dag_full(test_name: &str, repo: &TestRepo) {
     );
 }
 
+// README example snapshots - use narrower width for doc site code blocks
+fn snapshot_readme_list_from_dir(test_name: &str, repo: &TestRepo, cwd: &Path) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_readme_from_dir(repo, cwd),
+    );
+}
+
+fn snapshot_readme_list_full_from_dir(test_name: &str, repo: &TestRepo, cwd: &Path) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_readme_full_from_dir(repo, cwd),
+    );
+}
+
+fn snapshot_readme_list_branches_full_from_dir(test_name: &str, repo: &TestRepo, cwd: &Path) {
+    run_snapshot(
+        list_snapshots::standard_settings(repo),
+        test_name,
+        list_snapshots::command_readme_branches_full_from_dir(repo, cwd),
+    );
+}
+
 fn run_snapshot(settings: Settings, test_name: &str, mut cmd: Command) {
     settings.bind(|| {
         assert_cmd_snapshot!(test_name, cmd);
@@ -974,97 +999,897 @@ fn test_list_user_marker_with_special_characters() {
     snapshot_list("user_marker_special_chars", &repo);
 }
 
-/// Generate README example: List output for Quick Start narrative
+/// Set up a repo for README examples showing realistic worktree states.
 ///
-/// Shows main + fix-auth + feature-api worktrees (matches the Quick Start flow):
-/// - main: behind remote (teammate pushed while we were working)
-/// - fix-auth: just created, no commits ahead (same as main)
-/// - feature-api: commits ahead of main and remote, plus staged changes
+/// **Project context**: API modernization — migrating from legacy handlers to REST,
+/// hardening auth before v2 launch.
 ///
-/// Output: tests/snapshots/integration__integration_tests__list__readme_example_simple_list.snap
-#[test]
-fn test_readme_example_simple_list() {
+/// ## Branch Narratives
+///
+/// **`@ feature-api`** — REST migration in progress
+///   Midway through migrating from function-based handlers to a REST module.
+///   Staged the new controller base class; still removing the legacy dispatcher.
+///   Three commits ready to push once local tests pass.
+///   - `+234 -24` main…± — Major refactoring: new Router, handlers, middleware (~250 LOC)
+///   - `+` staged, `↑⇡` ahead of main and remote, `⇡3` unpushed commits
+///
+/// **`^ main`**
+///   Teammate merged the auth hotfix while you were refactoring.
+///   Need to pull and rebase feature-api before continuing.
+///   - `⇣1` behind remote
+///
+/// **`+ fix-auth`** — Token validation hardening
+///   Replaced manual token parsing with constant-time comparison and added rate limiting.
+///   Pushed and CI green — waiting on security review before merge.
+///   - `+25 -11` main…± — Deleted insecure validation, added proper checks
+///   - `|` in sync with remote, ready for merge
+///
+/// **`exp`** — GraphQL spike
+///   Spike branch exploring GraphQL for the subscription API. Added schema definitions
+///   and proof-of-concept resolvers with Query, Mutation, and Subscription roots.
+///   - `+137` main…± — Schema types, resolvers, pagination (~140 LOC)
+///   - `⎇` branch without worktree
+///
+/// **`wip`** — REST docs (stale)
+///   Started API docs last week but got pulled away. Main has since moved on
+///   (fix-auth was merged). Needs rebase before continuing.
+///   - `↓1` behind main — main advanced while branch was idle
+///   - `+33` main…± — Doc skeleton with structure
+///   - `⎇` branch without worktree
+///
+/// Returns (repo, feature_api_path) for running commands from feature-api.
+fn setup_readme_example_repo() -> (TestRepo, std::path::PathBuf) {
     let mut repo = TestRepo::new();
-    // Initial commit on main (yesterday)
-    repo.commit_with_age("Initial commit", DAY);
+
+    // === Set up main branch with initial codebase ===
+    // Main has a working API with security issues that fix-auth will harden
+    std::fs::write(
+        repo.root_path().join("api.rs"),
+        r#"//! API module - initial implementation
+pub mod auth {
+    // INSECURE: Manual string comparison vulnerable to timing attacks
+    pub fn check_token(token: &str) -> bool {
+        if token.is_empty() { return false; }
+        // Just check format, no real validation
+        token.len() > 0 && token.starts_with("tk_")
+    }
+
+    // INSECURE: No rate limiting, no audit logging
+    pub fn validate_request(token: &str) -> bool {
+        check_token(token)
+    }
+
+    // INSECURE: Tokens stored in plain text
+    pub fn store_token(user_id: u32, token: &str) {
+        std::fs::write(format!("/tmp/tokens/{}", user_id), token).ok();
+    }
+}
+
+pub mod handlers {
+    pub fn health() -> &'static str { "ok" }
+    // Legacy endpoint - needs refactoring
+    pub fn get_user(id: u32) -> String { format!("user:{}", id) }
+    pub fn get_post(id: u32) -> String { format!("post:{}", id) }
+}
+"#,
+    )
+    .unwrap();
+    run_git(&repo, &["add", "api.rs"], repo.root_path());
+    repo.commit_staged_with_age("Initial API implementation", DAY, repo.root_path());
     repo.setup_remote("main");
 
-    // Make main behind its remote: push a commit, then reset local
-    // (simulates a teammate pushing while we work on feature-api)
-    repo.commit_with_age("Teammate's fix", 2 * HOUR);
-    let mut cmd = Command::new("git");
-    repo.configure_git_cmd(&mut cmd);
-    cmd.args(["push", "origin", "main"])
-        .current_dir(repo.root_path())
-        .output()
-        .unwrap();
-    // Reset local main back one commit (so it's behind origin/main)
-    let mut cmd = Command::new("git");
-    repo.configure_git_cmd(&mut cmd);
-    cmd.args(["reset", "--hard", "HEAD~1"])
-        .current_dir(repo.root_path())
-        .output()
-        .unwrap();
+    // Make main behind its remote: push a teammate's commit, then reset local
+    // Story: A teammate pushed a hotfix while we were working on features
+    repo.commit_with_age("Fix production timeout issue", 2 * HOUR);
+    run_git(&repo, &["push", "origin", "main"], repo.root_path());
+    run_git(&repo, &["reset", "--hard", "HEAD~1"], repo.root_path());
 
-    // Create fix-auth worktree (just created, no work yet - same commit as main)
-    let _fix_auth = repo.add_worktree("fix-auth");
+    // === Create fix-auth worktree ===
+    // Story: Security audit found the token validation was too weak.
+    // This branch fixes it by replacing the permissive check with proper validation.
+    let fix_auth = repo.add_worktree("fix-auth");
 
-    // Create feature-api worktree (existing work - we switched here and did work)
+    // First commit: Replace weak validation with constant-time comparison
+    std::fs::write(
+        fix_auth.join("api.rs"),
+        r#"//! API module - auth hardened
+pub mod auth {
+    use constant_time_eq::constant_time_eq;
+
+    /// Validates token with constant-time comparison (timing attack resistant)
+    pub fn check_token(token: &str) -> bool {
+        if token.len() < 32 { return false; }
+        if !token.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') { return false; }
+        let prefix = token.as_bytes().get(..3).unwrap_or(&[]);
+        constant_time_eq(prefix, b"tk_")
+    }
+
+    /// Rate-limited request validation with audit logging
+    pub fn validate_request(token: &str, client_ip: &str) -> Result<(), AuthError> {
+        if is_rate_limited(client_ip) {
+            log_auth_attempt(client_ip, "rate_limited");
+            return Err(AuthError::RateLimited);
+        }
+        if !check_token(token) {
+            log_auth_attempt(client_ip, "invalid_token");
+            return Err(AuthError::InvalidToken);
+        }
+        Ok(())
+    }
+}
+
+pub mod handlers {
+    pub fn health() -> &'static str { "ok" }
+    // Legacy endpoint - needs refactoring
+    pub fn get_user(id: u32) -> String { format!("user:{}", id) }
+    pub fn get_post(id: u32) -> String { format!("post:{}", id) }
+}
+"#,
+    )
+    .unwrap();
+    run_git(&repo, &["add", "api.rs"], &fix_auth);
+    repo.commit_staged_with_age("Harden token validation", 6 * HOUR, &fix_auth);
+
+    // Second commit: Add secure token storage
+    std::fs::write(
+        fix_auth.join("api.rs"),
+        r#"//! API module - auth hardened
+pub mod auth {
+    use constant_time_eq::constant_time_eq;
+
+    /// Validates token with constant-time comparison (timing attack resistant)
+    pub fn check_token(token: &str) -> bool {
+        if token.len() < 32 { return false; }
+        if !token.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') { return false; }
+        let prefix = token.as_bytes().get(..3).unwrap_or(&[]);
+        constant_time_eq(prefix, b"tk_")
+    }
+
+    /// Rate-limited request validation with audit logging
+    pub fn validate_request(token: &str, client_ip: &str) -> Result<(), AuthError> {
+        if is_rate_limited(client_ip) {
+            log_auth_attempt(client_ip, "rate_limited");
+            return Err(AuthError::RateLimited);
+        }
+        if !check_token(token) {
+            log_auth_attempt(client_ip, "invalid_token");
+            return Err(AuthError::InvalidToken);
+        }
+        Ok(())
+    }
+
+    /// Stores token hash with per-user salt (never stores plaintext)
+    pub fn store_token(user_id: u32, token: &str) -> Result<(), AuthError> {
+        let salt = generate_salt(user_id);
+        let hash = argon2_hash(token, &salt);
+        db::tokens().insert(user_id, hash)?;
+        Ok(())
+    }
+}
+
+pub mod handlers {
+    pub fn health() -> &'static str { "ok" }
+    // Legacy endpoint - needs refactoring
+    pub fn get_user(id: u32) -> String { format!("user:{}", id) }
+    pub fn get_post(id: u32) -> String { format!("post:{}", id) }
+}
+"#,
+    )
+    .unwrap();
+    run_git(&repo, &["add", "api.rs"], &fix_auth);
+    repo.commit_staged_with_age("Add secure token storage", 5 * HOUR, &fix_auth);
+
+    // Push fix-auth and sync with remote
+    run_git(&repo, &["push", "-u", "origin", "fix-auth"], &fix_auth);
+
+    // === Create feature-api worktree ===
+    // Story: Major API refactoring - replacing the legacy handlers with a proper
+    // REST structure. This involves deleting the old inline handlers and building
+    // a modular system with middleware, validation, and caching.
     let feature_api = repo.add_worktree("feature-api");
 
-    // Push feature-api to establish tracking, then make more local commits
-    repo.commit_with_age_in("Add REST endpoints", 4 * HOUR, &feature_api);
-    let mut cmd = Command::new("git");
-    repo.configure_git_cmd(&mut cmd);
-    cmd.args(["push", "-u", "origin", "feature-api"])
-        .current_dir(&feature_api)
-        .output()
-        .unwrap();
-
-    // More local commits (ahead of remote)
-    repo.commit_with_age_in("Add authentication middleware", 3 * HOUR, &feature_api);
-    repo.commit_with_age_in("Add request validation", 2 * HOUR, &feature_api);
-
-    // Create a file with content that we'll modify (to get deletions in HEAD±)
-    std::fs::write(
-        feature_api.join("validation.rs"),
-        "// Request validation\npub fn validate(req: &Request) -> Result<(), Error> {\n    if req.body.is_empty() {\n        return Err(Error::EmptyBody);\n    }\n    if req.body.len() > MAX_SIZE {\n        return Err(Error::TooLarge);\n    }\n    if !req.headers.contains_key(\"Authorization\") {\n        return Err(Error::Unauthorized);\n    }\n    Ok(())\n}\n",
-    )
-    .unwrap();
-    let mut cmd = Command::new("git");
-    repo.configure_git_cmd(&mut cmd);
-    cmd.args(["add", "validation.rs"])
-        .current_dir(&feature_api)
-        .output()
-        .unwrap();
-    repo.commit_with_age_in("Add API tests", 30 * MINUTE, &feature_api);
-
-    // Staged changes: new files (additions) + modify existing file (mixed +/-)
+    // First commit: Refactor api.rs - remove legacy handlers, add module structure
+    // This replaces main's monolithic api.rs with a cleaner module layout
     std::fs::write(
         feature_api.join("api.rs"),
-        "// Rate limiting implementation\nuse std::time::Duration;\n\npub struct RateLimiter {\n    requests_per_second: u32,\n    window: Duration,\n}\n\nimpl RateLimiter {\n    pub fn new(rps: u32) -> Self {\n        Self { requests_per_second: rps, window: Duration::from_secs(1) }\n    }\n}\n",
+        r#"//! API module - refactored for REST architecture
+//!
+//! This module provides the public interface for the REST API.
+//! All handlers have been moved to dedicated route modules.
+
+pub mod routes;
+pub mod middleware;
+pub mod errors;
+
+// Re-export commonly used types
+pub use routes::{Router, Route, Handler};
+pub use middleware::{RequestContext, ResponseBuilder};
+pub use errors::{ApiError, ApiResult};
+"#,
     )
     .unwrap();
+    std::fs::write(
+        feature_api.join("routes.rs"),
+        r#"//! REST route definitions and handler implementations
+use crate::middleware::{RequestContext, ResponseBuilder};
+use crate::errors::{ApiError, ApiResult};
+
+pub struct Router {
+    routes: Vec<Route>,
+}
+
+pub struct Route {
+    method: Method,
+    path: String,
+    handler: Box<dyn Handler>,
+}
+
+pub trait Handler: Send + Sync {
+    fn handle(&self, ctx: &RequestContext) -> ApiResult<ResponseBuilder>;
+}
+
+impl Router {
+    pub fn new() -> Self {
+        Self { routes: Vec::new() }
+    }
+
+    pub fn get<H: Handler + 'static>(&mut self, path: &str, handler: H) -> &mut Self {
+        self.routes.push(Route {
+            method: Method::Get,
+            path: path.to_string(),
+            handler: Box::new(handler),
+        });
+        self
+    }
+
+    pub fn post<H: Handler + 'static>(&mut self, path: &str, handler: H) -> &mut Self {
+        self.routes.push(Route {
+            method: Method::Post,
+            path: path.to_string(),
+            handler: Box::new(handler),
+        });
+        self
+    }
+
+    pub fn route(&self, method: Method, path: &str) -> Option<&dyn Handler> {
+        self.routes.iter()
+            .find(|r| r.method == method && r.path == path)
+            .map(|r| r.handler.as_ref())
+    }
+}
+
+// Health check endpoint
+pub struct HealthHandler;
+impl Handler for HealthHandler {
+    fn handle(&self, _ctx: &RequestContext) -> ApiResult<ResponseBuilder> {
+        Ok(ResponseBuilder::new().status(200).body("ok"))
+    }
+}
+
+// User endpoints
+pub struct GetUserHandler;
+impl Handler for GetUserHandler {
+    fn handle(&self, ctx: &RequestContext) -> ApiResult<ResponseBuilder> {
+        let user_id = ctx.param("id").ok_or(ApiError::BadRequest)?;
+        // Fetch user from database
+        Ok(ResponseBuilder::new().status(200).json(&user_id))
+    }
+}
+
+pub struct ListUsersHandler;
+impl Handler for ListUsersHandler {
+    fn handle(&self, ctx: &RequestContext) -> ApiResult<ResponseBuilder> {
+        let limit = ctx.query("limit").unwrap_or(20);
+        let offset = ctx.query("offset").unwrap_or(0);
+        // Paginated user list
+        Ok(ResponseBuilder::new().status(200).json(&(limit, offset)))
+    }
+}
+
+// Post endpoints
+pub struct GetPostHandler;
+impl Handler for GetPostHandler {
+    fn handle(&self, ctx: &RequestContext) -> ApiResult<ResponseBuilder> {
+        let post_id = ctx.param("id").ok_or(ApiError::BadRequest)?;
+        Ok(ResponseBuilder::new().status(200).json(&post_id))
+    }
+}
+
+pub struct CreatePostHandler;
+impl Handler for CreatePostHandler {
+    fn handle(&self, ctx: &RequestContext) -> ApiResult<ResponseBuilder> {
+        let body = ctx.body().ok_or(ApiError::BadRequest)?;
+        // Validate and create post
+        Ok(ResponseBuilder::new().status(201).json(&body))
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Method { Get, Post, Put, Delete }
+"#,
+    )
+    .unwrap();
+    run_git(&repo, &["add", "api.rs", "routes.rs"], &feature_api);
+    repo.commit_staged_with_age("Refactor API to REST modules", 4 * HOUR, &feature_api);
+    run_git(
+        &repo,
+        &["push", "-u", "origin", "feature-api"],
+        &feature_api,
+    );
+
+    // More commits (ahead of remote - unpushed local work)
     std::fs::write(
         feature_api.join("middleware.rs"),
-        "// Caching middleware\nuse std::collections::HashMap;\n\npub struct Cache<T> {\n    store: HashMap<String, T>,\n    ttl_seconds: u64,\n}\n\nimpl<T> Cache<T> {\n    pub fn get(&self, key: &str) -> Option<&T> {\n        self.store.get(key)\n    }\n}\n",
+        r#"//! Middleware stack for request processing
+use std::time::Instant;
+use std::collections::HashMap;
+
+/// Context passed through the middleware chain
+pub struct RequestContext {
+    pub user_id: Option<u32>,
+    pub started_at: Instant,
+    pub headers: HashMap<String, String>,
+    pub params: HashMap<String, String>,
+    pub query: HashMap<String, String>,
+    body: Option<Vec<u8>>,
+}
+
+impl RequestContext {
+    pub fn new() -> Self {
+        Self {
+            user_id: None,
+            started_at: Instant::now(),
+            headers: HashMap::new(),
+            params: HashMap::new(),
+            query: HashMap::new(),
+            body: None,
+        }
+    }
+
+    pub fn param(&self, key: &str) -> Option<&str> {
+        self.params.get(key).map(|s| s.as_str())
+    }
+
+    pub fn query<T: std::str::FromStr>(&self, key: &str) -> Option<T> {
+        self.query.get(key).and_then(|s| s.parse().ok())
+    }
+
+    pub fn body(&self) -> Option<&[u8]> {
+        self.body.as_deref()
+    }
+
+    pub fn header(&self, key: &str) -> Option<&str> {
+        self.headers.get(key).map(|s| s.as_str())
+    }
+}
+
+/// Builder for HTTP responses
+pub struct ResponseBuilder {
+    status: u16,
+    headers: HashMap<String, String>,
+    body: Option<Vec<u8>>,
+}
+
+impl ResponseBuilder {
+    pub fn new() -> Self {
+        Self {
+            status: 200,
+            headers: HashMap::new(),
+            body: None,
+        }
+    }
+
+    pub fn status(mut self, code: u16) -> Self {
+        self.status = code;
+        self
+    }
+
+    pub fn header(mut self, key: &str, value: &str) -> Self {
+        self.headers.insert(key.to_string(), value.to_string());
+        self
+    }
+
+    pub fn body(mut self, content: &str) -> Self {
+        self.body = Some(content.as_bytes().to_vec());
+        self
+    }
+
+    pub fn json<T: serde::Serialize>(mut self, value: &T) -> Self {
+        self.headers.insert("Content-Type".into(), "application/json".into());
+        self.body = serde_json::to_vec(value).ok();
+        self
+    }
+}
+
+/// Timing middleware for performance monitoring
+pub fn timing<F, R>(name: &str, f: F) -> R where F: FnOnce() -> R {
+    let start = Instant::now();
+    let result = f();
+    log::debug!("{} completed in {:?}", name, start.elapsed());
+    result
+}
+
+/// Authentication middleware
+pub fn authenticate(ctx: &mut RequestContext) -> Result<(), AuthError> {
+    let token = ctx.header("Authorization")
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or(AuthError::MissingToken)?;
+
+    let user_id = validate_token(token)?;
+    ctx.user_id = Some(user_id);
+    Ok(())
+}
+
+fn validate_token(token: &str) -> Result<u32, AuthError> {
+    // Token validation logic
+    if token.len() < 32 { return Err(AuthError::InvalidToken); }
+    Ok(1) // Placeholder
+}
+
+pub enum AuthError { MissingToken, InvalidToken }
+"#,
     )
     .unwrap();
-    // Modify validation.rs: remove some lines, add others (creates both + and -)
+    run_git(&repo, &["add", "middleware.rs"], &feature_api);
+    repo.commit_staged_with_age("Add request middleware", 3 * HOUR, &feature_api);
+
     std::fs::write(
         feature_api.join("validation.rs"),
-        "// Request validation (refactored)\npub fn validate(req: &Request) -> Result<(), ValidationError> {\n    validate_body(&req.body)?;\n    validate_auth(&req.headers)?;\n    Ok(())\n}\n\nfn validate_body(body: &[u8]) -> Result<(), ValidationError> {\n    if body.is_empty() { return Err(ValidationError::Empty); }\n    if body.len() > MAX_SIZE { return Err(ValidationError::TooLarge); }\n    Ok(())\n}\n",
+        r#"//! Request validation
+pub fn validate(body: &[u8], headers: &Headers) -> Result<(), Error> {
+    if body.is_empty() { return Err(Error::EmptyBody); }
+    if body.len() > MAX_SIZE { return Err(Error::TooLarge); }
+    if !headers.contains_key("Authorization") { return Err(Error::Unauthorized); }
+    Ok(())
+}
+"#,
     )
     .unwrap();
+    run_git(&repo, &["add", "validation.rs"], &feature_api);
+    repo.commit_staged_with_age("Add request validation", 2 * HOUR, &feature_api);
+
+    std::fs::write(
+        feature_api.join("tests.rs"),
+        r#"//! API tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_health() { assert_eq!(routes::health(), "ok"); }
+
+    #[test]
+    fn test_validation_empty() {
+        assert!(validation::validate(&[], &headers()).is_err());
+    }
+}
+"#,
+    )
+    .unwrap();
+    run_git(&repo, &["add", "tests.rs"], &feature_api);
+    repo.commit_staged_with_age("Add API tests", 30 * MINUTE, &feature_api);
+
+    // Staged changes: new files + refactor existing (creates mixed +/- for HEAD±)
+    // Adding caching and rate limiting, plus refactoring validation
+    std::fs::write(
+        feature_api.join("cache.rs"),
+        r#"//! Caching layer
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+pub struct Cache<T> {
+    store: HashMap<String, (T, Instant)>,
+    ttl: Duration,
+}
+
+impl<T: Clone> Cache<T> {
+    pub fn new(ttl_secs: u64) -> Self {
+        Self { store: HashMap::new(), ttl: Duration::from_secs(ttl_secs) }
+    }
+    pub fn get(&self, key: &str) -> Option<T> {
+        self.store.get(key).and_then(|(v, t)| {
+            if t.elapsed() < self.ttl { Some(v.clone()) } else { None }
+        })
+    }
+}
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        feature_api.join("rate_limit.rs"),
+        r#"//! Rate limiting
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+pub struct RateLimiter {
+    requests: HashMap<String, Vec<Instant>>,
+    window: Duration,
+    limit: u32,
+}
+
+impl RateLimiter {
+    pub fn check(&mut self, key: &str) -> bool {
+        let now = Instant::now();
+        let reqs = self.requests.entry(key.to_string()).or_default();
+        reqs.retain(|t| now.duration_since(*t) < self.window);
+        reqs.len() < self.limit as usize
+    }
+}
+"#,
+    )
+    .unwrap();
+    // Refactor validation.rs to use the new error types
+    std::fs::write(
+        feature_api.join("validation.rs"),
+        r#"//! Request validation (refactored)
+use crate::error::ValidationError;
+
+pub fn validate(body: &[u8], headers: &Headers) -> Result<(), ValidationError> {
+    validate_body(body)?;
+    validate_headers(headers)?;
+    Ok(())
+}
+
+fn validate_body(body: &[u8]) -> Result<(), ValidationError> {
+    if body.is_empty() { return Err(ValidationError::Empty); }
+    if body.len() > MAX_SIZE { return Err(ValidationError::TooLarge); }
+    Ok(())
+}
+
+fn validate_headers(h: &Headers) -> Result<(), ValidationError> {
+    h.get("Authorization").ok_or(ValidationError::Unauthorized)?;
+    Ok(())
+}
+"#,
+    )
+    .unwrap();
+    run_git(
+        &repo,
+        &["add", "cache.rs", "rate_limit.rs", "validation.rs"],
+        &feature_api,
+    );
+
+    // === Create branches without worktrees ===
+    // These demonstrate the --branches flag showing branch-only entries
+
+    // Create 'exp' branch with commits (experimental GraphQL work)
+    // Narrative: Someone explored GraphQL as an alternative to REST, got pretty far with
+    // schema design and resolvers, but the team decided to stick with REST for now.
+    let exp_wt = repo.root_path().parent().unwrap().join("temp-exp");
+    run_git(
+        &repo,
+        &["worktree", "add", "-b", "exp", exp_wt.to_str().unwrap()],
+        repo.root_path(),
+    );
+
+    std::fs::write(
+        exp_wt.join("graphql.rs"),
+        r#"//! GraphQL schema exploration - evaluating GraphQL for real-time subscriptions
+//!
+//! This spike branch explores whether GraphQL could replace REST for the subscription
+//! API. Key evaluation criteria:
+//! - Real-time updates via subscriptions
+//! - Efficient data fetching (avoid over-fetching)
+//! - Type safety with code generation
+
+use async_graphql::*;
+
+/// Core user type with all fields exposed via GraphQL
+#[derive(SimpleObject, Clone)]
+pub struct User {
+    pub id: ID,
+    pub name: String,
+    pub email: String,
+    pub avatar_url: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Blog post with author relationship
+#[derive(SimpleObject, Clone)]
+pub struct Post {
+    pub id: ID,
+    pub title: String,
+    pub body: String,
+    pub author: User,
+    pub published_at: Option<DateTime<Utc>>,
+    pub tags: Vec<String>,
+}
+
+/// Comment on a post
+#[derive(SimpleObject, Clone)]
+pub struct Comment {
+    pub id: ID,
+    pub body: String,
+    pub author: User,
+    pub post_id: ID,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Subscription events for real-time updates
+#[derive(Clone)]
+pub enum SubscriptionEvent {
+    PostCreated(Post),
+    PostUpdated(Post),
+    CommentAdded { post_id: ID, comment: Comment },
+}
+
+/// Pagination support
+#[derive(InputObject)]
+pub struct PaginationInput {
+    pub limit: Option<i32>,
+    pub offset: Option<i32>,
+    pub cursor: Option<String>,
+}
+
+#[derive(SimpleObject)]
+pub struct PageInfo {
+    pub has_next_page: bool,
+    pub has_previous_page: bool,
+    pub start_cursor: Option<String>,
+    pub end_cursor: Option<String>,
+}
+"#,
+    )
+    .unwrap();
+    run_git(&repo, &["add", "graphql.rs"], &exp_wt);
+    repo.commit_staged_with_age("Explore GraphQL schema design", 2 * DAY, &exp_wt);
+
+    std::fs::write(
+        exp_wt.join("resolvers.rs"),
+        r#"//! GraphQL resolvers - Query, Mutation, and Subscription roots
+use crate::graphql::*;
+use async_graphql::*;
+
+pub struct QueryRoot;
+
+#[Object]
+impl QueryRoot {
+    /// Fetch a single user by ID
+    async fn user(&self, ctx: &Context<'_>, id: ID) -> Result<Option<User>> {
+        let db = ctx.data::<Database>()?;
+        Ok(db.get_user(&id).await?)
+    }
+
+    /// List users with pagination
+    async fn users(&self, ctx: &Context<'_>, pagination: Option<PaginationInput>) -> Result<Vec<User>> {
+        let db = ctx.data::<Database>()?;
+        let page = pagination.unwrap_or_default();
+        Ok(db.list_users(page.limit.unwrap_or(20), page.offset.unwrap_or(0)).await?)
+    }
+
+    /// Fetch a single post by ID
+    async fn post(&self, ctx: &Context<'_>, id: ID) -> Result<Option<Post>> {
+        let db = ctx.data::<Database>()?;
+        Ok(db.get_post(&id).await?)
+    }
+
+    /// List posts with optional author filter
+    async fn posts(&self, ctx: &Context<'_>, author_id: Option<ID>) -> Result<Vec<Post>> {
+        let db = ctx.data::<Database>()?;
+        match author_id {
+            Some(id) => Ok(db.posts_by_author(&id).await?),
+            None => Ok(db.list_posts().await?),
+        }
+    }
+}
+
+pub struct MutationRoot;
+
+#[Object]
+impl MutationRoot {
+    /// Create a new post
+    async fn create_post(&self, ctx: &Context<'_>, title: String, body: String) -> Result<Post> {
+        let db = ctx.data::<Database>()?;
+        let user = ctx.data::<AuthenticatedUser>()?;
+        let post = db.create_post(user.id.clone(), title, body).await?;
+        Ok(post)
+    }
+
+    /// Add a comment to a post
+    async fn add_comment(&self, ctx: &Context<'_>, post_id: ID, body: String) -> Result<Comment> {
+        let db = ctx.data::<Database>()?;
+        let user = ctx.data::<AuthenticatedUser>()?;
+        let comment = db.add_comment(user.id.clone(), post_id, body).await?;
+        Ok(comment)
+    }
+}
+
+pub struct SubscriptionRoot;
+
+#[Subscription]
+impl SubscriptionRoot {
+    /// Subscribe to new comments on a post
+    async fn comment_added(&self, post_id: ID) -> impl Stream<Item = Comment> {
+        todo!("Implement subscription stream")
+    }
+
+    /// Subscribe to all post updates
+    async fn post_updates(&self) -> impl Stream<Item = Post> {
+        todo!("Implement subscription stream")
+    }
+}
+"#,
+    )
+    .unwrap();
+    run_git(&repo, &["add", "resolvers.rs"], &exp_wt);
+    repo.commit_staged_with_age("Add GraphQL resolvers scaffold", 2 * DAY, &exp_wt);
+
+    // Remove the worktree but keep the branch
+    run_git(
+        &repo,
+        &["worktree", "remove", exp_wt.to_str().unwrap()],
+        repo.root_path(),
+    );
+
+    // Create 'wip' branch with commits (work-in-progress docs)
+    // Narrative: Someone started API docs last week. Main has since advanced
+    // (fix-auth was merged), so wip is now behind and needs a rebase.
+
+    // Save current main commit, then add a commit to main (simulating fix-auth merge)
+    let wip_base = {
+        let output = std::process::Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(repo.root_path())
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    };
+
+    // Add commit to main (simulating fix-auth being merged while wip was idle)
+    repo.commit_with_age("Merge fix-auth: hardened token validation", 4 * DAY);
+
+    // Create wip from the earlier commit (before main advanced)
+    let wip_wt = repo.root_path().parent().unwrap().join("temp-wip");
+    run_git(
+        &repo,
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "wip",
+            wip_wt.to_str().unwrap(),
+            &wip_base,
+        ],
+        repo.root_path(),
+    );
+
+    std::fs::write(
+        wip_wt.join("API.md"),
+        r#"# API Documentation
+
+## Overview
+
+This document describes the REST API endpoints for the application.
+
+## Authentication
+
+All endpoints require a valid Bearer token in the `Authorization` header.
+
+```
+Authorization: Bearer <token>
+```
+
+## Endpoints
+
+### Users
+
+- `GET /users` - List all users (paginated)
+- `GET /users/:id` - Get user by ID
+- `POST /users` - Create new user
+
+### Posts
+
+- `GET /posts` - List all posts
+- `GET /posts/:id` - Get post by ID
+- `POST /posts` - Create new post
+
+## Error Responses
+
+All errors return JSON with `error` and `message` fields.
+
+TODO: Add request/response examples for each endpoint
+"#,
+    )
+    .unwrap();
+    run_git(&repo, &["add", "API.md"], &wip_wt);
+    repo.commit_staged_with_age("Start API documentation", 3 * DAY, &wip_wt);
+
+    // Remove the worktree but keep the branch
+    run_git(
+        &repo,
+        &["worktree", "remove", wip_wt.to_str().unwrap()],
+        repo.root_path(),
+    );
+
+    // === Mock CI status ===
+    // CI requires --full flag, but we mock it so examples show realistic output
+    // Note: main's CI is mocked AFTER the merge commit so the hash matches
+    mock_ci_status(&repo, "main", "passed", "pullrequest", false);
+    mock_ci_status(&repo, "fix-auth", "passed", "pullrequest", false);
+    // feature-api has unpushed commits, so CI is stale (shows dimmed)
+    mock_ci_status(&repo, "feature-api", "running", "pullrequest", true);
+
+    (repo, feature_api)
+}
+
+/// Helper to run git commands
+fn run_git(repo: &TestRepo, args: &[&str], cwd: &std::path::Path) {
     let mut cmd = Command::new("git");
     repo.configure_git_cmd(&mut cmd);
-    cmd.args(["add", "api.rs", "middleware.rs", "validation.rs"])
-        .current_dir(&feature_api)
+    cmd.args(args).current_dir(cwd).output().unwrap();
+}
+
+/// Mock CI status by writing to git config cache
+fn mock_ci_status(repo: &TestRepo, branch: &str, status: &str, source: &str, is_stale: bool) {
+    // Get HEAD commit for the branch
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    let output = cmd
+        .args(["rev-parse", branch])
+        .current_dir(repo.root_path())
         .output()
         .unwrap();
+    let head = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    // Run from feature-api (we just switched there in step 3)
-    snapshot_list_from_dir("readme_example_simple_list", &repo, &feature_api);
+    // Build the cache JSON (matches CachedCiStatus struct)
+    let cache_json = format!(
+        r#"{{"status":{{"ci_status":"{}","source":"{}","is_stale":{}}},"checked_at":{},"head":"{}"}}"#,
+        status,
+        source,
+        is_stale,
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        head
+    );
+
+    // Write to git config
+    let config_key = format!("worktrunk.ci.{}", branch);
+    let mut cmd = Command::new("git");
+    repo.configure_git_cmd(&mut cmd);
+    cmd.args(["config", &config_key, &cache_json])
+        .current_dir(repo.root_path())
+        .output()
+        .unwrap();
+}
+
+/// Generate README example: Basic `wt list` output
+///
+/// Shows worktree states with status symbols, divergence, and remote tracking.
+/// Uses narrower width (100 cols) to fit in doc site code blocks.
+/// Output: tests/snapshots/integration__integration_tests__list__readme_example_list.snap
+#[test]
+fn test_readme_example_list() {
+    let (repo, feature_api) = setup_readme_example_repo();
+    snapshot_readme_list_from_dir("readme_example_list", &repo, &feature_api);
+}
+
+/// Generate README example: `wt list --full` output
+///
+/// Shows additional columns: main…± (line diffs in commits) and CI status.
+/// Uses narrower width (100 cols) to fit in doc site code blocks.
+/// Output: tests/snapshots/integration__integration_tests__list__readme_example_list_full.snap
+#[test]
+fn test_readme_example_list_full() {
+    let (repo, feature_api) = setup_readme_example_repo();
+    snapshot_readme_list_full_from_dir("readme_example_list_full", &repo, &feature_api);
+}
+
+/// Generate README example: `wt list --branches --full` output
+///
+/// Shows branches without worktrees (⎇ symbol) alongside worktrees, plus CI status.
+/// Uses narrower width (100 cols) to fit in doc site code blocks.
+/// Output: tests/snapshots/integration__integration_tests__list__readme_example_list_branches.snap
+#[test]
+fn test_readme_example_list_branches() {
+    let (repo, feature_api) = setup_readme_example_repo();
+    snapshot_readme_list_branches_full_from_dir(
+        "readme_example_list_branches",
+        &repo,
+        &feature_api,
+    );
 }
 
 #[test]

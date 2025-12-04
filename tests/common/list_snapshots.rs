@@ -26,6 +26,16 @@ pub fn command(repo: &TestRepo, cwd: &Path) -> Command {
     cmd
 }
 
+/// Width for README examples - fits comfortably in doc site code blocks
+/// Increased from 100 to accommodate realistic line diffs (+234 -24) without truncation
+pub const README_COLUMNS: &str = "115";
+
+pub fn command_readme(repo: &TestRepo, cwd: &Path) -> Command {
+    let mut cmd = command(repo, cwd);
+    cmd.env("COLUMNS", README_COLUMNS);
+    cmd
+}
+
 pub fn command_json(repo: &TestRepo) -> Command {
     let mut cmd = command(repo, repo.root_path());
     cmd.arg("--format=json");
@@ -101,5 +111,22 @@ pub fn command_task_dag_from_dir(repo: &TestRepo, cwd: &Path) -> Command {
     let mut cmd = wt_command();
     repo.clean_cli_env(&mut cmd);
     cmd.args(["list", "--progressive"]).current_dir(cwd);
+    cmd
+}
+
+// README example commands - use narrower width for doc site code blocks
+pub fn command_readme_from_dir(repo: &TestRepo, cwd: &Path) -> Command {
+    command_readme(repo, cwd)
+}
+
+pub fn command_readme_full_from_dir(repo: &TestRepo, cwd: &Path) -> Command {
+    let mut cmd = command_readme(repo, cwd);
+    cmd.arg("--full");
+    cmd
+}
+
+pub fn command_readme_branches_full_from_dir(repo: &TestRepo, cwd: &Path) -> Command {
+    let mut cmd = command_readme(repo, cwd);
+    cmd.args(["--branches", "--full"]);
     cmd
 }

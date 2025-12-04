@@ -88,16 +88,16 @@ $ wt switch feature-api
 
 ### 4. List worktrees
 
-<!-- ⚠️ AUTO-GENERATED from tests/snapshots/integration__integration_tests__list__readme_example_simple_list.snap — edit source to update -->
+<!-- ⚠️ AUTO-GENERATED from tests/snapshots/integration__integration_tests__list__readme_example_list.snap — edit source to update -->
 
-```bash
+```console
 $ wt list
   Branch       Status         HEAD±    main↕  Path                Remote⇅  Commit    Age   Message
-@ feature-api  +   ↑⇡      +36  -11   ↑4      ./repo.feature-api   ⇡3      b1554967  30m   Add API tests
-^ main             ^⇣                         ./repo                   ⇣1  b834638e  1d    Initial commit
-+ fix-auth        _                           ./repo.fix-auth              b834638e  1d    Initial commit
+@ feature-api  +   ↕⇡      +54   -5   ↑4  ↓1  ./repo.feature-api   ⇡3      28d38c20  30m   Add API tests
+^ main             ^⇅                         ./repo               ⇡1  ⇣1  2e6b7a8f  4d    Merge fix-auth:…
++ fix-auth         ↕|                 ↑2  ↓1  ./repo.fix-auth        |     1d697d5b  5h    Add secure token…
 
-⚪ Showing 3 worktrees, 1 with changes, 1 ahead
+⚪ Showing 3 worktrees, 1 with changes, 2 ahead
 ```
 
 <!-- END AUTO-GENERATED -->
@@ -833,26 +833,29 @@ The table renders progressively: branch names, paths, and commit hashes appear i
 
 List all worktrees:
 
+<!-- wt list -->
 ```bash
-wt list
+$ wt list
 ```
 
 Include CI status and conflict detection:
 
+<!-- wt list --full -->
 ```bash
-wt list --full
+$ wt list --full
 ```
 
 Include branches that don't have worktrees:
 
+<!-- wt list --branches --full -->
 ```bash
-wt list --branches
+$ wt list --branches --full
 ```
 
 Output as JSON for scripting:
 
 ```bash
-wt list --format=json
+$ wt list --format=json
 ```
 
 ### Columns

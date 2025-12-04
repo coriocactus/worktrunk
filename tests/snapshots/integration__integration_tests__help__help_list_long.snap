@@ -65,19 +65,19 @@ The table renders progressively: branch names, paths, and commit hashes appear i
 
 List all worktrees:
 
-  [2mwt list[0m
+  [2m$ wt list[0m
 
 Include CI status and conflict detection:
 
-  [2mwt list --full[0m
+  [2m$ wt list --full[0m
 
 Include branches that don't have worktrees:
 
-  [2mwt list --branches[0m
+  [2m$ wt list --branches --full[0m
 
 Output as JSON for scripting:
 
-  [2mwt list --format=json[0m
+  [2m$ wt list --format=json[0m
 
 [32mColumns[0m
 

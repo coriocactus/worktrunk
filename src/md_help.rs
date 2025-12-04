@@ -13,6 +13,12 @@ pub fn render_markdown_in_help(help: &str) -> String {
     for line in help.lines() {
         let trimmed = line.trim_start();
 
+        // Skip HTML comments (expansion markers for web docs, see readme_sync.rs)
+        // Only matches single-line comments; multi-line would span multiple iterations
+        if trimmed.starts_with("<!--") && trimmed.ends_with("-->") {
+            continue;
+        }
+
         // Track code block state
         if trimmed.starts_with("```") {
             in_code_block = !in_code_block;
