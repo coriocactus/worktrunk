@@ -40,8 +40,8 @@ Toggle between views with number keys:
 
 ## See Also
 
-- [wt list](/list/) — Static table view with all worktree metadata
-- [wt switch](/switch/) — Direct switching when you know the target branch
+- [wt list](@/list.md) — Static table view with all worktree metadata
+- [wt switch](@/switch.md) — Direct switching when you know the target branch
 
 ---
 

@@ -82,4 +82,4 @@ Add to `~/.claude/settings.json`:
 
 Type to filter, use arrow keys or `j`/`k` to navigate, Enter to switch. Preview tabs show working tree changes, commit history, or branch diff — toggle with `1`/`2`/`3`.
 
-See [wt select](/commands/#wt-select) for full keyboard shortcuts and details.
+See [wt select](@/select.md) for full keyboard shortcuts and details.

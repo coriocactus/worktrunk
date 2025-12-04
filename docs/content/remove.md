@@ -61,8 +61,8 @@ If `repo.foo/` exists on branch `bar`, both `wt remove foo` and `wt remove bar` 
 
 ## See Also
 
-- [wt merge](/merge/) — Remove worktree after merging
-- [wt list](/list/) — View all worktrees
+- [wt merge](@/merge.md) — Remove worktree after merging
+- [wt list](@/list.md) — View all worktrees
 
 ---
 

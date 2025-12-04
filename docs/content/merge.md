@@ -48,7 +48,7 @@ wt merge --no-commit
 
 3. **Rebase** — Rebases onto the target branch. Conflicts abort immediately.
 
-4. **Pre-merge hooks** — Project commands run after rebase, before push. Failures abort. See [Hooks](/hooks/).
+4. **Pre-merge hooks** — Project commands run after rebase, before push. Failures abort. See [Hooks](@/hooks.md).
 
 5. **Push** — Fast-forward push to the target branch. Non-fast-forward pushes are rejected.
 
@@ -60,9 +60,9 @@ Use `--no-commit` to skip steps 1-3 and only run hooks and push. Requires a clea
 
 ## See Also
 
-- [wt step](/step/) — Run individual merge steps (commit, squash, rebase, push)
-- [wt remove](/remove/) — Remove worktrees without merging
-- [wt switch](/switch/) — Navigate to other worktrees
+- [wt step](@/step.md) — Run individual merge steps (commit, squash, rebase, push)
+- [wt remove](@/remove.md) — Remove worktrees without merging
+- [wt switch](@/switch.md) — Navigate to other worktrees
 
 ---
 

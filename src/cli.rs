@@ -701,7 +701,7 @@ Personal settings like LLM commit generation, path templates, and default behavi
 
 **Project config** — `.config/wt.toml` in repository root:
 
-Project-specific hooks: post-create, post-start, pre-commit, pre-merge, post-merge. See [Hooks](/hooks/) for details.
+Project-specific hooks: post-create, post-start, pre-commit, pre-merge, post-merge. See [Hooks](@/hooks.md) for details.
 
 ## LLM Commit Messages
 
@@ -712,7 +712,7 @@ Worktrunk can generate commit messages using an LLM. Enable in user config:
 command = "llm"
 ```
 
-See [LLM Commits](/llm-commits/) for installation, provider setup, and customization.
+See [LLM Commits](@/llm-commits.md) for installation, provider setup, and customization.
 "#
     )]
     Config {
@@ -723,7 +723,7 @@ See [LLM Commits](/llm-commits/) for installation, provider setup, and customiza
     /// Run individual workflow operations
     #[command(
         name = "step",
-        after_long_help = r#"Run individual workflow operations: commits, squashes, rebases, pushes, and [hooks](/hooks/).
+        after_long_help = r#"Run individual workflow operations: commits, squashes, rebases, pushes, and [hooks](@/hooks.md).
 
 ## Examples
 
@@ -753,12 +753,12 @@ wt step push
 
 **Git operations:**
 
-- `commit` — Stage and commit with [LLM-generated message](/llm-commits/)
-- `squash` — Squash all branch commits into one with [LLM-generated message](/llm-commits/)
+- `commit` — Stage and commit with [LLM-generated message](@/llm-commits.md)
+- `squash` — Squash all branch commits into one with [LLM-generated message](@/llm-commits.md)
 - `rebase` — Rebase onto target branch
 - `push` — Push to target branch (default: main)
 
-**Hooks** — run project commands defined in [`.config/wt.toml`](/hooks/):
+**Hooks** — run project commands defined in [`.config/wt.toml`](@/hooks.md):
 
 - `post-create` — After worktree creation
 - `post-start` — After switching to a worktree
@@ -768,7 +768,7 @@ wt step push
 
 ## See Also
 
-- [wt merge](/merge/) — Runs commit → squash → rebase → hooks → push → cleanup automatically
+- [wt merge](@/merge.md) — Runs commit → squash → rebase → hooks → push → cleanup automatically
 "#
     )]
     Step {
@@ -813,8 +813,8 @@ Toggle between views with number keys:
 
 ## See Also
 
-- [wt list](/list/) — Static table view with all worktree metadata
-- [wt switch](/switch/) — Direct switching when you know the target branch
+- [wt list](@/list.md) — Static table view with all worktree metadata
+- [wt switch](@/switch.md) — Direct switching when you know the target branch
 "#
     )]
     Select,
@@ -935,11 +935,11 @@ wt list --format=json | jq '.[] | select(.status.main_divergence == "Ahead")'
 **Position fields:**
 - `is_main` — Main worktree
 - `is_current` — Current directory
-- `is_previous` — Previous worktree from [wt switch](/switch/)
+- `is_previous` — Previous worktree from [wt switch](@/switch.md)
 
 ## See Also
 
-- [wt select](/select/) — Interactive worktree picker with live preview
+- [wt select](@/select.md) — Interactive worktree picker with live preview
 "#
     )]
     #[command(args_conflicts_with_subcommands = true)]
@@ -979,7 +979,7 @@ wt list --format=json | jq '.[] | select(.status.main_divergence == "Ahead")'
     #[command(after_long_help = r#"Two distinct operations:
 
 - **Switch to existing worktree** — Changes directory, nothing else
-- **Create new worktree** (`--create`) — Creates branch and worktree, runs [hooks](/hooks/)
+- **Create new worktree** (`--create`) — Creates branch and worktree, runs [hooks](@/hooks.md)
 
 ## Examples
 
@@ -990,7 +990,7 @@ wt switch --create new-feature   # Create branch and worktree
 wt switch --create hotfix --base production
 ```
 
-For interactive selection, use [`wt select`](/select/).
+For interactive selection, use [`wt select`](@/select.md).
 
 ## Creating Worktrees
 
@@ -998,9 +998,9 @@ With `--create`, worktrunk:
 
 1. Creates branch from `--base` (defaults to default branch)
 2. Creates worktree at configured path
-3. Runs [post-create hooks](/hooks/#post-create) (blocking)
+3. Runs [post-create hooks](@/hooks.md#post-create) (blocking)
 4. Switches to new directory
-5. Spawns [post-start hooks](/hooks/#post-start) (background)
+5. Spawns [post-start hooks](@/hooks.md#post-start) (background)
 
 ```console
 wt switch --create api-refactor
@@ -1037,10 +1037,10 @@ Arguments resolve by checking the filesystem before git branches:
 
 ## See Also
 
-- [wt select](/select/) — Interactive worktree selection
-- [wt list](/list/) — View all worktrees
-- [wt remove](/remove/) — Delete worktrees when done
-- [wt merge](/merge/) — Integrate changes back to main
+- [wt select](@/select.md) — Interactive worktree selection
+- [wt list](@/list.md) — View all worktrees
+- [wt remove](@/remove.md) — Delete worktrees when done
+- [wt merge](@/merge.md) — Integrate changes back to main
 "#)]
     Switch {
         /// Branch or worktree name
@@ -1127,8 +1127,8 @@ If `repo.foo/` exists on branch `bar`, both `wt remove foo` and `wt remove bar` 
 
 ## See Also
 
-- [wt merge](/merge/) — Remove worktree after merging
-- [wt list](/list/) — View all worktrees
+- [wt merge](@/merge.md) — Remove worktree after merging
+- [wt list](@/list.md) — View all worktrees
 "#
     )]
     Remove {
@@ -1191,7 +1191,7 @@ wt merge --no-commit
 
 3. **Rebase** — Rebases onto the target branch. Conflicts abort immediately.
 
-4. **Pre-merge hooks** — Project commands run after rebase, before push. Failures abort. See [Hooks](/hooks/).
+4. **Pre-merge hooks** — Project commands run after rebase, before push. Failures abort. See [Hooks](@/hooks.md).
 
 5. **Push** — Fast-forward push to the target branch. Non-fast-forward pushes are rejected.
 
@@ -1203,9 +1203,9 @@ Use `--no-commit` to skip steps 1-3 and only run hooks and push. Requires a clea
 
 ## See Also
 
-- [wt step](/step/) — Run individual merge steps (commit, squash, rebase, push)
-- [wt remove](/remove/) — Remove worktrees without merging
-- [wt switch](/switch/) — Navigate to other worktrees
+- [wt step](@/step.md) — Run individual merge steps (commit, squash, rebase, push)
+- [wt remove](@/remove.md) — Remove worktrees without merging
+- [wt switch](@/switch.md) — Navigate to other worktrees
 "#
     )]
     Merge {

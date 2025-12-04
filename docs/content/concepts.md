@@ -36,12 +36,12 @@ Worktrunk addresses worktrees by branch name rather than filesystem path, using 
 
 Beyond simplifying common tasks, Worktrunk adds features that git worktrees don't provide.
 
-**[LLM commit messages](/llm-commits/)** generate commit messages from diffs using external tools like [llm](https://llm.datasette.io/). Works for regular commits and squash commits during merge.
+**[LLM commit messages](@/llm-commits.md)** generate commit messages from diffs using external tools like [llm](https://llm.datasette.io/). Works for regular commits and squash commits during merge.
 
-**[Lifecycle hooks](/hooks/)** run project-defined commands at key points: worktree creation, switching, and merging. Use them for dependency installation, dev servers, formatters, tests, or deployment.
+**[Lifecycle hooks](@/hooks.md)** run project-defined commands at key points: worktree creation, switching, and merging. Use them for dependency installation, dev servers, formatters, tests, or deployment.
 
-**[Unified status](/list/)** shows changes, ahead/behind counts, diff stats, and commit messages across all worktrees. With `--full`, it adds CI status (GitHub/GitLab), conflict detection, and line-level diffs against main.
+**[Unified status](@/list.md)** shows changes, ahead/behind counts, diff stats, and commit messages across all worktrees. With `--full`, it adds CI status (GitHub/GitLab), conflict detection, and line-level diffs against main.
 
 **Safe cleanup** validates that changes are integrated before deleting worktrees and branches.
 
-**[Merge workflow](/merge/)** handles the full pipeline: stage, squash, rebase, run hooks, push, and clean up.
+**[Merge workflow](@/merge.md)** handles the full pipeline: stage, squash, rebase, run hooks, push, and clean up.

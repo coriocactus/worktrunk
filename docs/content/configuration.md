@@ -83,7 +83,7 @@ command = "llm"
 args = ["-m", "claude-haiku-4.5"]
 ```
 
-See [LLM Commit Messages](/llm-commits/) for setup details and template customization.
+See [LLM Commit Messages](@/llm-commits.md) for setup details and template customization.
 
 ### Approved Commands
 
@@ -114,7 +114,7 @@ test = "npm test"
 lint = "npm run lint"
 ```
 
-See [Hooks](/hooks/) for complete documentation on hook types, execution order, and template variables.
+See [Hooks](@/hooks.md) for complete documentation on hook types, execution order, and template variables.
 
 ## Shell Integration
 

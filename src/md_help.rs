@@ -47,7 +47,7 @@ pub fn render_markdown_in_help(help: &str) -> String {
     colorize_status_symbols(&result)
 }
 
-/// Render inline markdown formatting (bold, inline code)
+/// Render inline markdown formatting (bold, inline code, links)
 fn render_inline_formatting(line: &str) -> String {
     let bold = Style::new().bold();
     let code = Style::new().dimmed();
@@ -78,6 +78,45 @@ fn render_inline_formatting(line: &str) -> String {
                 bold_content.push(c);
             }
             result.push_str(&format!("{bold}{bold_content}{bold:#}"));
+        } else if ch == '[' {
+            // Markdown link: [text](url) -> render just text
+            // Non-links like [text] or [text are preserved literally
+            let mut link_text = String::new();
+            let mut found_close = false;
+            let mut bracket_depth = 0;
+            for c in chars.by_ref() {
+                if c == '[' {
+                    bracket_depth += 1;
+                    link_text.push(c);
+                } else if c == ']' {
+                    if bracket_depth == 0 {
+                        found_close = true;
+                        break;
+                    }
+                    bracket_depth -= 1;
+                    link_text.push(c);
+                } else {
+                    link_text.push(c);
+                }
+            }
+            if found_close && chars.peek() == Some(&'(') {
+                chars.next(); // consume '('
+                // Skip URL until closing ')'
+                for c in chars.by_ref() {
+                    if c == ')' {
+                        break;
+                    }
+                }
+                // Render just the link text
+                result.push_str(&link_text);
+            } else {
+                // Not a valid link, output literally
+                result.push('[');
+                result.push_str(&link_text);
+                if found_close {
+                    result.push(']');
+                }
+            }
         } else {
             result.push(ch);
         }
@@ -154,4 +193,49 @@ fn colorize_status_symbols(text: &str) -> String {
             "✘ Deleted",
             &format!("{working_tree}✘{working_tree:#} Deleted"),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_render_inline_formatting_strips_links() {
+        assert_eq!(render_inline_formatting("[text](url)"), "text");
+        assert_eq!(
+            render_inline_formatting("See [Hooks](@/hooks.md) for details"),
+            "See Hooks for details"
+        );
+    }
+
+    #[test]
+    fn test_render_inline_formatting_nested_brackets() {
+        assert_eq!(
+            render_inline_formatting("[text [with brackets]](url)"),
+            "text [with brackets]"
+        );
+    }
+
+    #[test]
+    fn test_render_inline_formatting_multiple_links() {
+        assert_eq!(render_inline_formatting("[a](b) and [c](d)"), "a and c");
+    }
+
+    #[test]
+    fn test_render_inline_formatting_malformed_links() {
+        // Missing URL - preserved literally
+        assert_eq!(render_inline_formatting("[text]"), "[text]");
+        // Unclosed bracket - preserved literally
+        assert_eq!(render_inline_formatting("[text"), "[text");
+        // Not followed by ( - preserved literally
+        assert_eq!(render_inline_formatting("[text] more"), "[text] more");
+    }
+
+    #[test]
+    fn test_render_inline_formatting_preserves_bold_and_code() {
+        assert_eq!(
+            render_inline_formatting("**bold** and `code`"),
+            "\u{1b}[1mbold\u{1b}[0m and \u{1b}[2mcode\u{1b}[0m"
+        );
+    }
 }

@@ -80,11 +80,8 @@ When you're done with a worktree (e.g., after merging via CI):
 
 Worktrunk checks if your changes are already on main before deleting the branch.
 
-<!-- TODO: Add shortcuts (@, -, ^) somewhere more prominent in the docs -
-     too early for quickstart but should be discoverable -->
-
 ## Next steps
 
-- Understand [why worktrees matter](/concepts/) and how Worktrunk improves on plain git
-- Set up [project hooks](/hooks/) for automated setup
-- Explore advanced features: [LLM commit messages](/llm-commits/), [local merging](/merge/), [fzf-like picker](/select/), [Claude Code integration](/advanced/#claude-code-integration)
+- Understand [why worktrees matter](@/concepts.md) and how Worktrunk improves on plain git
+- Set up [project hooks](@/hooks.md) for automated setup
+- Explore advanced features: [LLM commit messages](@/llm-commits.md), [local merging](@/merge.md), [fzf-like picker](@/select.md), [Claude Code integration](@/advanced.md#claude-code-integration)

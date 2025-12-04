@@ -95,7 +95,7 @@ Skip git operations, only run hooks and push:
 
 3. [1mRebase[0m — Rebases onto the target branch. Conflicts abort immediately.
 
-4. [1mPre-merge hooks[0m — Project commands run after rebase, before push. Failures abort. See [Hooks](/hooks/).
+4. [1mPre-merge hooks[0m — Project commands run after rebase, before push. Failures abort. See Hooks.
 
 5. [1mPush[0m — Fast-forward push to the target branch. Non-fast-forward pushes are rejected.
 
@@ -107,6 +107,6 @@ Use [2m--no-commit[0m to skip steps 1-3 and only run hooks and push. Requires 
 
 [32mSee Also[0m
 
-- [wt step](/step/) — Run individual merge steps (commit, squash, rebase, push)
-- [wt remove](/remove/) — Remove worktrees without merging
-- [wt switch](/switch/) — Navigate to other worktrees
+- wt step — Run individual merge steps (commit, squash, rebase, push)
+- wt remove — Remove worktrees without merging
+- wt switch — Navigate to other worktrees

@@ -92,5 +92,5 @@ If [2mrepo.foo/[0m exists on branch [2mbar[0m, both [2mwt remove foo[0m an
 
 [32mSee Also[0m
 
-- [wt merge](/merge/) — Remove worktree after merging
-- [wt list](/list/) — View all worktrees
+- wt merge — Remove worktree after merging
+- wt list — View all worktrees

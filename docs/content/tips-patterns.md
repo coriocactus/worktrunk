@@ -61,7 +61,7 @@ wt config var set marker "✅" --branch feature  # Specific branch
 git config worktrunk.marker.feature "💬"        # Direct git config
 ```
 
-See [Claude Code Integration](/advanced/#claude-code-integration) for plugin installation.
+See [Claude Code Integration](@/advanced.md#claude-code-integration) for plugin installation.
 
 ## Monitor CI across branches
 
@@ -77,7 +77,7 @@ Shows PR/CI status for all branches, including those without worktrees. The CI c
 wt list --format=json
 ```
 
-Structured output for dashboards, statuslines, and scripts. See [wt list](/commands/#wt-list) for query examples.
+Structured output for dashboards, statuslines, and scripts. See [wt list](@/list.md) for query examples.
 
 ## Task runners in hooks
 

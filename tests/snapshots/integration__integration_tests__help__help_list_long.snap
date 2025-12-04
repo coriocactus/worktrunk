@@ -161,8 +161,8 @@ Query structured data with [2m--format=json[0m:
 [1mPosition fields:[0m
 - [2mis_main[0m — Main worktree
 - [2mis_current[0m — Current directory
-- [2mis_previous[0m — Previous worktree from [wt switch](/switch/)
+- [2mis_previous[0m — Previous worktree from wt switch
 
 [32mSee Also[0m
 
-- [wt select](/select/) — Interactive worktree picker with live preview
+- wt select — Interactive worktree picker with live preview

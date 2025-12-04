@@ -11,7 +11,7 @@ group = "Commands"
 Two distinct operations:
 
 - **Switch to existing worktree** — Changes directory, nothing else
-- **Create new worktree** (`--create`) — Creates branch and worktree, runs [hooks](/hooks/)
+- **Create new worktree** (`--create`) — Creates branch and worktree, runs [hooks](@/hooks.md)
 
 ## Examples
 
@@ -22,7 +22,7 @@ wt switch --create new-feature   # Create branch and worktree
 wt switch --create hotfix --base production
 ```
 
-For interactive selection, use [`wt select`](/select/).
+For interactive selection, use [`wt select`](@/select.md).
 
 ## Creating Worktrees
 
@@ -30,9 +30,9 @@ With `--create`, worktrunk:
 
 1. Creates branch from `--base` (defaults to default branch)
 2. Creates worktree at configured path
-3. Runs [post-create hooks](/hooks/#post-create) (blocking)
+3. Runs [post-create hooks](@/hooks.md#post-create) (blocking)
 4. Switches to new directory
-5. Spawns [post-start hooks](/hooks/#post-start) (background)
+5. Spawns [post-start hooks](@/hooks.md#post-start) (background)
 
 ```bash
 wt switch --create api-refactor
@@ -69,10 +69,10 @@ Arguments resolve by checking the filesystem before git branches:
 
 ## See Also
 
-- [wt select](/select/) — Interactive worktree selection
-- [wt list](/list/) — View all worktrees
-- [wt remove](/remove/) — Delete worktrees when done
-- [wt merge](/merge/) — Integrate changes back to main
+- [wt select](@/select.md) — Interactive worktree selection
+- [wt list](@/list.md) — View all worktrees
+- [wt remove](@/remove.md) — Delete worktrees when done
+- [wt merge](@/merge.md) — Integrate changes back to main
 
 ---
 

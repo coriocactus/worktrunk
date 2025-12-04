@@ -60,7 +60,7 @@ Usage: [1m[36mwt switch[0m [36m[OPTIONS][0m [36m<BRANCH>[0m
 Two distinct operations:
 
 - [1mSwitch to existing worktree[0m — Changes directory, nothing else
-- [1mCreate new worktree[0m ([2m--create[0m) — Creates branch and worktree, runs [hooks](/hooks/)
+- [1mCreate new worktree[0m ([2m--create[0m) — Creates branch and worktree, runs hooks
 
 [32mExamples[0m
 
@@ -69,7 +69,7 @@ Two distinct operations:
   [2mwt switch --create new-feature   # Create branch and worktree[0m
   [2mwt switch --create hotfix --base production[0m
 
-For interactive selection, use [[2mwt select[0m](/select/).
+For interactive selection, use `wt select`.
 
 [32mCreating Worktrees[0m
 
@@ -77,9 +77,9 @@ With [2m--create[0m, worktrunk:
 
 1. Creates branch from [2m--base[0m (defaults to default branch)
 2. Creates worktree at configured path
-3. Runs [post-create hooks](/hooks/#post-create) (blocking)
+3. Runs post-create hooks (blocking)
 4. Switches to new directory
-5. Spawns [post-start hooks](/hooks/#post-start) (background)
+5. Spawns post-start hooks (background)
 
   [2mwt switch --create api-refactor[0m
   [2mwt switch --create fix --base release-2.0[0m
@@ -112,7 +112,7 @@ Arguments resolve by checking the filesystem before git branches:
 
 [32mSee Also[0m
 
-- [wt select](/select/) — Interactive worktree selection
-- [wt list](/list/) — View all worktrees
-- [wt remove](/remove/) — Delete worktrees when done
-- [wt merge](/merge/) — Integrate changes back to main
+- wt select — Interactive worktree selection
+- wt list — View all worktrees
+- wt remove — Delete worktrees when done
+- wt merge — Integrate changes back to main

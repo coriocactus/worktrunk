@@ -45,7 +45,7 @@ Usage: [1m[36mwt step[0m [36m[OPTIONS][0m [36m<COMMAND>[0m
   [1m[36m-v[0m, [1m[36m--verbose[0m
           Show commands and debug info
 
-Run individual workflow operations: commits, squashes, rebases, pushes, and [hooks](/hooks/).
+Run individual workflow operations: commits, squashes, rebases, pushes, and hooks.
 
 [32mExamples[0m
 
@@ -69,12 +69,12 @@ Manual merge workflow with review between steps:
 
 [1mGit operations:[0m
 
-- [2mcommit[0m — Stage and commit with [LLM-generated message](/llm-commits/)
-- [2msquash[0m — Squash all branch commits into one with [LLM-generated message](/llm-commits/)
+- [2mcommit[0m — Stage and commit with LLM-generated message
+- [2msquash[0m — Squash all branch commits into one with LLM-generated message
 - [2mrebase[0m — Rebase onto target branch
 - [2mpush[0m — Push to target branch (default: main)
 
-[1mHooks[0m — run project commands defined in [[2m.config/wt.toml[0m](/hooks/):
+[1mHooks[0m — run project commands defined in `.config/wt.toml`:
 
 - [2mpost-create[0m — After worktree creation
 - [2mpost-start[0m — After switching to a worktree
@@ -84,4 +84,4 @@ Manual merge workflow with review between steps:
 
 [32mSee Also[0m
 
-- [wt merge](/merge/) — Runs commit → squash → rebase → hooks → push → cleanup automatically
+- wt merge — Runs commit → squash → rebase → hooks → push → cleanup automatically

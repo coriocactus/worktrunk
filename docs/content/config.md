@@ -55,7 +55,7 @@ Personal settings like LLM commit generation, path templates, and default behavi
 
 **Project config** — `.config/wt.toml` in repository root:
 
-Project-specific hooks: post-create, post-start, pre-commit, pre-merge, post-merge. See [Hooks](/hooks/) for details.
+Project-specific hooks: post-create, post-start, pre-commit, pre-merge, post-merge. See [Hooks](@/hooks.md) for details.
 
 ## LLM Commit Messages
 
@@ -66,7 +66,7 @@ Worktrunk can generate commit messages using an LLM. Enable in user config:
 command = "llm"
 ```
 
-See [LLM Commits](/llm-commits/) for installation, provider setup, and customization.
+See [LLM Commits](@/llm-commits.md) for installation, provider setup, and customization.
 
 ---
 

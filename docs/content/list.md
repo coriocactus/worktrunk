@@ -122,11 +122,11 @@ wt list --format=json | jq '.[] | select(.status.main_divergence == "Ahead")'
 **Position fields:**
 - `is_main` — Main worktree
 - `is_current` — Current directory
-- `is_previous` — Previous worktree from [wt switch](/switch/)
+- `is_previous` — Previous worktree from [wt switch](@/switch.md)
 
 ## See Also
 
-- [wt select](/select/) — Interactive worktree picker with live preview
+- [wt select](@/select.md) — Interactive worktree picker with live preview
 
 ---
 

@@ -8,7 +8,7 @@ group = "Commands"
 
 <!-- ⚠️ AUTO-GENERATED from `wt step --help-page` — edit src/cli.rs to update -->
 
-Run individual workflow operations: commits, squashes, rebases, pushes, and [hooks](/hooks/).
+Run individual workflow operations: commits, squashes, rebases, pushes, and [hooks](@/hooks.md).
 
 ## Examples
 
@@ -38,12 +38,12 @@ wt step push
 
 **Git operations:**
 
-- `commit` — Stage and commit with [LLM-generated message](/llm-commits/)
-- `squash` — Squash all branch commits into one with [LLM-generated message](/llm-commits/)
+- `commit` — Stage and commit with [LLM-generated message](@/llm-commits.md)
+- `squash` — Squash all branch commits into one with [LLM-generated message](@/llm-commits.md)
 - `rebase` — Rebase onto target branch
 - `push` — Push to target branch (default: main)
 
-**Hooks** — run project commands defined in [`.config/wt.toml`](/hooks/):
+**Hooks** — run project commands defined in [`.config/wt.toml`](@/hooks.md):
 
 - `post-create` — After worktree creation
 - `post-start` — After switching to a worktree
@@ -53,7 +53,7 @@ wt step push
 
 ## See Also
 
-- [wt merge](/merge/) — Runs commit → squash → rebase → hooks → push → cleanup automatically
+- [wt merge](@/merge.md) — Runs commit → squash → rebase → hooks → push → cleanup automatically
 
 ---
 

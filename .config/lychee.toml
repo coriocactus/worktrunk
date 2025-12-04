@@ -15,6 +15,9 @@ max_cache_age = "1d"
 
 # Exclude sites that block GitHub Actions or have reliability issues
 exclude = [
+    # Zola internal links use @/ syntax (validated by `zola check`, not lychee)
+    "/@/",
+
     # Private or authenticated GitHub resources
     "github\\.com/anthropics/claude-code/issues",
 

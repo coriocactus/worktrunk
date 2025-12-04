@@ -185,8 +185,7 @@ fn handle_help_page(args: &[String]) {
     };
 
     // Get the after_long_help content
-    // Transform ```console to ```bash for Zola compatibility
-    // Add HTML colors for CI status dots
+    // Transform for web docs: console→bash, status colors
     let after_help = sub
         .get_after_long_help()
         .map(|s| {
