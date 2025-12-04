@@ -170,23 +170,6 @@ mod tests {
     }
 
     #[test]
-    fn test_command_config_multiple() {
-        let toml = r#"post-create = ["npm install", "npm test"]"#;
-        let config: ProjectConfig = toml::from_str(toml).unwrap();
-        let cmd_config = config.post_create.unwrap();
-        let commands = cmd_config.commands();
-        assert_eq!(commands.len(), 2);
-        assert_eq!(
-            commands[0],
-            Command::new(None, "npm install".to_string(), CommandPhase::PostCreate)
-        );
-        assert_eq!(
-            commands[1],
-            Command::new(None, "npm test".to_string(), CommandPhase::PostCreate)
-        );
-    }
-
-    #[test]
     fn test_command_config_named() {
         let toml = r#"
             [post-start]
@@ -276,7 +259,7 @@ task2 = "echo 'Task 2 running' > task2.txt"
     #[test]
     fn test_project_config_both_commands() {
         let toml = r#"
-            post-create = ["npm install"]
+            post-create = "npm install"
 
             [post-start]
             server = "npm run dev"
@@ -295,27 +278,6 @@ task2 = "echo 'Task 2 running' > task2.txt"
         assert_eq!(commands.len(), 1);
         assert_eq!(
             commands[0],
-            Command::new(None, "cargo test".to_string(), CommandPhase::PostCreate)
-        );
-    }
-
-    #[test]
-    fn test_pre_merge_command_multiple() {
-        let toml = r#"pre-merge = ["cargo fmt -- --check", "cargo test"]"#;
-        let config: ProjectConfig = toml::from_str(toml).unwrap();
-        let cmd_config = config.pre_merge.unwrap();
-        let commands = cmd_config.commands();
-        assert_eq!(commands.len(), 2);
-        assert_eq!(
-            commands[0],
-            Command::new(
-                None,
-                "cargo fmt -- --check".to_string(),
-                CommandPhase::PostCreate
-            )
-        );
-        assert_eq!(
-            commands[1],
             Command::new(None, "cargo test".to_string(), CommandPhase::PostCreate)
         );
     }
@@ -366,19 +328,8 @@ task2 = "echo 'Task 2 running' > task2.txt"
         let serialized = toml::to_string(&config).unwrap();
         let config2: ProjectConfig = toml::from_str(&serialized).unwrap();
         assert_eq!(config, config2);
-        // Verify it serialized back as a string, not array
+        // Verify it serialized back as a string
         assert!(serialized.contains(r#"post-create = "npm install""#));
-    }
-
-    #[test]
-    fn test_command_config_roundtrip_multiple() {
-        let original = r#"post-create = ["npm install", "npm test"]"#;
-        let config: ProjectConfig = toml::from_str(original).unwrap();
-        let serialized = toml::to_string(&config).unwrap();
-        let config2: ProjectConfig = toml::from_str(&serialized).unwrap();
-        assert_eq!(config, config2);
-        // Verify it serialized back as an array
-        assert!(serialized.contains(r#"post-create = ["npm install", "npm test"]"#));
     }
 
     #[test]

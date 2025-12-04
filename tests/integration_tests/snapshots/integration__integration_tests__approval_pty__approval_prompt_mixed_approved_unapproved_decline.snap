@@ -6,10 +6,10 @@ n
 
 🟡 [33m[1mrepo[22m needs approval to execute [1m2[22m commands:[39m
 
-⚪ post-create:
+⚪ post-create [1mfirst[22m:
 [107m [0m  [2m[0m[2m[34mecho[0m[2m [0m[2m[32m'First command'[0m[2m[0m
 
-⚪ post-create:
+⚪ post-create [1mthird[22m:
 [107m [0m  [2m[0m[2m[34mecho[0m[2m [0m[2m[32m'Third command'[0m[2m[0m
 
 ❓ Allow and remember? [1m[y/N][22m 

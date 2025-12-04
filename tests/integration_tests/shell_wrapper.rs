@@ -887,13 +887,12 @@ mod tests {
         fs::create_dir_all(&config_dir).unwrap();
         fs::write(
             config_dir.join("wt.toml"),
-            r#"# Blocking command that runs before worktree is ready
-post-create = [
-    "echo 'Installing dependencies...'",
-    "echo 'Building project...'"
-]
+            r#"# Blocking commands that run before worktree is ready
+[post-create]
+install = "echo 'Installing dependencies...'"
+build = "echo 'Building project...'"
 
-# Background command that runs in parallel
+# Background commands that run in parallel
 [post-start]
 server = "echo 'Starting dev server on port 3000'"
 watch = "echo 'Watching for file changes'"

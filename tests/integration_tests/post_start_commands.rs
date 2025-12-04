@@ -71,36 +71,6 @@ approved-commands = ["echo 'Setup complete'"]
 }
 
 #[test]
-fn test_post_create_multiple_commands_array() {
-    let repo = TestRepo::new();
-    repo.commit("Initial commit");
-
-    // Create project config with multiple commands (array format)
-    repo.write_project_config(r#"post-create = ["echo 'First'", "echo 'Second'"]"#);
-
-    repo.commit("Add config with multiple commands");
-
-    // Pre-approve both commands in temp HOME
-    repo.write_test_config(
-        r#"worktree-path = "../{{ main_worktree }}.{{ branch }}"
-
-[projects."repo"]
-approved-commands = [
-    "echo 'First'",
-    "echo 'Second'",
-]
-"#,
-    );
-
-    // Both commands should execute sequentially
-    snapshot_switch(
-        "post_create_multiple_commands_array",
-        &repo,
-        &["--create", "feature"],
-    );
-}
-
-#[test]
 fn test_post_create_named_commands() {
     let repo = TestRepo::new();
     repo.commit("Initial commit");
@@ -169,12 +139,12 @@ fn test_post_create_template_expansion() {
 
     // Create project config with template variables
     repo.write_project_config(
-        r#"post-create = [
-    "echo 'Repo: {{ main_worktree }}' > info.txt",
-    "echo 'Branch: {{ branch }}' >> info.txt",
-    "echo 'Worktree: {{ worktree }}' >> info.txt",
-    "echo 'Root: {{ repo_root }}' >> info.txt"
-]"#,
+        r#"[post-create]
+repo = "echo 'Repo: {{ main_worktree }}' > info.txt"
+branch = "echo 'Branch: {{ branch }}' >> info.txt"
+worktree = "echo 'Worktree: {{ worktree }}' >> info.txt"
+root = "echo 'Root: {{ repo_root }}' >> info.txt"
+"#,
     );
 
     repo.commit("Add config with templates");
@@ -288,12 +258,12 @@ fn test_post_create_git_variables_template() {
 
     // Create project config with git-related template variables
     repo.write_project_config(
-        r#"post-create = [
-    "echo 'Commit: {{ commit }}' > git_vars.txt",
-    "echo 'Short: {{ short_commit }}' >> git_vars.txt",
-    "echo 'Remote: {{ remote }}' >> git_vars.txt",
-    "echo 'Worktree Name: {{ worktree_name }}' >> git_vars.txt"
-]"#,
+        r#"[post-create]
+commit = "echo 'Commit: {{ commit }}' > git_vars.txt"
+short = "echo 'Short: {{ short_commit }}' >> git_vars.txt"
+remote = "echo 'Remote: {{ remote }}' >> git_vars.txt"
+worktree_name = "echo 'Worktree Name: {{ worktree_name }}' >> git_vars.txt"
+"#,
     );
 
     repo.commit("Add config with git template variables");

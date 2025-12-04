@@ -53,9 +53,8 @@ impl Command {
 /// Configuration for commands - canonical representation
 ///
 /// Internally stores commands as `Vec<Command>` for uniform processing.
-/// Deserializes from three TOML formats:
+/// Deserializes from two TOML formats:
 /// - Single string: `post-create = "npm install"`
-/// - Array: `post-create = ["npm install", "npm test"]`
 /// - Named table: `[post-create]` followed by `install = "npm install"`
 ///
 /// **Order preservation:** Named commands preserve TOML insertion order (requires
@@ -86,7 +85,7 @@ impl CommandConfig {
     }
 }
 
-// Custom deserialization to handle 3 TOML formats
+// Custom deserialization to handle 2 TOML formats
 impl<'de> Deserialize<'de> for CommandConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -96,7 +95,6 @@ impl<'de> Deserialize<'de> for CommandConfig {
         #[serde(untagged)]
         enum CommandConfigToml {
             Single(String),
-            Multiple(Vec<String>),
             Named(IndexMap<String, String>),
         }
 
@@ -106,10 +104,6 @@ impl<'de> Deserialize<'de> for CommandConfig {
                 // Phase will be set later when commands are collected
                 vec![Command::new(None, cmd, CommandPhase::PostCreate)]
             }
-            CommandConfigToml::Multiple(cmds) => cmds
-                .into_iter()
-                .map(|template| Command::new(None, template, CommandPhase::PostCreate))
-                .collect(),
             CommandConfigToml::Named(map) => {
                 // IndexMap preserves insertion order from TOML
                 map.into_iter()
@@ -136,20 +130,7 @@ impl Serialize for CommandConfig {
             return self.commands[0].template.serialize(serializer);
         }
 
-        // If all commands are unnamed or numbered 1,2,3..., serialize as array
-        let all_numbered = self
-            .commands
-            .iter()
-            .enumerate()
-            .all(|(i, cmd)| cmd.name.as_ref().is_none_or(|n| n == &(i + 1).to_string()));
-
-        if all_numbered {
-            let templates: Vec<_> = self.commands.iter().map(|cmd| &cmd.template).collect();
-            return templates.serialize(serializer);
-        }
-
-        // Otherwise serialize as named map
-        // At this point, all commands must have names (from Named TOML format)
+        // Serialize as named map (all commands from Named format have names)
         let mut map = serializer.serialize_map(Some(self.commands.len()))?;
         for cmd in &self.commands {
             let key = cmd.name.as_ref().unwrap();

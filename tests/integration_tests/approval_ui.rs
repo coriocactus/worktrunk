@@ -63,12 +63,12 @@ fn test_approval_multiple_commands() {
     repo.commit("Initial commit");
 
     repo.write_project_config(
-        r#"post-create = [
-    "echo 'Branch: {{ branch }}'",
-    "echo 'Worktree: {{ worktree }}'",
-    "echo 'Repo: {{ main_worktree }}'",
-    "cd {{ worktree }} && pwd"
-]"#,
+        r#"[post-create]
+branch = "echo 'Branch: {{ branch }}'"
+worktree = "echo 'Worktree: {{ worktree }}'"
+repo = "echo 'Repo: {{ main_worktree }}'"
+pwd = "cd {{ worktree }} && pwd"
+"#,
     );
 
     repo.commit("Add config");
@@ -87,11 +87,11 @@ fn test_approval_mixed_approved_unapproved() {
     repo.commit("Initial commit");
 
     repo.write_project_config(
-        r#"post-create = [
-    "echo 'First command'",
-    "echo 'Second command'",
-    "echo 'Third command'"
-]"#,
+        r#"[post-create]
+first = "echo 'First command'"
+second = "echo 'Second command'"
+third = "echo 'Third command'"
+"#,
     );
 
     repo.commit("Add config");
@@ -184,11 +184,11 @@ fn test_decline_approval_skips_only_unapproved() {
     repo.commit("Initial commit");
 
     repo.write_project_config(
-        r#"post-create = [
-    "echo 'First command'",
-    "echo 'Second command'",
-    "echo 'Third command'"
-]"#,
+        r#"[post-create]
+first = "echo 'First command'"
+second = "echo 'Second command'"
+third = "echo 'Third command'"
+"#,
     );
 
     repo.commit("Add config");

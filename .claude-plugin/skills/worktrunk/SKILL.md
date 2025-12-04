@@ -125,7 +125,9 @@ Common request for workflow automation. Follow discovery process:
    post-create = "npm install"
 
    # Validate code quality before committing
-   pre-commit = ["npm run lint", "npm run typecheck"]
+   [pre-commit]
+   lint = "npm run lint"
+   typecheck = "npm run typecheck"
 
    # Run tests before merging
    pre-merge = "npm test"

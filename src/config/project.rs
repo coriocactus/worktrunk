@@ -32,21 +32,21 @@ use super::commands::CommandConfig;
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct ProjectConfig {
     /// Commands to execute sequentially before worktree is ready (blocking)
-    /// Supports string (single command), array (sequential), or table (named, sequential)
+    /// Supports string (single command) or table (named, sequential)
     ///
     /// Available template variables: `{{ repo }}`, `{{ branch }}`, `{{ worktree }}`, `{{ worktree_name }}`, `{{ repo_root }}`, `{{ default_branch }}`, `{{ commit }}`, `{{ short_commit }}`, `{{ remote }}`, `{{ upstream }}`
     #[serde(default, rename = "post-create")]
     pub post_create: Option<CommandConfig>,
 
     /// Commands to execute in parallel as background processes (non-blocking)
-    /// Supports string (single), array (parallel), or table (named, parallel)
+    /// Supports string (single command) or table (named, parallel)
     ///
     /// Available template variables: `{{ repo }}`, `{{ branch }}`, `{{ worktree }}`, `{{ worktree_name }}`, `{{ repo_root }}`, `{{ default_branch }}`, `{{ commit }}`, `{{ short_commit }}`, `{{ remote }}`, `{{ upstream }}`
     #[serde(default, rename = "post-start")]
     pub post_start: Option<CommandConfig>,
 
     /// Commands to execute before committing changes during merge (blocking, fail-fast validation)
-    /// Supports string (single command), array (sequential), or table (named, sequential)
+    /// Supports string (single command) or table (named, sequential)
     /// All commands must exit with code 0 for commit to proceed
     /// Runs before any commit operation during `wt merge` (both squash and no-squash modes)
     ///
@@ -55,7 +55,7 @@ pub struct ProjectConfig {
     pub pre_commit: Option<CommandConfig>,
 
     /// Commands to execute before merging (blocking, fail-fast validation)
-    /// Supports string (single command), array (sequential), or table (named, sequential)
+    /// Supports string (single command) or table (named, sequential)
     /// All commands must exit with code 0 for merge to proceed
     ///
     /// Available template variables: `{{ repo }}`, `{{ branch }}`, `{{ worktree }}`, `{{ worktree_name }}`, `{{ repo_root }}`, `{{ default_branch }}`, `{{ commit }}`, `{{ short_commit }}`, `{{ remote }}`, `{{ upstream }}`, `{{ target }}`
@@ -63,7 +63,7 @@ pub struct ProjectConfig {
     pub pre_merge: Option<CommandConfig>,
 
     /// Commands to execute after successful merge in the main worktree (blocking)
-    /// Supports string (single command), array (sequential), or table (named, sequential)
+    /// Supports string (single command) or table (named, sequential)
     /// Runs after push succeeds but before cleanup
     ///
     /// Available template variables: `{{ repo }}`, `{{ branch }}`, `{{ worktree }}`, `{{ worktree_name }}`, `{{ repo_root }}`, `{{ default_branch }}`, `{{ commit }}`, `{{ short_commit }}`, `{{ remote }}`, `{{ upstream }}`, `{{ target }}`

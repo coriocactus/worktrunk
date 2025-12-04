@@ -185,11 +185,11 @@ fn test_approval_prompt_multiple_commands() {
     let repo = TestRepo::new();
     repo.commit("Initial commit");
     repo.write_project_config(
-        r#"post-create = [
-    "echo 'First command'",
-    "echo 'Second command'",
-    "echo 'Third command'"
-]"#,
+        r#"[post-create]
+first = "echo 'First command'"
+second = "echo 'Second command'"
+third = "echo 'Third command'"
+"#,
     );
     repo.commit("Add config");
 
@@ -315,11 +315,11 @@ fn test_approval_prompt_mixed_approved_unapproved_accept() {
     let repo = TestRepo::new();
     repo.commit("Initial commit");
     repo.write_project_config(
-        r#"post-create = [
-    "echo 'First command'",
-    "echo 'Second command'",
-    "echo 'Third command'"
-]"#,
+        r#"[post-create]
+first = "echo 'First command'"
+second = "echo 'Second command'"
+third = "echo 'Third command'"
+"#,
     );
     repo.commit("Add config");
 
@@ -374,11 +374,11 @@ fn test_approval_prompt_mixed_approved_unapproved_decline() {
     let repo = TestRepo::new();
     repo.commit("Initial commit");
     repo.write_project_config(
-        r#"post-create = [
-    "echo 'First command'",
-    "echo 'Second command'",
-    "echo 'Third command'"
-]"#,
+        r#"[post-create]
+first = "echo 'First command'"
+second = "echo 'Second command'"
+third = "echo 'Third command'"
+"#,
     );
     repo.commit("Add config");
 

@@ -23,7 +23,7 @@ Hooks automate setup and validation at worktree lifecycle events. They're define
 
 ## Configuration formats
 
-All hooks support three formats in `.config/wt.toml`:
+All hooks support two formats in `.config/wt.toml`:
 
 ### Single command (string)
 
@@ -31,13 +31,7 @@ All hooks support three formats in `.config/wt.toml`:
 post-create = "npm install"
 ```
 
-### Multiple commands (array)
-
-```toml
-post-create = ["npm install", "npm run build"]
-```
-
-### Named commands (table)
+### Multiple commands (table)
 
 ```toml
 [post-create]

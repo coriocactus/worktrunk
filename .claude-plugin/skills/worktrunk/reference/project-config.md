@@ -72,10 +72,9 @@ Typical npm project:
 post-create = "npm install"
 
 # Validate code quality before committing (blocking, fail-fast)
-pre-commit = [
-    "npm run lint",
-    "npm run typecheck"
-]
+[pre-commit]
+lint = "npm run lint"
+typecheck = "npm run typecheck"
 
 # Run tests before merging (blocking, fail-fast)
 pre-merge = "npm test"
@@ -91,10 +90,9 @@ Typical Rust project:
 post-start = "cargo build"
 
 # Format and lint before committing (blocking, fail-fast)
-pre-commit = [
-    "cargo fmt --check",
-    "cargo clippy -- -D warnings"
-]
+[pre-commit]
+format = "cargo fmt --check"
+lint = "cargo clippy -- -D warnings"
 
 # Run tests before merging (blocking, fail-fast)
 pre-merge = "cargo test"
@@ -110,7 +108,9 @@ Document why each hook exists:
 post-create = "npm install"
 
 # Enforce code quality standards (matches CI checks)
-pre-commit = ["npm run lint", "npm run typecheck"]
+[pre-commit]
+lint = "npm run lint"
+typecheck = "npm run typecheck"
 ```
 
 ### Step 7: Suggest Testing
@@ -143,34 +143,33 @@ Ask: When should this run?
 
 <example type="adding-to-single-command">
 
-Current:
+Current (single command):
 ```toml
 post-create = "npm install"
 ```
 
-Adding "npm run db:migrate":
+Adding "npm run db:migrate" — convert to named table:
 ```toml
-post-create = [
-    "npm install",
-    "npm run db:migrate"
-]
+[post-create]
+install = "npm install"
+migrate = "npm run db:migrate"
 ```
 
 </example>
 
-<example type="adding-to-array">
+<example type="adding-to-table">
 
-Current:
+Current (named table):
 ```toml
-pre-commit = ["npm run lint"]
+[pre-commit]
+lint = "npm run lint"
 ```
 
-Adding typecheck:
+Adding typecheck — just add another entry:
 ```toml
-pre-commit = [
-    "npm run lint",
-    "npm run typecheck"
-]
+[pre-commit]
+lint = "npm run lint"
+typecheck = "npm run typecheck"
 ```
 
 </example>
@@ -223,7 +222,7 @@ fi
 
 ## Formats
 
-All hooks support three command formats.
+All hooks support two command formats.
 
 ### Single Command (String)
 
@@ -231,13 +230,13 @@ All hooks support three command formats.
 post-create = "npm install"
 ```
 
-### Multiple Commands (Array)
+### Multiple Commands (Named Table)
 
 ```toml
-post-create = [
-    "npm install",
-    "npm run build"
-]
+[post-create]
+dependencies = "npm install"
+database = "npm run db:migrate"
+services = "docker-compose up -d"
 ```
 
 Behavior:
@@ -247,16 +246,7 @@ Behavior:
 - `pre-merge`: Sequential
 - `post-merge`: Sequential
 
-### Named Commands (Table)
-
-```toml
-[post-create]
-dependencies = "npm install"
-database = "npm run db:migrate"
-services = "docker-compose up -d"
-```
-
-Behavior same as array format, but with descriptive names.
+Named commands appear in output with their labels, which helps identify which command succeeded or failed.
 
 ## Hook Types
 
@@ -277,10 +267,9 @@ Five hook types with different timing and behavior:
 <example type="post-create">
 
 ```toml
-post-create = [
-    "npm install",
-    "npm run db:migrate"
-]
+[post-create]
+install = "npm install"
+migrate = "npm run db:migrate"
 ```
 
 </example>
@@ -300,10 +289,9 @@ post-create = [
 <example type="post-start">
 
 ```toml
-post-start = [
-    "npm run build",
-    "docker-compose up -d"
-]
+[post-start]
+build = "npm run build"
+services = "docker-compose up -d"
 ```
 
 </example>
@@ -323,10 +311,9 @@ post-start = [
 <example type="pre-commit">
 
 ```toml
-pre-commit = [
-    "npm run lint",
-    "npm run typecheck"
-]
+[pre-commit]
+lint = "npm run lint"
+typecheck = "npm run typecheck"
 ```
 
 </example>

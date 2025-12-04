@@ -25,7 +25,7 @@ Detailed behavior and use cases for all five Worktrunk hook types.
 - Blocks until all commands complete
 - User cannot use worktree until complete
 - Failure shows error but doesn't abort (worktree still created)
-- Commands run sequentially (even if using array format)
+- Commands run sequentially
 
 **Use cases**:
 - Installing dependencies (npm install, cargo build, poetry install)
@@ -35,11 +35,10 @@ Detailed behavior and use cases for all five Worktrunk hook types.
 
 **Example**:
 ```toml
-post-create = [
-    "npm install",
-    "npm run db:migrate",
-    "cp .env.example .env"
-]
+[post-create]
+install = "npm install"
+migrate = "npm run db:migrate"
+env = "cp .env.example .env"
 ```
 
 **What happens**: User runs `wt switch --create feature-x`. Commands execute sequentially. User sees progress. After all complete, they're switched to the new worktree.
@@ -62,11 +61,10 @@ post-create = [
 
 **Example**:
 ```toml
-post-start = [
-    "npm run build",
-    "docker-compose up -d",
-    "git pull origin main"
-]
+[post-start]
+build = "npm run build"
+services = "docker-compose up -d"
+sync = "git pull origin main"
 ```
 
 **What happens**: User runs `wt switch --create feature-x`. After creation completes, all three commands start immediately in parallel in background. User can work while they run. Check `.git/wt-logs/` for output.
@@ -89,11 +87,10 @@ post-start = [
 
 **Example**:
 ```toml
-pre-commit = [
-    "npm run lint",
-    "npm run typecheck",
-    "npm run format:check"
-]
+[pre-commit]
+lint = "npm run lint"
+typecheck = "npm run typecheck"
+format = "npm run format:check"
 ```
 
 **What happens**: User runs `wt merge`. Before creating commit, all three commands run. If any fails, commit is aborted. User fixes issues and tries again.
@@ -117,10 +114,9 @@ pre-commit = [
 
 **Example**:
 ```toml
-pre-merge = [
-    "npm test",
-    "npm run build"
-]
+[pre-merge]
+test = "npm test"
+build = "npm run build"
 ```
 
 **What happens**: User runs `wt merge`. After commit succeeds, before merging, both commands run. If any fails, merge is aborted but commit remains.
@@ -144,10 +140,9 @@ pre-merge = [
 
 **Example**:
 ```toml
-post-merge = [
-    "npm run deploy",
-    "./scripts/notify-slack.sh"
-]
+[post-merge]
+deploy = "npm run deploy"
+notify = "./scripts/notify-slack.sh"
 ```
 
 **What happens**: User runs `wt merge`. After merge succeeds and push completes, commands run in main worktree. Then cleanup happens (branch deletion, worktree removal).
@@ -169,19 +164,19 @@ Full sequence when running `wt merge`:
 
 ## Format Variants
 
-All hooks support three formats:
+All hooks support two formats:
 
 ### Single Command (String)
 ```toml
 post-create = "npm install"
 ```
 
-### Multiple Commands (Array)
+### Multiple Commands (Named Table)
 ```toml
-post-create = [
-    "npm install",
-    "npm run build"
-]
+[post-create]
+dependencies = "npm install"
+database = "npm run db:migrate"
+services = "docker-compose up -d"
 ```
 
 Behavior:
@@ -191,15 +186,7 @@ Behavior:
 - `pre-merge`: Sequential execution
 - `post-merge`: Sequential execution
 
-### Named Commands (Table)
-```toml
-[post-create]
-dependencies = "npm install"
-database = "npm run db:migrate"
-services = "docker-compose up -d"
-```
-
-Behavior same as array format, but with descriptive names.
+Named commands appear in output with their labels, making it easier to identify which command succeeded or failed.
 
 ## Template Variables
 
@@ -256,10 +243,14 @@ post-start = "npm run build"
 ### Progressive Validation
 ```toml
 # Quick checks before commit
-pre-commit = ["npm run lint", "npm run typecheck"]
+[pre-commit]
+lint = "npm run lint"
+typecheck = "npm run typecheck"
 
 # Thorough validation before merge
-pre-merge = ["npm test", "npm run build"]
+[pre-merge]
+test = "npm test"
+build = "npm run build"
 ```
 
 ### Target-Specific Behavior

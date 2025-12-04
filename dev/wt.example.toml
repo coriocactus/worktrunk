@@ -23,10 +23,7 @@
 # 1. Single string:
 #    post-create = "npm install"
 #
-# 2. Array (runs sequentially):
-#    post-create = ["npm install", "npm run build"]
-#
-# 3. Named table (runs sequentially in declaration order):
+# 2. Named table (runs sequentially in declaration order):
 # [post-create]
 # install = "npm install --frozen-lockfile"
 # build = "npm run build"
@@ -42,10 +39,7 @@
 # 1. Single string:
 #    post-start = "npm run dev"
 #
-# 2. Array (runs in parallel):
-#    post-start = ["npm run dev", "npm run watch"]
-#
-# 3. Named table (runs in parallel):
+# 2. Named table (runs in parallel):
 # [post-start]
 # server = "npm run dev"
 # watch = "npm run watch"
@@ -56,10 +50,10 @@
 # Runs for both squash and no-squash merge modes
 # Use for: formatters, linters, quick validation
 #
-# Format options same as post-create
+# Single command:
 # pre-commit = "cargo fmt -- --check"
 #
-# Or multiple:
+# Multiple commands:
 # [pre-commit]
 # format = "cargo fmt -- --check"
 # lint = "cargo clippy -- -D warnings"
@@ -69,10 +63,10 @@
 # All commands must exit with code 0 for merge to proceed
 # Use for: tests, linters, build verification before merging
 #
-# Format options same as post-create
-# pre-merge = ["cargo test", "cargo build"]
+# Single command:
+# pre-merge = "cargo test"
 #
-# Or named:
+# Multiple commands:
 # [pre-merge]
 # test = "cargo test"
 # build = "cargo build --release"
@@ -82,8 +76,13 @@
 # Runs after push succeeds but before cleanup
 # Use for: updating production builds, notifications, cleanup
 #
-# Format options same as post-create
+# Single command:
 # post-merge = "cargo install --path ."
+#
+# Multiple commands:
+# [post-merge]
+# install = "cargo install --path ."
+# notify = "echo 'Merged!'"
 
 # Example: Node.js Project
 # [post-create]
