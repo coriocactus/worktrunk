@@ -27,7 +27,7 @@ wsc new-feature  # Creates worktree, runs hooks, launches Claude
 "install" = "npm ci"
 ```
 
-See [`.config/wt.toml`](https://github.com/max-sixty/worktrunk/blob/main/.config/wt.toml) on GitHub for a complete example.
+See [Worktrunk's own `.config/wt.toml`](https://github.com/max-sixty/worktrunk/blob/main/.config/wt.toml) for a complete example.
 
 ## Local CI gate
 
