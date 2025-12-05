@@ -1013,8 +1013,11 @@ body.mobile-menu-open {
     }
 
     .hero {
-        // Use --vh-full (JS-set) with svh fallback for Firefox/Chrome iOS fix
-        height: calc(var(--vh-full, 100svh) - var(--wt-header-height) - var(--safe-area-top, env(safe-area-inset-top, 0px)));
+        // TEST: Use auto height to avoid viewport-based sizing entirely
+        // This tests whether viewport calculations are causing Firefox iOS jank
+        height: auto !important;
+        min-height: 400px; // Minimum visual presence
+        max-height: none !important;
         padding: 2rem 20px;
         flex-direction: column;
         gap: 2rem;
