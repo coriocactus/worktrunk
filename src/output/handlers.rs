@@ -48,8 +48,8 @@ fn format_switch_success_message(
 /// Why a branch is considered integrated into the target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum IntegrationReason {
-    /// Branch has no marginal contribution to target (ancestor, merged back to base, etc.)
-    NoMarginalContribution,
+    /// Branch has no file changes beyond the merge-base with target
+    NoAddedChanges,
     /// Branch's tree SHA matches target's tree SHA (squash merge/rebase)
     ContentsMatch,
     /// Merge simulation shows branch would add nothing to target
@@ -60,7 +60,7 @@ enum IntegrationReason {
 /// Check if a branch's content has been integrated into the target.
 ///
 /// Returns the reason if the branch is safe to delete:
-/// - `NoMarginalContribution`: The branch has no marginal contribution to target (ancestor, merged back, etc.)
+/// - `NoAddedChanges`: Branch has no file changes beyond merge-base (empty three-dot diff)
 /// - `ContentsMatch`: The branch's tree SHA matches the target's tree SHA (squash merge/rebase)
 /// - `MergeAddsNothing`: Merge simulation shows branch would add nothing (squash + target advanced)
 ///
@@ -72,13 +72,10 @@ fn get_integration_reason(
     branch_name: &str,
     target: &str,
 ) -> Option<IntegrationReason> {
-    // Check if branch has no marginal contribution to target (covers ancestors and merged-back-to-base)
-    // On error, conservatively assume branch HAS marginal contribution (won't delete)
-    if !repo
-        .has_marginal_contribution(branch_name, target)
-        .unwrap_or(true)
-    {
-        return Some(IntegrationReason::NoMarginalContribution);
+    // Check if branch has no file changes beyond merge-base (empty three-dot diff)
+    // On error, conservatively assume branch HAS changes (won't delete)
+    if !repo.has_added_changes(branch_name, target).unwrap_or(true) {
+        return Some(IntegrationReason::NoAddedChanges);
     }
 
     // Check if tree content matches (handles squash merge/rebase)
@@ -177,7 +174,7 @@ fn get_flag_note(
     } else if let Some(target) = target_branch {
         // Show integration reason when branch is deleted (both wt merge and wt remove)
         match deletion_result {
-            Some(Some(IntegrationReason::NoMarginalContribution)) => {
+            Some(Some(IntegrationReason::NoAddedChanges)) => {
                 format!(" (already in {target})")
             }
             Some(Some(IntegrationReason::ContentsMatch)) => format!(" (files match {target})"),

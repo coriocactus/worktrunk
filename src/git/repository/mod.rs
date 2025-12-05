@@ -607,14 +607,11 @@ impl Repository {
         self.run_command_check(&["merge-base", "--is-ancestor", base, head])
     }
 
-    /// Check if a branch has any marginal contribution compared to a target.
+    /// Check if a branch has file changes beyond the merge-base with target.
     ///
-    /// Uses three-dot diff (`target...branch`) which shows changes from the merge-base
-    /// to the branch. Returns false (no marginal contribution) when:
-    /// - Branch is an ancestor of target (merge-base = branch)
-    /// - Branch merged target and resolved back to merge-base state
-    /// - Branch's net changes are empty for any other reason
-    pub fn has_marginal_contribution(&self, branch: &str, target: &str) -> anyhow::Result<bool> {
+    /// Uses three-dot diff (`target...branch`) which shows files changed from merge-base
+    /// to branch. Returns false when the diff is empty (no added changes).
+    pub fn has_added_changes(&self, branch: &str, target: &str) -> anyhow::Result<bool> {
         // git diff --name-only target...branch shows files changed from merge-base to branch
         let range = format!("{target}...{branch}");
         let stdout = self.run_command(&["diff", "--name-only", &range])?;

@@ -1262,11 +1262,11 @@ Branches delete automatically when their content is already in the target branch
 
 A branch is safe to delete when its content is already reflected in the target. Worktrunk checks three conditions:
 
-1. **Branch is ancestor** — Three-dot diff (`main...branch`) shows no files. All commits on branch are reachable from main.
+1. **No added changes** — Three-dot diff (`main...branch`) shows no files. The branch has no file changes beyond the merge-base.
 2. **Tree contents match** — Branch tree SHA equals main tree SHA. Commit history differs but file contents are identical (e.g., after a revert or merge commit pulling in main).
 3. **Merge adds nothing** — Simulated merge (`git merge-tree`) produces the same tree as main. Handles squash-merged branches where main has since advanced.
 
-In `wt list`, `_` indicates condition 1 (no commits ahead) and `≡` indicates condition 2 (contents match). Rows with either are dimmed.
+In `wt list`, `_` indicates no commits ahead of main, and `≡` indicates tree contents match. Branches showing either are dimmed as safe to delete.
 
 Use `-D` to force-delete branches with unmerged changes. Use `--no-delete-branch` to keep the branch regardless of status.
 
