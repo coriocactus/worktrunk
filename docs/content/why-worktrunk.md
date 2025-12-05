@@ -5,7 +5,10 @@ weight = 1
 
 Worktrunk is a CLI for git worktree management, designed for parallel AI agent workflows. Git worktrees give each agent an isolated branch and directory; Worktrunk adds branch-based navigation, unified status, and lifecycle hooks. Creating a new agent workspace is as immediate as `git switch`.
 
-![Worktrunk Demo](/assets/wt-demo.gif)
+<figure>
+<img src="/assets/wt-demo.gif" alt="Worktrunk demo showing wt list, wt switch, and wt merge">
+<figcaption>Listing worktrees, creating one, working, merging back</figcaption>
+</figure>
 
 ## Context: git worktrees
 
