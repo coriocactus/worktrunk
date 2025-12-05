@@ -291,7 +291,8 @@ main {
 
 .content img {
     display: block;
-    max-width: none; // Don't shrink to fit container
+    max-width: 100%; // Scale down to fit, but don't upscale
+    box-sizing: border-box; // Include border in width calculation
     border-radius: 0.5rem;
     border: 1px solid var(--wt-color-border-subtle);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
