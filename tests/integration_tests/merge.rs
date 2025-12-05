@@ -2502,7 +2502,7 @@ fn test_merge_no_commit_with_dirty_tree() {
         ----- stdout -----
 
         ----- stderr -----
-        ❌ [31mCannot merge with --no-commit: working tree has uncommitted changes[39m
+        ❌ [31mCannot merge with --no-commit: [1mfeature[22m has uncommitted changes[39m
 
         💡 [2mCommit or stash changes first[22m
         ");

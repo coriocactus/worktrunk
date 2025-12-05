@@ -85,6 +85,7 @@ pub fn handle_merge(
     if !commit && repo.is_dirty()? {
         return Err(worktrunk::git::GitError::UncommittedChanges {
             action: Some("merge with --no-commit".into()),
+            worktree: Some(current_branch.clone()),
         }
         .into());
     }
@@ -195,7 +196,7 @@ pub fn handle_merge(
     if remove_effective {
         // STEP 1: Check for uncommitted changes before attempting cleanup
         // This prevents showing "Cleaning up worktree..." before failing
-        repo.ensure_clean_working_tree(Some("remove worktree after merge"))?;
+        repo.ensure_clean_working_tree(Some("remove worktree after merge"), Some(&current_branch))?;
 
         // STEP 2: Remove worktree via shared remove output handler so final message matches wt remove
         let worktree_root = repo.worktree_root()?;

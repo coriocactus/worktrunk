@@ -575,7 +575,7 @@ pub fn handle_remove_by_path(
 
     // Check that the worktree is clean
     let target_repo = Repository::at(path);
-    target_repo.ensure_clean_working_tree(Some("remove worktree"))?;
+    target_repo.ensure_clean_working_tree(Some("remove worktree"), branch.as_deref())?;
 
     // We're not in this worktree, so no directory change needed
     let current_path = repo.worktree_root()?;

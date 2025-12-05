@@ -42,6 +42,8 @@ pub enum GitError {
     },
     UncommittedChanges {
         action: Option<String>,
+        /// Branch or worktree identifier (for multi-worktree operations)
+        worktree: Option<String>,
     },
     BranchAlreadyExists {
         branch: String,
@@ -134,12 +136,18 @@ impl std::fmt::Display for GitError {
                 )
             }
 
-            GitError::UncommittedChanges { action } => {
-                let message = match action {
-                    Some(action) => {
-                        format!("Cannot {action}: working tree has uncommitted changes")
+            GitError::UncommittedChanges { action, worktree } => {
+                let message = match (action, worktree) {
+                    (Some(action), Some(wt)) => {
+                        cformat!("Cannot {action}: <bold>{wt}</> has uncommitted changes")
                     }
-                    None => "Working tree has uncommitted changes".to_string(),
+                    (Some(action), None) => {
+                        cformat!("Cannot {action}: working tree has uncommitted changes")
+                    }
+                    (None, Some(wt)) => {
+                        cformat!("<bold>{wt}</> has uncommitted changes")
+                    }
+                    (None, None) => cformat!("Working tree has uncommitted changes"),
                 };
                 cwrite!(
                     f,
@@ -466,9 +474,19 @@ mod tests {
 
         let err = GitError::UncommittedChanges {
             action: Some("remove worktree".into()),
+            worktree: None,
         };
         let output = err.to_string();
         assert!(output.contains("Cannot remove worktree"));
+
+        // With worktree specified
+        let err = GitError::UncommittedChanges {
+            action: Some("remove worktree".into()),
+            worktree: Some("feature-branch".into()),
+        };
+        let output = err.to_string();
+        assert!(output.contains("Cannot remove worktree"));
+        assert!(output.contains("feature-branch"));
     }
 
     #[test]

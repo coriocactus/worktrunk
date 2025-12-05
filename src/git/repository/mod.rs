@@ -539,11 +539,17 @@ impl Repository {
     /// Ensure the working tree is clean (no uncommitted changes).
     ///
     /// Returns an error if there are uncommitted changes.
-    /// `action` describes what was blocked (e.g., "remove worktree").
-    pub fn ensure_clean_working_tree(&self, action: Option<&str>) -> anyhow::Result<()> {
+    /// - `action` describes what was blocked (e.g., "remove worktree").
+    /// - `worktree` identifies which worktree (e.g., branch name) for multi-worktree operations.
+    pub fn ensure_clean_working_tree(
+        &self,
+        action: Option<&str>,
+        worktree: Option<&str>,
+    ) -> anyhow::Result<()> {
         if self.is_dirty()? {
             return Err(GitError::UncommittedChanges {
                 action: action.map(String::from),
+                worktree: worktree.map(String::from),
             }
             .into());
         }

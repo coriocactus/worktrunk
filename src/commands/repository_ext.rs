@@ -106,7 +106,7 @@ impl RepositoryCliExt for Repository {
         }
 
         let target_repo = Repository::at(&worktree_path);
-        target_repo.ensure_clean_working_tree(Some("remove worktree"))?;
+        target_repo.ensure_clean_working_tree(Some("remove worktree"), Some(branch_name))?;
 
         let current_worktree = self.worktree_root()?;
         let removing_current = current_worktree == worktree_path;
@@ -166,7 +166,7 @@ impl RepositoryCliExt for Repository {
         let branch_name = current_wt.and_then(|wt| wt.branch.clone());
 
         // Ensure the working tree is clean
-        self.ensure_clean_working_tree(Some("remove worktree"))?;
+        self.ensure_clean_working_tree(Some("remove worktree"), branch_name.as_deref())?;
 
         // Get main worktree path (we're removing current, so we'll cd to main)
         let main_path = worktrees.main().path.clone();
