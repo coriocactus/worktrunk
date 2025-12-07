@@ -14,11 +14,11 @@ Here's a quick demo:
 
 ## Context: git worktrees
 
-AI agents like Claude and Codex can increasingly handle longer tasks without supervision, and it's very practical to run several in parallel. But on a single file tree they step on each other's uncommitted changes.
+AI agents like Claude and Codex can increasingly handle longer tasks without supervision, and it's very practical to run several in parallel. On a single file tree, they step on each other's uncommitted changes.
 
 Git worktrees are a great primitive for this: multiple working directories sharing one `.git`.
 
-But git worktrees' UX is clunky: `git worktree add -b feature ../repo.feature`, then `cd ../repo.feature`, then `git worktree remove ../repo.feature`.
+But the UX is clunky: `git worktree add -b feature ../repo.feature`, then `cd ../repo.feature`, then `git worktree remove ../repo.feature`.
 
 ## What Worktrunk adds
 
