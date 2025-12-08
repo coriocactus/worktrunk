@@ -2641,4 +2641,323 @@ test = "echo 'Running tests...'"
 
         assert_snapshot!(prompt_only);
     }
+
+    /// Black-box test: bash completion is registered and produces correct output.
+    ///
+    /// This test verifies completion works WITHOUT knowing internal function names.
+    /// It uses `complete -p wt` to discover whatever completion function is registered,
+    /// then calls it via shell completion machinery.
+    ///
+    /// This catches bugs like:
+    /// - Completion not registered at all
+    /// - Completion function not loading (lazy loading broken)
+    /// - Completion output being executed as commands (the COMPLETE mode bug)
+    #[test]
+    fn test_bash_completion_produces_correct_output() {
+        use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+        use std::io::Read;
+
+        let repo = TestRepo::new();
+        repo.commit("Initial commit");
+
+        let wt_bin = get_cargo_bin("wt");
+        let wt_bin_dir = wt_bin.parent().unwrap();
+
+        // Generate wrapper without WORKTRUNK_BIN (simulates installed wt)
+        let output = std::process::Command::new(&wt_bin)
+            .args(["config", "shell", "init", "bash"])
+            .output()
+            .unwrap();
+        let wrapper_script = String::from_utf8_lossy(&output.stdout);
+
+        // Black-box test: don't reference internal function names
+        let script = format!(
+            r#"
+# Do NOT set WORKTRUNK_BIN - simulate real user scenario
+export CLICOLOR_FORCE=1
+
+# Source the shell integration
+{wrapper_script}
+
+# Step 1: Verify SOME completion is registered for 'wt' (black-box check)
+if ! complete -p wt >/dev/null 2>&1; then
+    echo "FAILURE: No completion registered for wt"
+    exit 1
+fi
+echo "SUCCESS: Completion is registered for wt"
+
+# Step 2: Get the completion function name (whatever it's called)
+completion_func=$(complete -p wt 2>/dev/null | sed -n 's/.*-F \([^ ]*\).*/\1/p')
+if [[ -z "$completion_func" ]]; then
+    echo "FAILURE: Could not extract completion function name"
+    exit 1
+fi
+echo "SUCCESS: Found completion function: $completion_func"
+
+# Step 3: Set up completion environment and call the function
+COMP_WORDS=(wt "")
+COMP_CWORD=1
+COMP_TYPE=9  # TAB
+COMP_LINE="wt "
+COMP_POINT=${{#COMP_LINE}}
+
+# Call the completion function (this triggers lazy loading if needed)
+"$completion_func" wt "" wt 2>&1
+
+# Step 4: Verify we got completions (black-box: just check we got results)
+if [[ "${{#COMPREPLY[@]}}" -eq 0 ]]; then
+    echo "FAILURE: No completions returned"
+    echo "COMPREPLY is empty"
+    exit 1
+fi
+echo "SUCCESS: Got ${{#COMPREPLY[@]}} completions"
+
+# Print completions
+for c in "${{COMPREPLY[@]}}"; do
+    echo "  - $c"
+done
+
+# Step 5: Verify expected subcommands are present
+if printf '%s\n' "${{COMPREPLY[@]}}" | grep -q '^config$'; then
+    echo "VERIFIED: 'config' is in completions"
+else
+    echo "FAILURE: 'config' not found in completions"
+    exit 1
+fi
+if printf '%s\n' "${{COMPREPLY[@]}}" | grep -q '^list$'; then
+    echo "VERIFIED: 'list' is in completions"
+else
+    echo "FAILURE: 'list' not found in completions"
+    exit 1
+fi
+"#,
+            wrapper_script = wrapper_script
+        );
+
+        // Execute in PTY
+        let pty_system = native_pty_system();
+        let pair = pty_system
+            .openpty(PtySize {
+                rows: 48,
+                cols: 200,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+
+        let mut cmd = CommandBuilder::new("bash");
+        cmd.env_clear();
+        cmd.env(
+            "HOME",
+            home::home_dir().unwrap().to_string_lossy().to_string(),
+        );
+        cmd.env(
+            "PATH",
+            format!(
+                "{}:{}",
+                wt_bin_dir.display(),
+                std::env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".to_string())
+            ),
+        );
+        cmd.arg("--norc");
+        cmd.arg("--noprofile");
+        cmd.arg("-c");
+        cmd.arg(&script);
+        cmd.cwd(repo.root_path());
+
+        let mut child = pair.slave.spawn_command(cmd).unwrap();
+        drop(pair.slave);
+
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf).unwrap();
+
+        let status = child.wait().unwrap();
+        let output = buf.replace("\r\n", "\n");
+
+        // Verify no "command not found" error (the COMPLETE mode bug)
+        assert!(
+            !output.contains("command not found"),
+            "Completion output should NOT be executed as a command.\n\
+             This indicates the COMPLETE mode fix is not working.\n\
+             Output: {}",
+            output
+        );
+
+        assert!(
+            output.contains("SUCCESS: Completion is registered"),
+            "Completion should be registered.\nOutput: {}\nExit: {}",
+            output,
+            status.exit_code()
+        );
+
+        assert!(
+            output.contains("SUCCESS: Got") && output.contains("completions"),
+            "Completion should return results.\nOutput: {}\nExit: {}",
+            output,
+            status.exit_code()
+        );
+
+        assert!(
+            output.contains("VERIFIED: 'config' is in completions"),
+            "Expected 'config' subcommand in completions.\nOutput: {}",
+            output
+        );
+
+        assert!(
+            output.contains("VERIFIED: 'list' is in completions"),
+            "Expected 'list' subcommand in completions.\nOutput: {}",
+            output
+        );
+    }
+
+    /// Black-box test: zsh completion is registered and produces correct output.
+    ///
+    /// This test verifies completion works WITHOUT knowing internal function names.
+    /// It checks that a completion is registered for 'wt' and that calling the
+    /// wt command with COMPLETE=zsh produces completion candidates.
+    #[test]
+    fn test_zsh_completion_produces_correct_output() {
+        use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+        use std::io::Read;
+
+        let repo = TestRepo::new();
+        repo.commit("Initial commit");
+
+        let wt_bin = get_cargo_bin("wt");
+        let wt_bin_dir = wt_bin.parent().unwrap();
+
+        // Generate wrapper without WORKTRUNK_BIN (simulates installed wt)
+        let output = std::process::Command::new(&wt_bin)
+            .args(["config", "shell", "init", "zsh"])
+            .output()
+            .unwrap();
+        let wrapper_script = String::from_utf8_lossy(&output.stdout);
+
+        // Black-box test: don't reference internal function names
+        let script = format!(
+            r#"
+autoload -Uz compinit && compinit -i 2>/dev/null
+
+# Do NOT set WORKTRUNK_BIN - simulate real user scenario
+export CLICOLOR_FORCE=1
+
+# Source the shell integration
+{wrapper_script}
+
+# Step 1: Verify SOME completion is registered for 'wt' (black-box check)
+# In zsh, $_comps[wt] contains the completion function if registered
+if (( $+_comps[wt] )); then
+    echo "SUCCESS: Completion is registered for wt"
+else
+    echo "FAILURE: No completion registered for wt"
+    exit 1
+fi
+
+# Step 2: Test that COMPLETE mode works through our shell function
+# This is the key test - the wt() shell function must detect COMPLETE
+# and call the binary directly, not through wt_exec which would eval the output
+words=(wt "")
+CURRENT=2
+_CLAP_COMPLETE_INDEX=1
+_CLAP_IFS=$'\n'
+
+# Call wt with COMPLETE=zsh - this goes through our shell function
+completions=$(COMPLETE=zsh _CLAP_IFS="$_CLAP_IFS" _CLAP_COMPLETE_INDEX="$_CLAP_COMPLETE_INDEX" wt -- "${{words[@]}}" 2>&1)
+
+if [[ -z "$completions" ]]; then
+    echo "FAILURE: No completions returned"
+    exit 1
+fi
+echo "SUCCESS: Got completions"
+
+# Print first few completions
+echo "$completions" | head -10 | while read line; do
+    echo "  - $line"
+done
+
+# Step 3: Verify expected subcommands are present
+if echo "$completions" | grep -q 'config'; then
+    echo "VERIFIED: 'config' is in completions"
+else
+    echo "FAILURE: 'config' not found in completions"
+    exit 1
+fi
+"#,
+            wrapper_script = wrapper_script
+        );
+
+        // Execute in PTY
+        let pty_system = native_pty_system();
+        let pair = pty_system
+            .openpty(PtySize {
+                rows: 48,
+                cols: 200,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+
+        let mut cmd = CommandBuilder::new("zsh");
+        cmd.env_clear();
+        cmd.env(
+            "HOME",
+            home::home_dir().unwrap().to_string_lossy().to_string(),
+        );
+        cmd.env(
+            "PATH",
+            format!(
+                "{}:{}",
+                wt_bin_dir.display(),
+                std::env::var("PATH").unwrap_or_else(|_| "/usr/bin:/bin".to_string())
+            ),
+        );
+        cmd.env("ZDOTDIR", "/dev/null");
+        cmd.arg("--no-rcs");
+        cmd.arg("-o");
+        cmd.arg("NO_GLOBAL_RCS");
+        cmd.arg("-o");
+        cmd.arg("NO_RCS");
+        cmd.arg("-c");
+        cmd.arg(&script);
+        cmd.cwd(repo.root_path());
+
+        let mut child = pair.slave.spawn_command(cmd).unwrap();
+        drop(pair.slave);
+
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf).unwrap();
+
+        let status = child.wait().unwrap();
+        let output = buf.replace("\r\n", "\n");
+
+        // Verify no "command not found" error (the COMPLETE mode bug)
+        assert!(
+            !output.contains("command not found"),
+            "Completion output should NOT be executed as a command.\n\
+             Output: {}",
+            output
+        );
+
+        assert!(
+            output.contains("SUCCESS: Completion is registered"),
+            "Completion should be registered.\nOutput: {}\nExit: {}",
+            output,
+            status.exit_code()
+        );
+
+        assert!(
+            output.contains("SUCCESS: Got completions"),
+            "Completion should return results.\nOutput: {}\nExit: {}",
+            output,
+            status.exit_code()
+        );
+
+        assert!(
+            output.contains("VERIFIED: 'config' is in completions"),
+            "Expected 'config' subcommand in completions.\nOutput: {}",
+            output
+        );
+    }
 }
