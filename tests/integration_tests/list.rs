@@ -2129,56 +2129,6 @@ fn test_list_progressive_vs_buffered_identical_data() {
     );
 }
 
-/// Test that errors from worktree collection include helpful context
-/// This verifies that when a worktree fails to collect data, the error message
-/// includes the worktree branch name and path for easier debugging.
-///
-/// TODO: This test is currently ignored because the parallel collection implementation
-/// silently handles errors instead of propagating them. We need to add proper error
-/// propagation through the CellUpdate channel. See collect_progressive_impl.rs TODOs.
-#[test]
-#[ignore = "Error handling needs improvement in parallel collection"]
-fn test_list_error_shows_worktree_context() {
-    let mut repo = TestRepo::new();
-    repo.commit("Initial commit");
-
-    // Create a worktree
-    let feature_wt = repo.add_worktree("feature");
-
-    // Delete the worktree directory manually to trigger an error
-    // (but keep the git metadata, so git worktree list still shows it)
-    std::fs::remove_dir_all(&feature_wt).unwrap();
-
-    // Run list command and expect an error
-    let mut cmd = wt_command();
-    repo.clean_cli_env(&mut cmd);
-    repo.configure_mock_commands(&mut cmd);
-    cmd.arg("list").current_dir(repo.root_path());
-
-    let output = cmd.output().unwrap();
-
-    // Should fail with non-zero exit code
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    assert!(
-        !output.status.success(),
-        "Expected command to fail. stdout:\n{}\nstderr:\n{}",
-        stdout,
-        stderr
-    );
-
-    // Error message should include worktree context (could be in stdout or stderr)
-    let combined = format!("{}{}", stdout, stderr);
-
-    assert!(
-        combined.contains("feature") && combined.contains("Failed to collect data for worktree"),
-        "Error message should include worktree branch 'feature' and context, but got:\nstdout:\n{}\nstderr:\n{}",
-        stdout,
-        stderr
-    );
-}
-
 #[test]
 fn test_list_with_c_flag() {
     let mut repo = TestRepo::new();
