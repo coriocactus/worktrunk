@@ -1361,7 +1361,7 @@ List all worktrees:
 $ wt list
 ```
 
-Include CI status and conflict detection:
+Include CI status and line diffs:
 
 <!-- wt list --full -->
 ```console
@@ -1422,7 +1422,7 @@ Symbols appear in the Status column in this order:
 | | `✖` | Merge conflicts |
 | | `↻` | Rebase in progress |
 | | `⋈` | Merge in progress |
-| Branch state | `⚔` | Would conflict if merged to main (`--full` only) |
+| Branch state | `⚔` | Would conflict if merged to main |
 | | `≡` | Matches main (identical contents) |
 | | `_` | No commits ahead, clean working tree |
 | Main divergence | `^` | Is the main branch |
@@ -1492,7 +1492,7 @@ wt list --format=json | jq '.[] | select(.status.main_divergence == "Ahead")'
         #[arg(long)]
         remotes: bool,
 
-        /// Show CI, conflicts, diffs
+        /// Show CI and line diffs
         #[arg(long)]
         full: bool,
 

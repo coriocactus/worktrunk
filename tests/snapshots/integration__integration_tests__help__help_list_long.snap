@@ -37,7 +37,7 @@ Usage: [1m[36mwt list[0m [36m[OPTIONS][0m
           Include remote branches
 
       [1m[36m--full[0m
-          Show CI, conflicts, diffs
+          Show CI and line diffs
 
       [1m[36m--progressive[0m
           Show fast info immediately, update with slow info[0m
@@ -67,7 +67,7 @@ List all worktrees:
 
   [2m$ wt list[0m
 
-Include CI status and conflict detection:
+Include CI status and line diffs:
 
   [2m$ wt list --full[0m
 
@@ -112,29 +112,29 @@ CI is only checked for branches that track a remote — local-only branches show
 
 Symbols appear in the Status column in this order:
 
-  Category           Symbol  Meaning                                       
-  ─────────────────  ──────  ──────────────────────────────────────────────
-  Working tree       [36m+[0m       Staged files                                  
-                     [36m![0m       Modified files (unstaged)                     
-                     [36m?[0m       Untracked files                               
-                     [31m✖[0m       Merge conflicts                               
-                     [33m↻[0m       Rebase in progress                            
-                     [33m⋈[0m       Merge in progress                             
-  Branch state       [33m⚔[0m       Would conflict if merged to main ([2m--full[0m only)
-                     [2m≡[0m       Matches main (identical contents)             
-                     [2m_[0m       No commits ahead, clean working tree          
-  Main divergence    [2m^[0m       Is the main branch                            
-                     [2m↑[0m       Ahead of main                                 
-                     [2m↓[0m       Behind main                                   
-                     [2m↕[0m       Diverged from main                            
-  Remote divergence  [2m|[0m       In sync with remote                           
-                     [2m⇡[0m       Ahead of remote                               
-                     [2m⇣[0m       Behind remote                                 
-                     [2m⇅[0m       Diverged from remote                          
-  Worktree state     [2m/[0m       Branch without worktree                       
-                     [31m⚑[0m       Path doesn't match template                   
-                     [33m⌫[0m       Prunable (directory missing)                  
-                     [33m⊠[0m       Locked worktree                               
+  Category           Symbol  Meaning                             
+  ─────────────────  ──────  ────────────────────────────────────
+  Working tree       [36m+[0m       Staged files                        
+                     [36m![0m       Modified files (unstaged)           
+                     [36m?[0m       Untracked files                     
+                     [31m✖[0m       Merge conflicts                     
+                     [33m↻[0m       Rebase in progress                  
+                     [33m⋈[0m       Merge in progress                   
+  Branch state       [33m⚔[0m       Would conflict if merged to main    
+                     [2m≡[0m       Matches main (identical contents)   
+                     [2m_[0m       No commits ahead, clean working tree
+  Main divergence    [2m^[0m       Is the main branch                  
+                     [2m↑[0m       Ahead of main                       
+                     [2m↓[0m       Behind main                         
+                     [2m↕[0m       Diverged from main                  
+  Remote divergence  [2m|[0m       In sync with remote                 
+                     [2m⇡[0m       Ahead of remote                     
+                     [2m⇣[0m       Behind remote                       
+                     [2m⇅[0m       Diverged from remote                
+  Worktree state     [2m/[0m       Branch without worktree             
+                     [31m⚑[0m       Path doesn't match template         
+                     [33m⌫[0m       Prunable (directory missing)        
+                     [33m⊠[0m       Locked worktree                     
 
 Rows are dimmed when the branch content is already in main ([2m≡[0m matches main or [2m_[0m no commits ahead).
 

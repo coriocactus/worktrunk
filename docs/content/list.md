@@ -30,7 +30,7 @@ List all worktrees:
 
 <!-- END AUTO-GENERATED -->
 
-Include CI status and conflict detection:
+Include CI status and line diffs:
 
 <!-- ⚠️ AUTO-GENERATED from tests/snapshots/integration__integration_tests__list__readme_example_list_full.snap — edit source to update -->
 
@@ -111,7 +111,7 @@ Symbols appear in the Status column in this order:
 | | `✖` | Merge conflicts |
 | | `↻` | Rebase in progress |
 | | `⋈` | Merge in progress |
-| Branch state | `⚔` | Would conflict if merged to main (`--full` only) |
+| Branch state | `⚔` | Would conflict if merged to main |
 | | `≡` | Matches main (identical contents) |
 | | `_` | No commits ahead, clean working tree |
 | Main divergence | `^` | Is the main branch |
@@ -190,7 +190,7 @@ Options:
           Include remote branches
 
       --full
-          Show CI, conflicts, diffs
+          Show CI and line diffs
 
       --progressive
           Show fast info immediately, update with slow info

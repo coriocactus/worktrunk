@@ -90,7 +90,7 @@ Creates [2m~/.config/worktrunk/config.toml[0m with the following content:
   [2m# List Command Defaults[0m
   [2m# Configure default behavior for `wt list`[0m
   [2m[list][0m
-  [2mfull = false       # Show CI, conflicts, diffs by default[0m
+  [2mfull = false       # Show CI and line diffs by default[0m
   [2mbranches = false   # Include branches without worktrees by default[0m
   [2mremotes = false    # Include remote branches by default[0m
   [2m[0m

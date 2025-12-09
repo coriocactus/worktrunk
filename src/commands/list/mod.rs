@@ -45,7 +45,7 @@
 //! First run in a repo without cached default branch adds ~100-300ms for network lookup.
 //!
 //! After the skeleton appears, cells fill in progressively as git operations complete.
-//! The slowest operations (CI status, merge-tree conflict detection) only run with `--full`.
+//! The slowest operation (CI status) only runs with `--full`.
 //!
 //! ## Git Commands Per Worktree
 //!
@@ -151,17 +151,13 @@ pub fn handle_list(
     let repo = Repository::current();
 
     // Build skip set based on flags
-    // Without --full: skip expensive operations (BranchDiff, CiStatus, MergeTreeConflicts)
+    // Without --full: skip expensive operations (BranchDiff, CiStatus)
     let skip_tasks: std::collections::HashSet<TaskKind> = if show_full {
         std::collections::HashSet::new() // Compute everything
     } else {
-        [
-            TaskKind::BranchDiff,
-            TaskKind::CiStatus,
-            TaskKind::MergeTreeConflicts,
-        ]
-        .into_iter()
-        .collect()
+        [TaskKind::BranchDiff, TaskKind::CiStatus]
+            .into_iter()
+            .collect()
     };
 
     // Progressive rendering only for table format with Progressive mode
