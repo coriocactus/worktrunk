@@ -87,7 +87,10 @@ Options:
           Run removal in foreground
 
       --no-verify
-          Skip pre-remove hooks
+          Skip hooks
+
+      --force
+          Skip approval prompts
 
   -h, --help
           Print help (see a summary with '-h')

@@ -1,13 +1,13 @@
 use worktrunk::HookType;
-use worktrunk::config::{Command, CommandPhase, ProjectConfig};
+use worktrunk::config::{Command, ProjectConfig};
 use worktrunk::git::Repository;
 use worktrunk::styling::info_message;
 
 use super::command_approval::approve_command_batch;
-use super::command_executor::CommandContext;
+use super::command_executor::{CommandContext, expand_commands_for_approval};
 use super::commit::CommitOptions;
 use super::context::CommandEnv;
-use super::hooks::{HookFailureStrategy, HookPipeline};
+use super::hooks::{HookFailureStrategy, HookPipeline, HookSource};
 use super::project_config::collect_commands_for_hooks;
 use super::repository_ext::RepositoryCliExt;
 use super::worktree::{MergeOperations, RemoveResult, handle_push};
@@ -27,6 +27,7 @@ struct MergeCommandCollector<'a> {
     repo: &'a Repository,
     no_commit: bool,
     no_verify: bool,
+    will_remove: bool,
 }
 
 /// Commands collected for batch approval with their project identifier
@@ -59,6 +60,9 @@ impl<'a> MergeCommandCollector<'a> {
         if !self.no_verify {
             hooks.push(HookType::PreMerge);
             hooks.push(HookType::PostMerge);
+            if self.will_remove {
+                hooks.push(HookType::PreRemove);
+            }
         }
 
         all_commands.extend(collect_commands_for_hooks(&project_config, &hooks));
@@ -110,17 +114,26 @@ pub fn handle_merge(
         repo,
         no_commit: !commit,
         no_verify: !verify,
+        will_remove: remove_effective,
     }
     .collect()?;
 
-    // Approve all commands in a single batch
-    // Commands collected here are not yet expanded - expansion happens later in prepare_project_commands
-    let approved = approve_command_batch(&all_commands, &project_id, config, force, false)?;
+    // Expand commands for approval display (shows actual values instead of templates)
+    let ctx = env.context(force);
+    let expanded =
+        expand_commands_for_approval(&all_commands, &ctx, &[("target", &target_branch)])?;
 
-    // If commands were declined, show message explaining that merge continues anyway
-    if !approved {
+    // Approve all expanded commands in a single batch
+    let approved = approve_command_batch(&expanded, &project_id, config, force, false)?;
+
+    // If commands were declined, skip hooks but continue with merge
+    // Shadow verify to gate all subsequent hook execution on approval
+    let verify = if !approved {
         crate::output::print(info_message("Commands declined, continuing merge"))?;
-    }
+        false
+    } else {
+        verify
+    };
 
     // Handle uncommitted changes (skip if --no-commit) - track whether commit occurred
     let committed = if commit && repo.is_dirty()? {
@@ -132,7 +145,6 @@ pub fn handle_merge(
             options.target_branch = Some(&target_branch);
             options.no_verify = !verify;
             options.stage_mode = stage_mode;
-            options.auto_trust = true;
             options.warn_about_untracked = stage_mode == super::commit::StageMode::All;
             options.show_no_squash_note = true;
 
@@ -149,8 +161,7 @@ pub fn handle_merge(
             super::standalone::handle_squash(
                 Some(&target_branch),
                 force,
-                !verify,
-                true,
+                !verify, // skip_pre_commit when !verify
                 stage_mode
             )?,
             super::standalone::SquashResult::Squashed
@@ -171,9 +182,10 @@ pub fn handle_merge(
 
     // Run pre-merge checks unless --no-verify was specified
     // Do this after commit/squash/rebase to validate the final state that will be pushed
-    if verify && let Some(project_config) = repo.load_project_config()? {
+    if verify {
         let ctx = env.context(force);
-        run_pre_merge_commands(&project_config, &ctx, &target_branch, true, None)?;
+        let project_config = repo.load_project_config()?.unwrap_or_default();
+        run_pre_merge_commands(&project_config, &ctx, &target_branch, None)?;
     }
 
     // Fast-forward push to target branch with commit/squash/rebase info for consolidated message
@@ -210,8 +222,9 @@ pub fn handle_merge(
             force_delete: false,
             target_branch: Some(target_branch.clone()),
         };
-        // Run hooks during merge removal (verify=true)
-        crate::output::handle_remove_output(&remove_result, Some(&current_branch), true, true)?;
+        // Run hooks during merge removal (pass through verify flag)
+        // Approval was handled at the gate (MergeCommandCollector)
+        crate::output::handle_remove_output(&remove_result, Some(&current_branch), true, verify)?;
     } else {
         // Print comprehensive summary (worktree preserved)
         // Priority: main worktree > on target > --no-remove flag
@@ -239,7 +252,7 @@ pub fn handle_merge(
             &destination_repo_root,
             force,
         );
-        execute_post_merge_commands(&ctx, &target_branch, true, None)?;
+        execute_post_merge_commands(&ctx, &target_branch, None)?;
     }
 
     Ok(())
@@ -259,100 +272,209 @@ fn handle_merge_summary_output(reason: PreserveReason) -> anyhow::Result<()> {
 }
 /// Run pre-merge commands sequentially (blocking, fail-fast)
 ///
-/// # Security Note
-/// `auto_trust`: When true, skip approval prompts (commands already approved in `wt merge`'s batch).
-///              When false, require approval (standalone `wt step hook` execution).
+/// Runs user hooks first, then project hooks.
+/// Approval is handled at the gate (command entry point).
 pub fn run_pre_merge_commands(
     project_config: &ProjectConfig,
     ctx: &CommandContext,
     target_branch: &str,
-    auto_trust: bool,
     name_filter: Option<&str>,
 ) -> anyhow::Result<()> {
-    let Some(pre_merge_config) = &project_config.pre_merge else {
-        return Ok(());
-    };
-
     let pipeline = HookPipeline::new(*ctx);
+    let extra_vars = [("target", target_branch)];
+    let mut total_commands_run = 0;
 
-    pipeline.run_sequential(
-        pre_merge_config,
-        CommandPhase::PreMerge,
-        auto_trust,
-        &[("target", target_branch)],
-        "pre-merge",
-        HookType::PreMerge,
-        HookFailureStrategy::FailFast,
-        name_filter,
-    )
+    // Run user hooks first (no approval required)
+    if let Some(user_config) = &ctx.config.pre_merge {
+        total_commands_run += pipeline.run_sequential(
+            user_config,
+            HookType::PreMerge,
+            HookSource::User,
+            &extra_vars,
+            HookFailureStrategy::FailFast,
+            name_filter,
+        )?;
+    }
+
+    // Then run project hooks (require approval)
+    if let Some(pre_merge_config) = &project_config.pre_merge {
+        total_commands_run += pipeline.run_sequential(
+            pre_merge_config,
+            HookType::PreMerge,
+            HookSource::Project,
+            &extra_vars,
+            HookFailureStrategy::FailFast,
+            name_filter,
+        )?;
+    }
+
+    // If name filter was provided but no commands matched, error with available names
+    if let Some(name) = name_filter
+        && total_commands_run == 0
+    {
+        let mut available = Vec::new();
+        if let Some(config) = &ctx.config.pre_merge {
+            available.extend(
+                config
+                    .commands()
+                    .iter()
+                    .filter_map(|c| c.name.as_ref().map(|n| format!("user:{n}"))),
+            );
+        }
+        if let Some(config) = &project_config.pre_merge {
+            available.extend(
+                config
+                    .commands()
+                    .iter()
+                    .filter_map(|c| c.name.as_ref().map(|n| format!("project:{n}"))),
+            );
+        }
+        return Err(worktrunk::git::GitError::HookCommandNotFound {
+            name: name.to_string(),
+            available,
+        }
+        .into());
+    }
+
+    Ok(())
 }
 
 /// Execute post-merge commands sequentially in the main worktree (blocking)
 ///
-/// # Security Note
-/// `auto_trust`: When true, skip approval prompts (commands already approved in `wt merge`'s batch).
-///              When false, require approval (standalone `wt step hook` execution).
+/// Runs user hooks first, then project hooks.
+/// Approval is handled at the gate (command entry point).
 pub fn execute_post_merge_commands(
     ctx: &CommandContext,
     target_branch: &str,
-    auto_trust: bool,
     name_filter: Option<&str>,
 ) -> anyhow::Result<()> {
-    // Load project config from the main worktree path directly
-    let project_config = match ctx.repo.load_project_config()? {
-        Some(cfg) => cfg,
-        None => return Ok(()),
-    };
-
-    let Some(post_merge_config) = &project_config.post_merge else {
-        return Ok(());
-    };
-
     let pipeline = HookPipeline::new(*ctx);
+    let extra_vars = [("target", target_branch)];
+    let mut total_commands_run = 0;
 
-    pipeline.run_sequential(
-        post_merge_config,
-        CommandPhase::PostMerge,
-        auto_trust,
-        &[("target", target_branch)],
-        "post-merge",
-        HookType::PostMerge,
-        HookFailureStrategy::Warn,
-        name_filter,
-    )
+    // Run user hooks first (no approval required)
+    if let Some(user_config) = &ctx.config.post_merge {
+        total_commands_run += pipeline.run_sequential(
+            user_config,
+            HookType::PostMerge,
+            HookSource::User,
+            &extra_vars,
+            HookFailureStrategy::Warn,
+            name_filter,
+        )?;
+    }
+
+    // Then run project hooks (require approval)
+    // Load project config from the main worktree path directly
+    let project_config = ctx.repo.load_project_config()?;
+
+    if let Some(post_merge_config) = project_config.as_ref().and_then(|c| c.post_merge.as_ref()) {
+        total_commands_run += pipeline.run_sequential(
+            post_merge_config,
+            HookType::PostMerge,
+            HookSource::Project,
+            &extra_vars,
+            HookFailureStrategy::Warn,
+            name_filter,
+        )?;
+    }
+
+    // If name filter was provided but no commands matched, error with available names
+    if let Some(name) = name_filter
+        && total_commands_run == 0
+    {
+        let mut available = Vec::new();
+        if let Some(config) = &ctx.config.post_merge {
+            available.extend(
+                config
+                    .commands()
+                    .iter()
+                    .filter_map(|c| c.name.as_ref().map(|n| format!("user:{n}"))),
+            );
+        }
+        if let Some(config) = project_config.as_ref().and_then(|c| c.post_merge.as_ref()) {
+            available.extend(
+                config
+                    .commands()
+                    .iter()
+                    .filter_map(|c| c.name.as_ref().map(|n| format!("project:{n}"))),
+            );
+        }
+        return Err(worktrunk::git::GitError::HookCommandNotFound {
+            name: name.to_string(),
+            available,
+        }
+        .into());
+    }
+
+    Ok(())
 }
 
 /// Execute pre-remove commands sequentially in the worktree (blocking)
 ///
+/// Runs user hooks first, then project hooks.
 /// Runs before a worktree is removed. Non-zero exit aborts the removal.
-///
-/// # Arguments
-/// * `ctx` - Command context pointing to the worktree being removed
-/// * `auto_trust` - When true, skip approval prompts
+/// Approval is handled at the gate (command entry point).
 pub fn execute_pre_remove_commands(
     ctx: &CommandContext,
-    auto_trust: bool,
     name_filter: Option<&str>,
 ) -> anyhow::Result<()> {
-    let project_config = match ctx.repo.load_project_config()? {
-        Some(cfg) => cfg,
-        None => return Ok(()),
-    };
-
-    let Some(pre_remove_config) = &project_config.pre_remove else {
-        return Ok(());
-    };
-
     let pipeline = HookPipeline::new(*ctx);
+    let mut total_commands_run = 0;
 
-    pipeline.run_sequential(
-        pre_remove_config,
-        CommandPhase::PreRemove,
-        auto_trust,
-        &[],
-        "pre-remove",
-        HookType::PreRemove,
-        HookFailureStrategy::FailFast,
-        name_filter,
-    )
+    // Run user hooks first (no approval required)
+    if let Some(user_config) = &ctx.config.pre_remove {
+        total_commands_run += pipeline.run_sequential(
+            user_config,
+            HookType::PreRemove,
+            HookSource::User,
+            &[],
+            HookFailureStrategy::FailFast,
+            name_filter,
+        )?;
+    }
+
+    // Then run project hooks (require approval)
+    let project_config = ctx.repo.load_project_config()?;
+
+    if let Some(pre_remove_config) = project_config.as_ref().and_then(|c| c.pre_remove.as_ref()) {
+        total_commands_run += pipeline.run_sequential(
+            pre_remove_config,
+            HookType::PreRemove,
+            HookSource::Project,
+            &[],
+            HookFailureStrategy::FailFast,
+            name_filter,
+        )?;
+    }
+
+    // If name filter was provided but no commands matched, error with available names
+    if let Some(name) = name_filter
+        && total_commands_run == 0
+    {
+        let mut available = Vec::new();
+        if let Some(config) = &ctx.config.pre_remove {
+            available.extend(
+                config
+                    .commands()
+                    .iter()
+                    .filter_map(|c| c.name.as_ref().map(|n| format!("user:{n}"))),
+            );
+        }
+        if let Some(config) = project_config.as_ref().and_then(|c| c.pre_remove.as_ref()) {
+            available.extend(
+                config
+                    .commands()
+                    .iter()
+                    .filter_map(|c| c.name.as_ref().map(|n| format!("project:{n}"))),
+            );
+        }
+        return Err(worktrunk::git::GitError::HookCommandNotFound {
+            name: name.to_string(),
+            available,
+        }
+        .into());
+    }
+
+    Ok(())
 }

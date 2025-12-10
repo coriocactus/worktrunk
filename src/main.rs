@@ -4,7 +4,7 @@ use color_print::cformat;
 use std::path::PathBuf;
 use std::process;
 use worktrunk::config::{WorktrunkConfig, set_config_path};
-use worktrunk::git::{Repository, exit_code, is_command_not_approved, set_base_path};
+use worktrunk::git::{Repository, exit_code, set_base_path};
 use worktrunk::path::format_path_for_display;
 use worktrunk::styling::{
     format_with_gutter, hint_message, info_message, println, success_message, warning_message,
@@ -26,13 +26,13 @@ use commands::command_executor::CommandContext;
 use commands::handle_select;
 use commands::worktree::{SwitchResult, handle_push};
 use commands::{
-    ConfigAction, RebaseResult, SquashResult, handle_cache_clear, handle_cache_refresh,
-    handle_cache_show, handle_config_create, handle_config_show, handle_configure_shell,
+    ConfigAction, RebaseResult, SquashResult, add_approvals, approve_hooks, clear_approvals,
+    compute_worktree_path, handle_cache_clear, handle_cache_refresh, handle_cache_show,
+    handle_config_create, handle_config_show, handle_configure_shell, handle_hook_show,
     handle_init, handle_list, handle_merge, handle_rebase, handle_remove, handle_remove_by_path,
-    handle_remove_current, handle_show_theme, handle_squash, handle_standalone_add_approvals,
-    handle_standalone_clear_approvals, handle_standalone_commit, handle_standalone_run_hook,
-    handle_switch, handle_unconfigure_shell, handle_var_clear, handle_var_get, handle_var_set,
-    resolve_worktree_path_first,
+    handle_remove_current, handle_show_theme, handle_squash, handle_switch,
+    handle_unconfigure_shell, handle_var_clear, handle_var_get, handle_var_set,
+    resolve_worktree_path_first, run_hook, step_commit,
 };
 use output::{execute_user_command, handle_remove_output, handle_switch_output};
 
@@ -892,8 +892,8 @@ fn main() {
                 VarCommand::Clear { key, branch, all } => handle_var_clear(&key, branch, all),
             },
             ConfigCommand::Approvals { action } => match action {
-                ApprovalsCommand::Add { force, all } => handle_standalone_add_approvals(force, all),
-                ApprovalsCommand::Clear { global } => handle_standalone_clear_approvals(global),
+                ApprovalsCommand::Add { force, all } => add_approvals(force, all),
+                ApprovalsCommand::Clear { global } => clear_approvals(global),
             },
         },
         Commands::Step { action } => match action {
@@ -907,7 +907,7 @@ fn main() {
                     let stage_final = stage
                         .or_else(|| config.commit.and_then(|c| c.stage))
                         .unwrap_or_default();
-                    handle_standalone_commit(force, !verify, stage_final)
+                    step_commit(force, !verify, stage_final)
                 }),
             StepCommand::Squash {
                 target,
@@ -920,7 +920,32 @@ fn main() {
                     let stage_final = stage
                         .or_else(|| config.commit.and_then(|c| c.stage))
                         .unwrap_or_default();
-                    match handle_squash(target.as_deref(), force, !verify, false, stage_final)? {
+
+                    // "Approve at the Gate": approve pre-commit hooks upfront (unless --no-verify)
+                    // Shadow verify: if user declines approval, skip hooks but continue squash
+                    let verify = if verify {
+                        use commands::command_approval::approve_hooks;
+                        use commands::context::CommandEnv;
+                        let env = CommandEnv::for_action("squash")?;
+                        let ctx = env.context(force);
+                        let target_branch = env.repo.default_branch().ok();
+                        let extra_vars: Vec<(&str, &str)> = target_branch
+                            .as_deref()
+                            .into_iter()
+                            .map(|t| ("target", t))
+                            .collect();
+                        let approved = approve_hooks(&ctx, &[HookType::PreCommit], &extra_vars)?;
+                        if !approved {
+                            crate::output::print(info_message(
+                                "Commands declined, squashing without hooks",
+                            ))?;
+                        }
+                        approved
+                    } else {
+                        false
+                    };
+
+                    match handle_squash(target.as_deref(), force, !verify, stage_final)? {
                         SquashResult::Squashed | SquashResult::NoNetChanges => {}
                         SquashResult::NoCommitsAhead(branch) => {
                             crate::output::print(info_message(format!(
@@ -952,23 +977,27 @@ fn main() {
             }
         },
         Commands::Hook { action } => match action {
+            HookCommand::Show {
+                hook_type,
+                expanded,
+            } => handle_hook_show(hook_type.as_deref(), expanded),
             HookCommand::PostCreate { name, force } => {
-                handle_standalone_run_hook(HookType::PostCreate, force, name.as_deref())
+                run_hook(HookType::PostCreate, force, name.as_deref())
             }
             HookCommand::PostStart { name, force } => {
-                handle_standalone_run_hook(HookType::PostStart, force, name.as_deref())
+                run_hook(HookType::PostStart, force, name.as_deref())
             }
             HookCommand::PreCommit { name, force } => {
-                handle_standalone_run_hook(HookType::PreCommit, force, name.as_deref())
+                run_hook(HookType::PreCommit, force, name.as_deref())
             }
             HookCommand::PreMerge { name, force } => {
-                handle_standalone_run_hook(HookType::PreMerge, force, name.as_deref())
+                run_hook(HookType::PreMerge, force, name.as_deref())
             }
             HookCommand::PostMerge { name, force } => {
-                handle_standalone_run_hook(HookType::PostMerge, force, name.as_deref())
+                run_hook(HookType::PostMerge, force, name.as_deref())
             }
             HookCommand::PreRemove { name, force } => {
-                handle_standalone_run_hook(HookType::PreRemove, force, name.as_deref())
+                run_hook(HookType::PreRemove, force, name.as_deref())
             }
         },
         #[cfg(unix)]
@@ -1038,9 +1067,40 @@ fn main() {
         } => WorktrunkConfig::load()
             .context("Failed to load config")
             .and_then(|config| {
-                // Execute switch operation (creates worktree, runs post-create hooks)
+                // "Approve at the Gate": collect and approve hooks upfront when creating
+                // This ensures approval happens once at the command entry point
+                // If user declines, skip hooks but continue with worktree creation
+                let approved = if create && verify {
+                    let repo = Repository::current();
+                    let repo_root = repo.worktree_base()?;
+                    // Compute worktree path for template expansion in approval prompt
+                    let worktree_path = compute_worktree_path(&repo, &branch, &config)?;
+                    let ctx = CommandContext::new(
+                        &repo,
+                        &config,
+                        &branch,
+                        &worktree_path,
+                        &repo_root,
+                        force,
+                    );
+                    approve_hooks(&ctx, &[HookType::PostCreate, HookType::PostStart], &[])?
+                } else {
+                    true // No hooks to approve = considered approved
+                };
+
+                // Skip hooks if --no-hooks or user declined approval
+                let skip_hooks = !verify || !approved;
+
+                // Show message if user declined approval
+                if !approved {
+                    crate::output::print(info_message(
+                        "Commands declined, continuing worktree creation",
+                    ))?;
+                }
+
+                // Execute switch operation (creates worktree, runs post-create hooks if approved)
                 let (result, resolved_branch) =
-                    handle_switch(&branch, create, base.as_deref(), force, !verify, &config)?;
+                    handle_switch(&branch, create, base.as_deref(), force, skip_hooks, &config)?;
 
                 // Show success message (temporal locality: immediately after worktree creation)
                 // Pass cli.internal to indicate whether shell integration is active
@@ -1048,8 +1108,8 @@ fn main() {
 
                 // Now spawn post-start hooks (background processes, after success message)
                 // Only run post-start commands when creating a NEW worktree, not when switching to existing
-                // Note: If user declines post-start commands, continue anyway - they're optional
-                if verify && let SwitchResult::Created { path, .. } = &result {
+                // Hooks only run if --no-hooks wasn't passed and approval was granted (or --force used)
+                if !skip_hooks && let SwitchResult::Created { path, .. } = &result {
                     let repo = Repository::current();
                     let repo_root = repo.worktree_base()?;
                     let ctx = CommandContext::new(
@@ -1060,13 +1120,7 @@ fn main() {
                         &repo_root,
                         force,
                     );
-                    if let Err(e) = ctx.spawn_post_start_commands() {
-                        // Only treat CommandNotApproved as non-fatal (user declined)
-                        // Other errors should still fail
-                        if !is_command_not_approved(&e) {
-                            return Err(e);
-                        }
-                    }
+                    ctx.spawn_post_start_commands(true)?;
                 }
 
                 // Execute user command after post-start hooks have been spawned
@@ -1082,6 +1136,7 @@ fn main() {
             force_delete,
             background,
             verify,
+            force,
         } => WorktrunkConfig::load()
             .context("Failed to load config")
             .and_then(|config| {
@@ -1093,15 +1148,47 @@ fn main() {
                     .into());
                 }
 
+                // "Approve at the Gate": collect and approve pre-remove hooks upfront
+                // This ensures approval happens once at the command entry point
+                //
+                // TODO(pre-remove-context): The approval context uses current worktree (cwd + current_branch),
+                // but hooks execute in each target worktree. When removing another worktree, the approval
+                // preview shows the wrong branch/path. Consider building approval context per target worktree.
+                let repo = Repository::current();
+                let verify = if verify {
+                    // Create context for template expansion in approval prompt
+                    let worktree_path =
+                        std::env::current_dir().context("Failed to get current directory")?;
+                    let repo_root = repo.worktree_base()?;
+                    let current_branch = repo.current_branch()?.unwrap_or_default();
+                    let ctx = CommandContext::new(
+                        &repo,
+                        &config,
+                        &current_branch,
+                        &worktree_path,
+                        &repo_root,
+                        force,
+                    );
+                    let approved = approve_hooks(&ctx, &[HookType::PreRemove], &[])?;
+                    // If declined, skip hooks but continue with removal
+                    if !approved {
+                        crate::output::print(info_message(
+                            "Commands declined, continuing removal",
+                        ))?;
+                    }
+                    approved
+                } else {
+                    false
+                };
+
                 if worktrees.is_empty() {
                     // No worktrees specified, remove current worktree
                     // Uses path-based removal to handle detached HEAD state
                     let result = handle_remove_current(!delete_branch, force_delete, background)?;
+                    // Approval was handled at the gate
                     handle_remove_output(&result, None, background, verify)
                 } else {
                     use worktrunk::git::ResolvedWorktree;
-
-                    let repo = Repository::current();
                     // When removing multiple worktrees, we need to handle the current worktree last
                     // to avoid deleting the directory we're currently in
                     let current_worktree = repo.worktree_root().ok();
@@ -1127,7 +1214,7 @@ fn main() {
                         }
                     }
 
-                    // Remove other worktrees first
+                    // Remove other worktrees first (approval was handled at the gate)
                     for (path, branch) in &others {
                         if let Some(branch_name) = branch {
                             let result = handle_remove(

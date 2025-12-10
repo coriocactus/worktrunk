@@ -1,12 +1,29 @@
 //! Command approval and execution utilities
 //!
 //! Shared helpers for approving commands declared in project configuration.
+//!
+//! # "Approve at the Gate" Pattern
+//!
+//! Commands that run hooks should approve all project commands **upfront** before any execution:
+//!
+//! ```text
+//! User runs command
+//!     ↓
+//! approve_hooks() ← Single approval prompt
+//!     ↓
+//! Execute hooks (approval already done)
+//! ```
+//!
+//! This ensures approval happens exactly once at the command entry point,
+//! eliminating the need to thread `auto_trust` through execution layers.
 
+use super::project_config::collect_commands_for_hooks;
+use super::repository_ext::RepositoryCliExt;
 use crate::output;
 use anyhow::Context;
 use color_print::cformat;
 use worktrunk::config::{Command, WorktrunkConfig};
-use worktrunk::git::GitError;
+use worktrunk::git::{GitError, HookType};
 use worktrunk::styling::{
     INFO_EMOJI, PROMPT_EMOJI, WARNING_EMOJI, eprint, eprintln, format_bash_with_gutter,
     hint_message, stderr, warning_message,
@@ -132,4 +149,70 @@ fn prompt_for_batch_approval(commands: &[&Command], project_id: &str) -> anyhow:
     eprintln!();
 
     Ok(response.trim().eq_ignore_ascii_case("y"))
+}
+
+/// Collect project commands for hooks and request batch approval with template expansion.
+///
+/// This is the "gate" function that should be called at command entry points
+/// (like `wt remove`, `wt switch --create`, `wt merge`) before any hooks execute.
+/// It expands template variables before showing the approval prompt, so users see
+/// the actual commands that will run (e.g., with actual branch names) instead of
+/// template placeholders.
+///
+/// # Parameters
+/// - `ctx`: Command context providing template variables (branch, worktree, etc.)
+/// - `hook_types`: Which hook types to collect commands for
+/// - `extra_vars`: Additional template variables
+///
+/// # Example
+///
+/// ```ignore
+/// let ctx = CommandContext::new(&repo, &config, &branch, &worktree_path, &repo_root, force);
+/// let approved = approve_hooks(
+///     &ctx,
+///     &[HookType::PostCreate, HookType::PostStart],
+///     &[],
+/// )?;
+/// ```
+pub fn approve_hooks(
+    ctx: &super::command_executor::CommandContext<'_>,
+    hook_types: &[HookType],
+    extra_vars: &[(&str, &str)],
+) -> anyhow::Result<bool> {
+    approve_hooks_filtered(ctx, hook_types, extra_vars, None)
+}
+
+/// Like `approve_hooks` but with optional name filter for targeted hook approval.
+///
+/// When `name_filter` is provided, only commands matching that name are shown
+/// in the approval prompt. This is used by `wt hook <type> --name <name>` to
+/// approve only the targeted hook rather than all hooks of that type.
+pub fn approve_hooks_filtered(
+    ctx: &super::command_executor::CommandContext<'_>,
+    hook_types: &[HookType],
+    extra_vars: &[(&str, &str)],
+    name_filter: Option<&str>,
+) -> anyhow::Result<bool> {
+    let project_config = match ctx.repo.load_project_config()? {
+        Some(cfg) => cfg,
+        None => return Ok(true), // No project config = no commands to approve
+    };
+
+    let mut commands = collect_commands_for_hooks(&project_config, hook_types);
+
+    // Apply name filter before approval to only prompt for targeted commands
+    if let Some(name) = name_filter {
+        commands.retain(|cmd| cmd.name.as_deref() == Some(name));
+    }
+
+    if commands.is_empty() {
+        return Ok(true);
+    }
+
+    // Expand templates with the provided context
+    let expanded =
+        super::command_executor::expand_commands_for_approval(&commands, ctx, extra_vars)?;
+
+    let project_id = ctx.repo.project_identifier()?;
+    approve_command_batch(&expanded, &project_id, ctx.config, ctx.force, false)
 }

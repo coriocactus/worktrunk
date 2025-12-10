@@ -1,11 +1,12 @@
 use anyhow::Context;
 use color_print::cformat;
+use worktrunk::HookType;
 use worktrunk::config::CommitGenerationConfig;
 use worktrunk::git::Repository;
 use worktrunk::styling::{format_with_gutter, hint_message, progress_message, success_message};
 
 use super::command_executor::CommandContext;
-use super::hooks::HookPipeline;
+use super::hooks::{HookFailureStrategy, HookPipeline, HookSource};
 use super::repository_ext::RepositoryCliExt;
 
 // Re-export StageMode from config for use by CLI
@@ -17,7 +18,6 @@ pub struct CommitOptions<'a> {
     pub target_branch: Option<&'a str>,
     pub no_verify: bool,
     pub stage_mode: StageMode,
-    pub auto_trust: bool,
     pub warn_about_untracked: bool,
     pub show_no_squash_note: bool,
 }
@@ -30,7 +30,6 @@ impl<'a> CommitOptions<'a> {
             target_branch: None,
             no_verify: false,
             stage_mode: StageMode::All,
-            auto_trust: false,
             warn_about_untracked: true,
             show_no_squash_note: false,
         }
@@ -139,18 +138,44 @@ impl<'a> CommitGenerator<'a> {
 impl CommitOptions<'_> {
     pub fn commit(self) -> anyhow::Result<()> {
         let project_config = self.ctx.repo.load_project_config()?;
-        let has_pre_commit = project_config
+        let user_hooks_exist = self.ctx.config.pre_commit.is_some();
+        let project_hooks_exist = project_config
             .as_ref()
             .map(|c| c.pre_commit.is_some())
             .unwrap_or(false);
+        let any_hooks_exist = user_hooks_exist || project_hooks_exist;
 
-        if self.no_verify && has_pre_commit {
+        // Show skip message
+        if self.no_verify && any_hooks_exist {
             crate::output::print(hint_message(cformat!(
-                "Skipping pre-commit hook (<bright-black>--no-verify</>)"
+                "Skipping pre-commit hooks (<bright-black>--no-verify</>)"
             )))?;
-        } else if let Some(ref config) = project_config {
+        }
+
+        if !self.no_verify {
             let pipeline = HookPipeline::new(*self.ctx);
-            pipeline.run_pre_commit(config, self.target_branch, self.auto_trust, None)?;
+            let extra_vars: Vec<(&str, &str)> = self
+                .target_branch
+                .into_iter()
+                .map(|target| ("target", target))
+                .collect();
+
+            // Run user pre-commit hooks first (no approval required)
+            if let Some(user_config) = &self.ctx.config.pre_commit {
+                pipeline.run_sequential(
+                    user_config,
+                    HookType::PreCommit,
+                    HookSource::User,
+                    &extra_vars,
+                    HookFailureStrategy::FailFast,
+                    None,
+                )?;
+            }
+
+            // Then run project pre-commit hooks (require approval)
+            if let Some(ref config) = project_config {
+                pipeline.run_pre_commit(config, self.target_branch, None)?;
+            }
         }
 
         if self.warn_about_untracked && self.stage_mode == StageMode::All {

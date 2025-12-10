@@ -371,6 +371,8 @@ fn build_remove_command(worktree_path: &std::path::Path, branch_to_delete: Optio
 }
 
 /// Handle output for a remove operation
+///
+/// Approval is handled at the gate (command entry point), not here.
 pub fn handle_remove_output(
     result: &RemoveResult,
     branch: Option<&str>,
@@ -484,9 +486,9 @@ fn handle_removed_worktree_output(
             hook_branch,
             worktree_path,
             main_path,
-            false, // force=false, prompt for approval
+            false, // force=false for CommandContext (not approval-related)
         );
-        execute_pre_remove_commands(&ctx, false, None)?;
+        execute_pre_remove_commands(&ctx, None)?;
     }
 
     // Handle detached HEAD case (no branch known)
