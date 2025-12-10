@@ -318,11 +318,10 @@ impl CachedCiStatus {
     /// Actual TTL will be BASE + (0..JITTER) based on repo path hash.
     const TTL_JITTER_SECS: u64 = 30;
 
-    /// Compute TTL with deterministic jitter based on repo path.
+    /// Compute TTL with jitter based on repo path.
     ///
     /// Different directories get different TTLs [30, 60) seconds, which spreads
     /// out cache expirations when multiple statuslines run concurrently.
-    /// The jitter is deterministic so the same directory always gets the same TTL.
     pub(crate) fn ttl_for_repo(repo_root: &str) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
