@@ -1016,7 +1016,7 @@ fn main() {
                             (_, true) => Some(false),
                             _ => None,
                         };
-                        let render_mode = RenderMode::detect(progressive_opt, cli.internal);
+                        let render_mode = RenderMode::detect(progressive_opt);
                         handle_list(
                             format,
                             show_branches,

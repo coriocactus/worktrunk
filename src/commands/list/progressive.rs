@@ -13,11 +13,9 @@ impl RenderMode {
     /// # Arguments
     ///
     /// * `progressive` - Rendering mode (Some(true) = --progressive, Some(false) = --no-progressive, None = auto)
-    /// * `directive_mode` - True if in directive mode (--internal), affects which stream to check
     ///
-    /// In directive mode, table output goes to stderr, so we check stderr's TTY status.
-    /// In interactive mode, table output goes to stdout, so we check stdout's TTY status.
-    pub fn detect(progressive: Option<bool>, directive_mode: bool) -> Self {
+    /// Table output always goes to stderr (via output::table()), so we check stderr's TTY status.
+    pub fn detect(progressive: Option<bool>) -> Self {
         // Priority 1: Explicit CLI flag
         match progressive {
             Some(true) => return RenderMode::Progressive,
@@ -25,18 +23,9 @@ impl RenderMode {
             None => {} // Fall through to auto-detection
         }
 
-        // Priority 2: Auto-detect based on TTY
-        // Check the appropriate stream based on output mode:
-        // - Directive mode: check stderr (where table output goes via output::table())
-        // - Interactive mode: check stdout (where table output goes)
+        // Priority 2: Auto-detect based on stderr TTY (table output always goes to stderr)
         use std::io::IsTerminal;
-        let is_tty = if directive_mode {
-            std::io::stderr().is_terminal()
-        } else {
-            std::io::stdout().is_terminal()
-        };
-
-        if is_tty {
+        if std::io::stderr().is_terminal() {
             // TODO: Check for pager in environment
             RenderMode::Progressive
         } else {
@@ -52,18 +41,10 @@ mod tests {
     #[test]
     fn test_render_mode_detect_explicit_flags() {
         // --progressive (Some(true)) should force progressive mode
-        assert_eq!(
-            RenderMode::detect(Some(true), false),
-            RenderMode::Progressive
-        );
-        assert_eq!(
-            RenderMode::detect(Some(true), true),
-            RenderMode::Progressive
-        );
+        assert_eq!(RenderMode::detect(Some(true)), RenderMode::Progressive);
 
         // --no-progressive (Some(false)) should force buffered mode
-        assert_eq!(RenderMode::detect(Some(false), false), RenderMode::Buffered);
-        assert_eq!(RenderMode::detect(Some(false), true), RenderMode::Buffered);
+        assert_eq!(RenderMode::detect(Some(false)), RenderMode::Buffered);
 
         // None should auto-detect (tested via TTY checks in runtime)
     }

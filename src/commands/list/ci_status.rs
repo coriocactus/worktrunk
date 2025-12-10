@@ -553,7 +553,7 @@ impl PrStatus {
     pub fn detect(branch: &str, local_head: &str, repo_path: &std::path::Path) -> Option<Self> {
         // We run gh/glab commands from the repo directory to let them auto-detect the correct repo
         // (including upstream repos for forks)
-        let repo_root = repo_path.to_str().expect("repo path is not valid UTF-8");
+        let repo_root = repo_path.to_str()?;
 
         // Check cache first to avoid hitting API rate limits
         use std::time::{SystemTime, UNIX_EPOCH};

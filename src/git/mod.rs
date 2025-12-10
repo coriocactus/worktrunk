@@ -158,8 +158,12 @@ pub struct Worktree {
 ///
 /// This type ensures:
 /// - Bare worktrees are filtered out (only worktrees with working trees are included)
-/// - The main worktree is always at index 0 (accessible via `.main()`)
+/// - The main worktree is at index 0 (accessible via `.main()`) for non-bare repos
 /// - Construction fails if no valid worktrees exist
+///
+/// Git guarantees that the main worktree is listed first in `git worktree list` output,
+/// so index 0 is always the main worktree after filtering. For bare repositories where
+/// the main worktree is filtered out, index 0 will be the first linked worktree.
 #[derive(Debug, Clone)]
 pub struct WorktreeList {
     pub worktrees: Vec<Worktree>,
@@ -167,6 +171,8 @@ pub struct WorktreeList {
 
 impl WorktreeList {
     /// Create from raw worktrees, filtering bare entries.
+    ///
+    /// Preserves git's ordering where the main worktree is first.
     pub(crate) fn from_raw(raw_worktrees: Vec<Worktree>) -> anyhow::Result<Self> {
         let worktrees: Vec<_> = raw_worktrees.into_iter().filter(|wt| !wt.bare).collect();
 
@@ -180,7 +186,11 @@ impl WorktreeList {
         Ok(Self { worktrees })
     }
 
-    /// Returns the main worktree (always at index 0).
+    /// Returns the main worktree (at index 0).
+    ///
+    /// For non-bare repositories, this is the original working tree created by
+    /// `git init` or `git clone`. For bare repositories, this returns the first
+    /// linked worktree (since bare worktrees are filtered out).
     pub fn main(&self) -> &Worktree {
         &self.worktrees[0]
     }
