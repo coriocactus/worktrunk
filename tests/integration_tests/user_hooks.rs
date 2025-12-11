@@ -11,7 +11,7 @@ use crate::common::{
 };
 use insta_cmd::assert_cmd_snapshot;
 use std::fs;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
@@ -421,9 +421,12 @@ long = "sh -c 'echo start >> hook.log; sleep 30; echo done >> hook.log'"
     repo.commit("Add pre-merge hook");
 
     // Spawn wt hook pre-merge (skip approval with --force)
+    // Redirect stdout/stderr to null to prevent output leaking into test runner
     let mut cmd = crate::common::wt_command();
     cmd.current_dir(repo.root_path());
     cmd.args(["hook", "pre-merge", "--force"]);
+    cmd.stdout(Stdio::null());
+    cmd.stderr(Stdio::null());
     let mut child = cmd.spawn().expect("failed to spawn wt hook pre-merge");
 
     // Wait until hook writes "start" to hook.log (verifies the hook is running)
