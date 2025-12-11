@@ -28,14 +28,9 @@ fn snapshot_remove_with_global_flags(
     });
 }
 
-/// Common setup for remove tests - creates repo with initial commit and remote
-fn setup_remove_repo() -> TestRepo {
-    TestRepo::new()
-}
-
 #[test]
 fn test_remove_already_on_default() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Already on main branch
     snapshot_remove("remove_already_on_default", &repo, &[], None);
@@ -43,7 +38,7 @@ fn test_remove_already_on_default() {
 
 #[test]
 fn test_remove_switch_to_default() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Create and switch to a feature branch in the main repo
     let mut cmd = Command::new("git");
@@ -58,7 +53,7 @@ fn test_remove_switch_to_default() {
 
 #[test]
 fn test_remove_from_worktree() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     let worktree_path = repo.add_worktree("feature-wt");
 
@@ -68,7 +63,7 @@ fn test_remove_from_worktree() {
 
 #[test]
 fn test_remove_internal_mode() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     let worktree_path = repo.add_worktree("feature-internal");
 
@@ -83,7 +78,7 @@ fn test_remove_internal_mode() {
 
 #[test]
 fn test_remove_dirty_working_tree() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Create a dirty file
     std::fs::write(repo.root_path().join("dirty.txt"), "uncommitted changes").unwrap();
@@ -93,7 +88,7 @@ fn test_remove_dirty_working_tree() {
 
 #[test]
 fn test_remove_by_name_from_main() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     // Create a worktree
     let _worktree_path = repo.add_worktree("feature-a");
@@ -104,7 +99,7 @@ fn test_remove_by_name_from_main() {
 
 #[test]
 fn test_remove_by_name_from_other_worktree() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     // Create two worktrees
     let worktree_a = repo.add_worktree("feature-a");
@@ -121,7 +116,7 @@ fn test_remove_by_name_from_other_worktree() {
 
 #[test]
 fn test_remove_current_by_name() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     let worktree_path = repo.add_worktree("feature-current");
 
@@ -136,7 +131,7 @@ fn test_remove_current_by_name() {
 
 #[test]
 fn test_remove_nonexistent_worktree() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Try to remove a worktree that doesn't exist
     snapshot_remove("remove_nonexistent_worktree", &repo, &["nonexistent"], None);
@@ -144,7 +139,7 @@ fn test_remove_nonexistent_worktree() {
 
 #[test]
 fn test_remove_remote_only_branch() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
     repo.setup_remote("main"); // This test specifically needs a remote
 
     // Create a remote-only branch by pushing a branch then deleting it locally
@@ -183,7 +178,7 @@ fn test_remove_remote_only_branch() {
 
 #[test]
 fn test_remove_by_name_dirty_target() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     let worktree_path = repo.add_worktree("feature-dirty");
 
@@ -201,7 +196,7 @@ fn test_remove_by_name_dirty_target() {
 
 #[test]
 fn test_remove_multiple_worktrees() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     // Create three worktrees
     let _worktree_a = repo.add_worktree("feature-a");
@@ -219,7 +214,7 @@ fn test_remove_multiple_worktrees() {
 
 #[test]
 fn test_remove_multiple_including_current() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     // Create three worktrees
     let worktree_a = repo.add_worktree("feature-a");
@@ -237,7 +232,7 @@ fn test_remove_multiple_including_current() {
 
 #[test]
 fn test_remove_branch_not_fully_merged() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     // Create a worktree with an unmerged commit
     let worktree_path = repo.add_worktree("feature-unmerged");
@@ -265,7 +260,7 @@ fn test_remove_branch_not_fully_merged() {
 
 #[test]
 fn test_remove_foreground() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     // Create a worktree
     let _worktree_path = repo.add_worktree("feature-fg");
@@ -281,7 +276,7 @@ fn test_remove_foreground() {
 
 #[test]
 fn test_remove_no_delete_branch() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     // Create a worktree
     let _worktree_path = repo.add_worktree("feature-keep");
@@ -297,7 +292,7 @@ fn test_remove_no_delete_branch() {
 
 #[test]
 fn test_remove_branch_only_merged() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Create a branch from main without a worktree (already merged)
     repo.git_command(&["branch", "feature-merged"])
@@ -315,7 +310,7 @@ fn test_remove_branch_only_merged() {
 
 #[test]
 fn test_remove_branch_only_unmerged() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Create a branch with a unique commit (not in main)
     repo.git_command(&["branch", "feature-unmerged"])
@@ -345,7 +340,7 @@ fn test_remove_branch_only_unmerged() {
 
 #[test]
 fn test_remove_branch_only_force_delete() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Create a branch with a unique commit (not in main)
     repo.git_command(&["branch", "feature-force"])
@@ -378,7 +373,7 @@ fn test_remove_branch_only_force_delete() {
 /// using path-based removal (no branch deletion).
 #[test]
 fn test_remove_from_detached_head_in_worktree() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     let worktree_path = repo.add_worktree("feature-detached");
 
@@ -400,7 +395,7 @@ fn test_remove_from_detached_head_in_worktree() {
 /// without branch deletion. The `@` symbol refers to the current worktree.
 #[test]
 fn test_remove_at_from_detached_head_in_worktree() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     let worktree_path = repo.add_worktree("feature-detached-at");
 
@@ -425,7 +420,7 @@ fn test_remove_at_from_detached_head_in_worktree() {
 /// - Branch should be deleted because content is integrated
 #[test]
 fn test_remove_branch_matching_tree_content() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Create a feature branch from main
     repo.git_command(&["branch", "feature-squashed"])
@@ -500,7 +495,7 @@ fn test_remove_branch_matching_tree_content() {
 #[test]
 #[cfg_attr(windows, ignore)]
 fn test_remove_main_worktree_vs_linked_worktree() {
-    let mut repo = setup_remove_repo();
+    let mut repo = TestRepo::new();
 
     // Create a linked worktree
     let linked_wt_path = repo.add_worktree("feature");
@@ -679,7 +674,7 @@ fn test_remove_default_branch_no_tautology() {
 /// produces the same tree as main, meaning merging feature would add nothing.
 #[test]
 fn test_remove_squash_merged_then_main_advanced() {
-    let repo = setup_remove_repo();
+    let repo = TestRepo::new();
 
     // Create feature branch
     repo.git_command(&["checkout", "-b", "feature-squash"])
