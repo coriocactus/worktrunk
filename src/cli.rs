@@ -617,53 +617,58 @@ pub enum StepCommand {
     },
 
     /// \[experimental\] Run command in each worktree
-    ///
-    /// Executes a command sequentially in every worktree with real-time output.
-    /// Continues on failure and shows a summary at the end.
-    ///
-    /// Context JSON is piped to stdin for scripts that need structured data.
-    ///
-    /// Supports template variables (all shell-escaped):
-    ///
-    /// - `{{ branch }}` — branch name (slashes replaced with dashes)
-    /// - `{{ worktree }}` — absolute path to the worktree
-    /// - `{{ worktree_name }}` — worktree directory name
-    /// - `{{ repo }}` — repository name
-    /// - `{{ repo_root }}` — absolute path to the main repository root
-    /// - `{{ commit }}` — current HEAD commit SHA (full)
-    /// - `{{ short_commit }}` — current HEAD commit SHA (7 chars)
-    /// - `{{ default_branch }}` — default branch name (e.g., "main")
-    /// - `{{ remote }}` — primary remote name (e.g., "origin")
-    /// - `{{ remote_url }}` — primary remote URL
-    /// - `{{ upstream }}` — upstream tracking branch, if configured
-    ///
-    /// Note: This command is experimental and may change in future versions.
-    ///
-    /// # Examples
-    ///
-    /// Check status across all worktrees:
-    ///
-    /// ```text
-    /// wt step for-each -- git status --short
-    /// ```
-    ///
-    /// Run npm install in all worktrees:
-    ///
-    /// ```text
-    /// wt step for-each -- npm install
-    /// ```
-    ///
-    /// Use branch name in command:
-    ///
-    /// ```text
-    /// wt step for-each -- "echo Branch: {{ branch }}"
-    /// ```
-    ///
-    /// Pull updates in worktrees with upstreams (skips others):
-    ///
-    /// ```text
-    /// wt step for-each -- '[ "$(git rev-parse @{u} 2>/dev/null)" ] || exit 0; git pull --autostash'
-    /// ```
+    #[command(
+        after_long_help = r#"Executes a command sequentially in every worktree with real-time output. Continues on failure and shows a summary at the end.
+
+Context JSON is piped to stdin for scripts that need structured data.
+
+## Template variables
+
+All variables are shell-escaped:
+
+| Variable | Description |
+|----------|-------------|
+| `{{ branch }}` | Branch name (slashes replaced with dashes) |
+| `{{ worktree }}` | Absolute path to the worktree |
+| `{{ worktree_name }}` | Worktree directory name |
+| `{{ repo }}` | Repository name |
+| `{{ repo_root }}` | Absolute path to the main repository root |
+| `{{ commit }}` | Current HEAD commit SHA (full) |
+| `{{ short_commit }}` | Current HEAD commit SHA (7 chars) |
+| `{{ default_branch }}` | Default branch name (e.g., "main") |
+| `{{ remote }}` | Primary remote name (e.g., "origin") |
+| `{{ remote_url }}` | Primary remote URL |
+| `{{ upstream }}` | Upstream tracking branch, if configured |
+
+## Examples
+
+Check status across all worktrees:
+
+```console
+wt step for-each -- git status --short
+```
+
+Run npm install in all worktrees:
+
+```console
+wt step for-each -- npm install
+```
+
+Use branch name in command:
+
+```console
+wt step for-each -- "echo Branch: {{ branch }}"
+```
+
+Pull updates in worktrees with upstreams (skips others):
+
+```console
+wt step for-each -- '[ "$(git rev-parse @{u} 2>/dev/null)" ] || exit 0; git pull --autostash'
+```
+
+Note: This command is experimental and may change in future versions.
+"#
+    )]
     ForEach {
         /// Command template (see --help for all variables)
         #[arg(required = true, last = true, num_args = 1..)]

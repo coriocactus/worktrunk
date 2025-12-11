@@ -12,6 +12,7 @@ accept = [200, 206, 429]
 # Caching to reduce rate limiting and improve performance
 cache = true
 max_cache_age = "1d"
+cache_exclude_status = "400..=599"  # Don't cache errors (only successes)
 
 # Exclude sites that block GitHub Actions or have reliability issues
 exclude = [
