@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0
+
+### Changed
+
+- **Unified state management**: `wt config var` and `wt config cache` replaced by `wt config state` with consistent get/set/clear semantics for all runtime state. New subcommands: `default-branch`, `ci-status`, `marker`, `logs`, `show`. ([#178](https://github.com/max-sixty/worktrunk/pull/178))
+- **Comprehensive state overview**: `wt config state show` displays all state (default branch, switch history, markers, CI cache, logs) with `--format=json` support. ([#180](https://github.com/max-sixty/worktrunk/pull/180))
+
+### Added
+
+- **`git-wt` binary for Windows**: New `git-wt` binary avoids conflict with Windows Terminal's `wt` command. Build with `--features git-wt`. Shell init/install now accept `--cmd` to specify which binary name to use. ([#177](https://github.com/max-sixty/worktrunk/pull/177))
+- **Diffstat in select preview**: The log preview (Tab 2) in `wt select` now shows line change statistics (+N -M) matching `wt list`'s HEAD± column format. ([#179](https://github.com/max-sixty/worktrunk/pull/179))
+
+### Fixed
+
+- **Windows compatibility**: Multiple test and runtime fixes for Windows including stdin timeout handling, path canonicalization, and cross-platform test behavior. ([#167](https://github.com/max-sixty/worktrunk/pull/167), [#168](https://github.com/max-sixty/worktrunk/pull/168), [#169](https://github.com/max-sixty/worktrunk/pull/169), [#170](https://github.com/max-sixty/worktrunk/pull/170), [#171](https://github.com/max-sixty/worktrunk/pull/171), [#174](https://github.com/max-sixty/worktrunk/pull/174), [#176](https://github.com/max-sixty/worktrunk/pull/176))
+
 ## 0.1.21
 
 ### Fixed
