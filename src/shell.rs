@@ -434,4 +434,55 @@ mod tests {
         ));
         assert!("invalid".parse::<Shell>().is_err());
     }
+
+    #[test]
+    fn test_shell_display() {
+        assert_eq!(Shell::Bash.to_string(), "bash");
+        assert_eq!(Shell::Fish.to_string(), "fish");
+        assert_eq!(Shell::Zsh.to_string(), "zsh");
+        assert_eq!(Shell::PowerShell.to_string(), "powershell");
+    }
+
+    #[test]
+    fn test_shell_config_line_bash() {
+        let line = Shell::Bash.config_line();
+        assert!(line.contains("eval"));
+        assert!(line.contains("wt config shell init bash"));
+        assert!(line.contains("command -v wt"));
+    }
+
+    #[test]
+    fn test_shell_config_line_zsh() {
+        let line = Shell::Zsh.config_line();
+        assert!(line.contains("eval"));
+        assert!(line.contains("wt config shell init zsh"));
+    }
+
+    #[test]
+    fn test_shell_config_line_fish() {
+        let line = Shell::Fish.config_line();
+        assert!(line.contains("type -q wt"));
+        assert!(line.contains("wt config shell init fish"));
+        assert!(line.contains("source"));
+    }
+
+    #[test]
+    fn test_shell_config_line_powershell() {
+        let line = Shell::PowerShell.config_line();
+        assert!(line.contains("Invoke-Expression"));
+        assert!(line.contains("wt config shell init powershell"));
+    }
+
+    #[test]
+    fn test_shell_init_generate() {
+        // Test that shell init generates valid output for each shell
+        let shells = [Shell::Bash, Shell::Zsh, Shell::Fish, Shell::PowerShell];
+        for shell in shells {
+            let init = ShellInit::new(shell);
+            let result = init.generate();
+            assert!(result.is_ok(), "Failed to generate for {:?}", shell);
+            let output = result.unwrap();
+            assert!(!output.is_empty(), "Empty output for {:?}", shell);
+        }
+    }
 }
