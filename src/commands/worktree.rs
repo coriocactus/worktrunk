@@ -526,7 +526,7 @@ pub fn handle_remove(
     // Show progress (unless running in background - output handler will show command)
     if !background {
         crate::output::print(progress_message(cformat!(
-            "Removing worktree for <bold>{worktree_name}</>..."
+            "Removing <bold>{worktree_name}</> worktree..."
         )))?;
     }
 

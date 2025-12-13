@@ -219,22 +219,28 @@ fn delete_branch_if_safe(
 /// - `NotDeleted`: We checked and chose not to delete (not integrated) - show info
 /// - `Err(e)`: Git command failed - show warning with actual error
 ///
-/// Returns the `BranchDeletionResult` on success, preserving the effective target.
+/// Returns (result, needs_hint) where needs_hint indicates the caller should print
+/// the unmerged branch hint after any success message.
+///
+/// When `defer_output` is true, info and hint are suppressed (caller will handle).
 fn handle_branch_deletion_result(
     result: anyhow::Result<BranchDeletionResult>,
     branch_name: &str,
-) -> anyhow::Result<BranchDeletionResult> {
-    match &result {
-        Ok(r) if !matches!(r.outcome, BranchDeletionOutcome::NotDeleted) => result,
-        Ok(_) => {
+    defer_output: bool,
+) -> anyhow::Result<(BranchDeletionResult, bool)> {
+    match result {
+        Ok(r) if !matches!(r.outcome, BranchDeletionOutcome::NotDeleted) => Ok((r, false)),
+        Ok(r) => {
             // Branch not integrated - we chose not to delete (not a failure)
-            super::print(info_message(cformat!(
-                "Branch <bold>{branch_name}</> retained; has unmerged changes"
-            )))?;
-            super::print(hint_message(cformat!(
-                "<bright-black>wt remove -D</> deletes unmerged branches"
-            )))?;
-            result
+            if !defer_output {
+                super::print(info_message(cformat!(
+                    "Branch <bold>{branch_name}</> retained; has unmerged changes"
+                )))?;
+                super::print(hint_message(cformat!(
+                    "<bright-black>wt remove -D</> deletes unmerged branches"
+                )))?;
+            }
+            Ok((r, defer_output))
         }
         Err(e) => {
             // Git command failed - this is an error (we decided to delete but couldn't)
@@ -242,7 +248,7 @@ fn handle_branch_deletion_result(
                 "Failed to delete branch <bold>{branch_name}</>"
             )))?;
             super::gutter(format_with_gutter(&e.to_string(), "", None))?;
-            result
+            Err(e)
         }
     }
 }
@@ -298,10 +304,18 @@ fn format_remove_worktree_message(
         outcome,
         BranchDeletionOutcome::ForceDeleted | BranchDeletionOutcome::Integrated(_)
     );
-    let action_suffix = if no_delete_branch || !branch_deleted {
-        "worktree"
-    } else {
+
+    // Determine action suffix based on what happened to the branch
+    let action_suffix = if branch_deleted {
         "worktree & branch"
+    } else if no_delete_branch {
+        // User explicitly kept the branch via --no-delete-branch
+        "worktree"
+    } else if matches!(outcome, BranchDeletionOutcome::NotDeleted) {
+        // Branch retained because it has unmerged changes
+        "worktree; retaining unmerged branch"
+    } else {
+        "worktree"
     };
 
     if changed_directory {
@@ -508,7 +522,7 @@ fn handle_branch_only_output(
     let check_target = default_branch.as_deref().unwrap_or("HEAD");
 
     let result = delete_branch_if_safe(&repo, branch_name, check_target, force_delete);
-    let deletion = handle_branch_deletion_result(result, branch_name)?;
+    let (deletion, _) = handle_branch_deletion_result(result, branch_name, false)?;
 
     if !matches!(deletion.outcome, BranchDeletionOutcome::NotDeleted) {
         let flag_note = get_flag_note(
@@ -696,19 +710,20 @@ fn handle_removed_worktree_output(
 
         // Delete the branch (unless --no-delete-branch was specified)
         // Only show effective_target in message if we had a meaningful target (not tautological "HEAD" fallback)
-        let (outcome, effective_target) = if !no_delete_branch {
+        let (outcome, effective_target, show_hint) = if !no_delete_branch {
             let deletion_repo = worktrunk::git::Repository::at(main_path);
             let check_target = target_branch.unwrap_or("HEAD");
             let result =
                 delete_branch_if_safe(&deletion_repo, branch_name, check_target, force_delete);
-            let deletion = handle_branch_deletion_result(result, branch_name)?;
+            let (deletion, needs_hint) = handle_branch_deletion_result(result, branch_name, true)?;
             // Only use effective_target for display if we had a real target (not "HEAD" fallback)
             let display_target = target_branch.map(|_| deletion.effective_target);
-            (deletion.outcome, display_target)
+            (deletion.outcome, display_target, needs_hint)
         } else {
             (
                 BranchDeletionOutcome::NotDeleted,
                 target_branch.map(String::from),
+                false,
             )
         };
 
@@ -722,6 +737,13 @@ fn handle_removed_worktree_output(
             &outcome,
             effective_target.as_deref(),
         )))?;
+
+        // Show hint for unmerged branches (after success message)
+        if show_hint {
+            super::print(hint_message(cformat!(
+                "<bright-black>wt remove -D</> deletes unmerged branches"
+            )))?;
+        }
 
         super::flush()?;
         Ok(())
