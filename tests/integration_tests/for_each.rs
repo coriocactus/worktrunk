@@ -76,3 +76,18 @@ fn test_for_each_with_template(repo: TestRepo) {
         &["for-each", "--", "echo", "Branch: {{ branch }}"],
     );
 }
+
+#[rstest]
+fn test_for_each_detached_branch_variable(mut repo: TestRepo) {
+    // Regression test: {{ branch }} should expand to "HEAD" in detached worktrees
+    // Previously, it incorrectly expanded to "(detached)" because the display
+    // string was passed to CommandContext instead of None
+    repo.add_worktree("detached-test");
+    repo.detach_head_in_worktree("detached-test");
+
+    snapshot_for_each(
+        "for_each_detached_branch_variable",
+        &repo,
+        &["for-each", "--", "echo", "Branch: {{ branch }}"],
+    );
+}
