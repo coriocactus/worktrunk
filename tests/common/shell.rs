@@ -1,50 +1,44 @@
 use super::{TestRepo, wt_command};
 use insta_cmd::get_cargo_bin;
-use std::{collections::HashSet, env, path::PathBuf, process::Command, sync::LazyLock};
+use std::{
+    collections::HashSet,
+    env,
+    path::PathBuf,
+    process::{Command, Stdio},
+    sync::LazyLock,
+};
+
+/// Check if a shell binary is available (non-interactive)
+fn check_shell_available(binary: &str, arg: &str) -> bool {
+    Command::new(binary)
+        .arg(arg)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
 
 /// Set of shells available on this system (cached at first access)
 static AVAILABLE_SHELLS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     let mut shells = HashSet::new();
 
-    // Check bash availability
-    if Command::new("bash")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-    {
+    if check_shell_available("bash", "--version") {
         shells.insert("bash");
     }
 
-    // Check zsh availability (typically not on Windows)
-    if Command::new("zsh")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-    {
+    if check_shell_available("zsh", "--version") {
         shells.insert("zsh");
     }
 
-    // Check fish availability (typically not on Windows)
-    if Command::new("fish")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-    {
+    if check_shell_available("fish", "--version") {
         shells.insert("fish");
     }
 
-    // Check PowerShell Core availability (pwsh, cross-platform)
-    if Command::new("pwsh")
-        .arg("-Version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-    {
+    if check_shell_available("pwsh", "-Version") {
         shells.insert("pwsh");
-        shells.insert("powershell"); // Alias
+        shells.insert("powershell");
     }
 
     shells

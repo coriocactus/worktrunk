@@ -803,7 +803,7 @@ fn get_gitlab_project_id(repo_root: &str) -> Option<u64> {
     cmd.args(["repo", "view", "--output", "json"]);
     cmd.current_dir(repo_root);
     // Disable color/pager to avoid ANSI noise in JSON output
-    disable_color_output(&mut cmd);
+    configure_non_interactive(&mut cmd);
     cmd.env("PAGER", "cat");
 
     let output = run(&mut cmd, None).ok()?;
@@ -823,30 +823,45 @@ fn get_gitlab_project_id(repo_root: &str) -> Option<u64> {
         .map(|info| info.id)
 }
 
-/// Configure command to disable color output
-fn disable_color_output(cmd: &mut Command) {
+/// Configure command for non-interactive batch execution.
+///
+/// This prevents tools like `gh` and `glab` from:
+/// - Prompting for user input (stdin set to /dev/null)
+/// - Using TTY-specific output formatting
+/// - Opening browsers for authentication
+fn configure_non_interactive(cmd: &mut Command) {
+    use std::process::Stdio;
+    cmd.stdin(Stdio::null());
     cmd.env_remove("CLICOLOR_FORCE");
     cmd.env_remove("GH_FORCE_TTY");
     cmd.env("NO_COLOR", "1");
     cmd.env("CLICOLOR", "0");
+    cmd.env("GH_PROMPT_DISABLED", "1");
 }
 
 /// Check if a CLI tool is available
 ///
 /// On Windows, this uses `cmd.exe /c` to properly resolve batch files (.cmd/.bat)
 /// that may be in PATH, since Rust's Command::new doesn't search PATHEXT.
+///
+/// Uses `Stdio::null()` for stdin to prevent tools like `gh` from prompting
+/// for user input when they detect a TTY.
 fn tool_available(tool: &str, args: &[&str]) -> bool {
+    use std::process::Stdio;
+
     #[cfg(windows)]
     let mut cmd = {
         let cmd_str = format!("{} {}", tool, args.join(" "));
         let mut c = Command::new("cmd");
         c.args(["/c", &cmd_str]);
+        c.stdin(Stdio::null());
         c
     };
     #[cfg(not(windows))]
     let mut cmd = {
         let mut c = Command::new(tool);
         c.args(args);
+        c.stdin(Stdio::null());
         c
     };
 
@@ -1306,9 +1321,11 @@ impl PrStatus {
     /// - Organization repos (PRs from org branches)
     /// - Multiple users with same branch name
     fn detect_github(branch: &str, local_head: &str, repo_root: &str) -> Option<Self> {
+        use std::process::Stdio;
         // Check if gh is available and authenticated
         let mut auth_cmd = Command::new("gh");
         auth_cmd.args(["auth", "status"]);
+        auth_cmd.stdin(Stdio::null());
         match run(&mut auth_cmd, None) {
             Err(e) => {
                 log::debug!("gh not available for {}: {}", branch, e);
@@ -1347,7 +1364,7 @@ impl PrStatus {
             "headRefOid,mergeStateStatus,statusCheckRollup,url,headRepositoryOwner",
         ]);
 
-        disable_color_output(&mut cmd);
+        configure_non_interactive(&mut cmd);
         cmd.current_dir(repo_root);
 
         let output = match run(&mut cmd, None) {
@@ -1550,7 +1567,7 @@ impl PrStatus {
             "status,conclusion,headSha",
         ]);
 
-        disable_color_output(&mut cmd);
+        configure_non_interactive(&mut cmd);
         cmd.current_dir(repo_root);
 
         let output = match run(&mut cmd, None) {
@@ -1596,9 +1613,11 @@ impl PrStatus {
         }
 
         // Get most recent pipeline for the branch using JSON output
+        use std::process::Stdio;
         let mut cmd = Command::new("glab");
         cmd.args(["ci", "list", "--per-page", "1", "--output", "json"])
-            .env("BRANCH", branch); // glab ci list uses BRANCH env var
+            .env("BRANCH", branch) // glab ci list uses BRANCH env var
+            .stdin(Stdio::null());
 
         let output = match run(&mut cmd, None) {
             Ok(output) => output,

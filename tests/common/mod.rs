@@ -839,6 +839,8 @@ impl TestRepo {
         cmd.env("LC_ALL", "C");
         cmd.env("LANG", "C");
         cmd.env("SOURCE_DATE_EPOCH", TEST_EPOCH.to_string());
+        // Prevent git from prompting for credentials when running under a TTY
+        cmd.env("GIT_TERMINAL_PROMPT", "0");
     }
 
     /// Get standard test environment variables as a vector
@@ -863,6 +865,8 @@ impl TestRepo {
                 "GIT_COMMITTER_DATE".to_string(),
                 "2025-01-01T00:00:00Z".to_string(),
             ),
+            // Prevent git from prompting for credentials when running under a TTY
+            ("GIT_TERMINAL_PROMPT".to_string(), "0".to_string()),
             ("LC_ALL".to_string(), "C".to_string()),
             ("LANG".to_string(), "C".to_string()),
             ("SOURCE_DATE_EPOCH".to_string(), TEST_EPOCH.to_string()),

@@ -83,8 +83,10 @@ git branch -d feat{% end %}</td>
 
 ```bash
 $ brew install max-sixty/worktrunk/wt
-$ wt config shell install  # allows commands to change directories
+$ wt config shell install
 ```
+
+Shell integration allows commands to change directories.
 
 **Cargo:**
 
