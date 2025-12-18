@@ -74,19 +74,13 @@ impl ClaudeCodeContext {
 /// - `/home/user/workspace/project` -> `~/w/project`
 /// - `/home/user` -> `~`
 /// - `/tmp/test` -> `/t/test`
-fn format_directory_fish_style(path: &str) -> String {
-    use std::path::{Component, PathBuf};
+fn format_directory_fish_style(path: &Path) -> String {
+    use std::path::Component;
 
-    let path = PathBuf::from(path);
-
-    // Replace $HOME prefix with ~
-    let (suffix, tilde_prefix) = env::var_os("HOME")
-        .and_then(|home| {
-            path.strip_prefix(&home)
-                .ok()
-                .map(|s| (s.to_path_buf(), true))
-        })
-        .unwrap_or_else(|| (path.clone(), false));
+    // Replace home directory prefix with ~
+    let (suffix, tilde_prefix) = worktrunk::path::home_dir()
+        .and_then(|home| path.strip_prefix(&home).ok().map(|s| (s, true)))
+        .unwrap_or((path, false));
 
     // Collect normal components (skip RootDir, CurDir, etc.)
     let components: Vec<_> = suffix
@@ -145,7 +139,7 @@ pub fn run(claude_code: bool) -> Result<()> {
 
     // Directory (claude-code mode only)
     let dir_str = if claude_code {
-        let formatted = format_directory_fish_style(&cwd.display().to_string());
+        let formatted = format_directory_fish_style(&cwd);
         output = formatted.clone();
         Some(formatted)
     } else {
@@ -266,22 +260,29 @@ fn get_git_status(repo: &Repository, cwd: &Path) -> Result<Option<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn test_format_directory_fish_style() {
         // Test absolute paths (Unix-style paths only meaningful on Unix)
         #[cfg(unix)]
         {
-            assert_eq!(format_directory_fish_style("/tmp/test"), "/t/test");
-            assert_eq!(format_directory_fish_style("/"), "/");
-            assert_eq!(format_directory_fish_style("/var/log/app"), "/v/l/app");
+            assert_eq!(
+                format_directory_fish_style(Path::new("/tmp/test")),
+                "/t/test"
+            );
+            assert_eq!(format_directory_fish_style(Path::new("/")), "/");
+            assert_eq!(
+                format_directory_fish_style(Path::new("/var/log/app")),
+                "/v/l/app"
+            );
         }
 
         // Test with actual HOME (if set)
         if let Ok(home) = env::var("HOME") {
             // Basic home substitution
             let test_path = format!("{home}/workspace/project");
-            let result = format_directory_fish_style(&test_path);
+            let result = format_directory_fish_style(Path::new(&test_path));
             assert!(result.starts_with("~/"), "Expected ~ prefix, got: {result}");
             assert!(
                 result.ends_with("/project"),
@@ -289,12 +290,12 @@ mod tests {
             );
 
             // Exact HOME path should become just ~
-            assert_eq!(format_directory_fish_style(&home), "~");
+            assert_eq!(format_directory_fish_style(Path::new(&home)), "~");
 
             // Path that shares HOME as string prefix but not as path component
             // e.g., /home/user vs /home/usered/nested
             let path_outside_home = format!("{home}ed/nested");
-            let result = format_directory_fish_style(&path_outside_home);
+            let result = format_directory_fish_style(Path::new(&path_outside_home));
             assert!(
                 !result.starts_with("~"),
                 "Path sharing HOME string prefix should not use ~: {result}"

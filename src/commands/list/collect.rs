@@ -37,11 +37,25 @@ use super::model::{
 use super::model::WorkingTreeStatus;
 
 /// Context for status symbol computation during result processing
+#[derive(Clone, Default)]
 struct StatusContext {
     has_merge_tree_conflicts: bool,
     user_marker: Option<String>,
     working_tree_status: Option<WorkingTreeStatus>,
     has_conflicts: bool,
+}
+
+impl StatusContext {
+    fn apply_to(&self, item: &mut ListItem, target: &str) {
+        // Main worktree case is handled inside check_integration_state()
+        item.compute_status_symbols(
+            Some(target),
+            self.has_merge_tree_conflicts,
+            self.user_marker.clone(),
+            self.working_tree_status,
+            self.has_conflicts,
+        );
+    }
 }
 
 /// Task results sent as each git operation completes.
@@ -339,14 +353,7 @@ fn drain_results(
     let mut received_by_item: HashMap<usize, Vec<TaskKind>> = HashMap::new();
 
     // Temporary storage for data needed by status_symbols computation
-    let mut status_contexts: Vec<StatusContext> = (0..items.len())
-        .map(|_| StatusContext {
-            has_merge_tree_conflicts: false,
-            user_marker: None,
-            working_tree_status: None,
-            has_conflicts: false,
-        })
-        .collect();
+    let mut status_contexts = vec![StatusContext::default(); items.len()];
 
     // Process task results as they arrive (with deadline)
     loop {
@@ -887,16 +894,9 @@ pub fn collect(
         &mut errors,
         &expected_results,
         |item_idx, item, ctx| {
-            // Compute/recompute status symbols as data arrives (both modes)
-            // This is idempotent and updates status as new data (like upstream) arrives
-            // Main worktree case is handled inside check_integration_state()
-            item.compute_status_symbols(
-                Some(integration_target.as_str()),
-                ctx.has_merge_tree_conflicts,
-                ctx.user_marker.clone(),
-                ctx.working_tree_status,
-                ctx.has_conflicts,
-            );
+            // Compute/recompute status symbols as data arrives (both modes).
+            // This is idempotent and updates status as new data (like upstream) arrives.
+            ctx.apply_to(item, integration_target.as_str());
 
             // Progressive mode only: update UI
             if let Some(ref mut table) = progressive_table {
@@ -1204,22 +1204,13 @@ pub fn populate_items(
     });
 
     // Drain task results (blocking until all complete)
-    // TODO: This callback duplicates logic from collect()'s drain_results callback.
-    // Consider unifying by making collect() take options to skip progressive rendering.
     let drain_outcome = drain_results(
         rx,
         items,
         &mut errors,
         &expected_results,
         |_item_idx, item, ctx| {
-            // Main worktree case is handled inside check_integration_state()
-            item.compute_status_symbols(
-                Some(target),
-                ctx.has_merge_tree_conflicts,
-                ctx.user_marker.clone(),
-                ctx.working_tree_status,
-                ctx.has_conflicts,
-            );
+            ctx.apply_to(item, target);
         },
     );
 
