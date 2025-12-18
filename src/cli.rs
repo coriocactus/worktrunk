@@ -2101,7 +2101,7 @@ When the target branch has no worktree, worktrunk:
 3. Runs [post-create hooks](@/hook.md#post-create) (blocking)
 4. Spawns [post-start hooks](@/hook.md#post-start) (background)
 
-The `--create` flag creates a new branch from the `--base` branch (defaults to default branch). Without `--create`, the branch must already exist.
+The `--create` flag creates a new branch from `--base` (defaults to the repository's default branch). Without `--create`, the branch must already exist.
 
 ```console
 wt switch feature                        # Existing branch → creates worktree
@@ -2277,10 +2277,7 @@ Removal runs in the background by default (returns immediately). Logs are writte
     /// Merge worktree into target branch
     ///
     /// Squashes commits, rebases, runs hooks, merges to target, and removes the worktree.
-    #[command(
-        after_long_help = r#"When already on the target branch or in the main worktree, the worktree is preserved automatically.
-
-## Examples
+    #[command(after_long_help = r#"## Examples
 
 Basic merge to main:
 
@@ -2316,12 +2313,12 @@ wt merge --no-commit
 
 `wt merge` runs these steps:
 
-1. **Squash** — Stages uncommitted changes, then combines all commits since target into one (like GitHub's "Squash and merge"). Use `--stage` to control what gets staged: `all` (default), `tracked`, or `none`. A backup ref is saved to `refs/wt-backup/<branch>`. With `--no-squash`, uncommitted changes are committed separately and individual commits are preserved.
+1. **Squash** — Stages uncommitted changes, then combines all commits since target into one (like GitHub's "Squash and merge"). Use `--stage` to control what gets staged: `all` (default), `tracked`, or `none`. A backup ref is saved to `refs/wt-backup/<branch>`. With `--no-squash`, uncommitted changes become a separate commit and individual commits are preserved.
 2. **Rebase** — Rebases onto target if behind. Skipped if already up-to-date. Conflicts abort immediately.
 3. **Pre-merge hooks** — Project commands run after rebase, before merge. Failures abort. See [wt hook](@/hook.md).
 4. **Merge** — Fast-forward merge to the target branch. Non-fast-forward merges are rejected.
 5. **Pre-remove hooks** — Project commands run before removing worktree. Failures abort.
-6. **Cleanup** — Removes the worktree and branch. Use `--no-remove` to keep the worktree.
+6. **Cleanup** — Removes the worktree and branch. Use `--no-remove` to keep the worktree. When already on the target branch or in the main worktree, the worktree is preserved.
 7. **Post-merge hooks** — Project commands run after cleanup. Failures are logged but don't abort.
 
 Use `--no-commit` to skip all git operations (steps 1-2) and only run hooks and merge. Useful after preparing commits manually with `wt step`. Requires a clean working tree.
@@ -2331,8 +2328,7 @@ Use `--no-commit` to skip all git operations (steps 1-2) and only run hooks and 
 - [wt step](@/step.md) — Run individual merge steps (commit, squash, rebase, push)
 - [wt remove](@/remove.md) — Remove worktrees without merging
 - [wt switch](@/switch.md) — Navigate to other worktrees
-"#
-    )]
+"#)]
     Merge {
         /// Target branch
         ///
