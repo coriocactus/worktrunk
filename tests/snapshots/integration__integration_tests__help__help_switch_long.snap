@@ -79,7 +79,7 @@ Switches to a worktree, creating one if needed. Creating a worktree runs hooks.
   [2mwt switch --create new-feature   # Create new branch and worktree
   [2mwt switch --create hotfix --base production
 
-For interactive selection, use `wt select`.
+For interactive selection, use [2mwt select[0m.
 
 [32mCreating worktrees
 
@@ -99,11 +99,11 @@ The [2m--create[0m flag creates a new branch from the [2m--base[0m branch (d
 
 [32mShortcuts
 
-  Shortcut  Meaning                      
-  ────────  ─────────────────────────────
-  [2m^[0m         Default branch (main/master) 
-  [2m@[0m         Current branch/worktree      
-  [2m-[0m         Previous worktree (like [2mcd -[0m)
+   Shortcut            Meaning            
+   ──────── ───────────────────────────── 
+   ^        Default branch (main/master)  
+   @        Current branch/worktree       
+   -        Previous worktree (like cd -) 
 
   [2mwt switch -                      # Back to previous
   [2mwt switch ^                      # Main worktree

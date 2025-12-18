@@ -88,8 +88,11 @@ pub fn shorten_path(path: &Path, prefix: &Path) -> String {
     }
 }
 
-/// Truncate text at word boundary with ellipsis, respecting terminal width
-pub fn truncate_at_word_boundary(text: &str, max_width: usize) -> String {
+/// Truncate text with ellipsis at exact width limit.
+///
+/// Truncates at character boundary (mid-word if needed) to fill the allocated
+/// column width exactly. This ensures consistent table output width.
+pub fn truncate_to_width(text: &str, max_width: usize) -> String {
     use unicode_width::UnicodeWidthChar;
     use worktrunk::styling::visual_width;
 
@@ -100,7 +103,6 @@ pub fn truncate_at_word_boundary(text: &str, max_width: usize) -> String {
     // Build up string until we hit the width limit (accounting for "…" = 1 width)
     let target_width = max_width.saturating_sub(1);
     let mut current_width = 0;
-    let mut last_space_idx = None;
     let mut last_idx = 0;
 
     for (idx, ch) in text.char_indices() {
@@ -108,19 +110,12 @@ pub fn truncate_at_word_boundary(text: &str, max_width: usize) -> String {
         if current_width + char_width > target_width {
             break;
         }
-        if ch.is_whitespace() {
-            last_space_idx = Some(idx);
-        }
         current_width += char_width;
         last_idx = idx + ch.len_utf8();
     }
 
-    // Use last space if found, otherwise truncate at last character that fits
-    let truncate_at = last_space_idx.unwrap_or(last_idx);
-
-    // Truncate and trim trailing whitespace before adding ellipsis
-    // This prevents "text …" with space before ellipsis
-    let truncated = text[..truncate_at].trim_end();
+    // Truncate at exact character boundary (mid-word if needed)
+    let truncated = text[..last_idx].trim_end();
     format!("{}…", truncated)
 }
 
@@ -134,7 +129,7 @@ mod tests {
     #[test]
     fn test_truncate_normal_case() {
         let text = "Fix bug with parsing and more text here";
-        let result = truncate_at_word_boundary(text, 25);
+        let result = truncate_to_width(text, 25);
         println!("Normal truncation:      '{}'", result);
         assert!(result.ends_with('…'), "Should end with ellipsis");
     }
@@ -142,7 +137,7 @@ mod tests {
     #[test]
     fn test_truncate_with_existing_ascii_ellipsis() {
         let text = "Fix bug with parsing... more text here";
-        let result = truncate_at_word_boundary(text, 25);
+        let result = truncate_to_width(text, 25);
         // Shows what happens when truncation lands on existing "..."
         println!("ASCII ellipsis:         '{}'", result);
         assert!(result.ends_with('…'), "Should end with ellipsis");
@@ -151,7 +146,7 @@ mod tests {
     #[test]
     fn test_truncate_with_existing_unicode_ellipsis() {
         let text = "Fix bug with parsing… more text here";
-        let result = truncate_at_word_boundary(text, 25);
+        let result = truncate_to_width(text, 25);
         // Shows what happens when truncation lands on existing "…"
         println!("Unicode ellipsis:       '{}'", result);
         assert!(result.ends_with('…'), "Should end with ellipsis");
@@ -160,31 +155,29 @@ mod tests {
     #[test]
     fn test_truncate_already_has_three_dots() {
         let text = "Short text...";
-        let result = truncate_at_word_boundary(text, 20);
+        let result = truncate_to_width(text, 20);
         // When text fits, should return as-is
         assert_eq!(result, "Short text...");
     }
 
     #[test]
-    fn test_truncate_word_boundary() {
+    fn test_truncate_exact_width() {
         let text = "This is a very long message that needs truncation";
-        let result = truncate_at_word_boundary(text, 30);
+        let result = truncate_to_width(text, 30);
         assert!(result.ends_with('…'), "Should end with ellipsis");
         assert!(
             !result.contains(" …"),
             "Should not have space before ellipsis"
         );
-        // Should truncate at word boundary
-        assert!(
-            !result.contains("truncate"),
-            "Should not break word 'truncation'"
-        );
+        // Should truncate at exact width (mid-word if needed)
+        use unicode_width::UnicodeWidthStr;
+        assert_eq!(result.width(), 30, "Should fill exact width");
     }
 
     #[test]
     fn test_truncate_unicode_width() {
         let text = "Fix bug with café ☕ and more text";
-        let result = truncate_at_word_boundary(text, 25);
+        let result = truncate_to_width(text, 25);
         use unicode_width::UnicodeWidthStr;
         assert!(
             result.width() <= 25,
@@ -196,14 +189,14 @@ mod tests {
     #[test]
     fn test_truncate_no_truncation_needed() {
         let text = "Short message";
-        let result = truncate_at_word_boundary(text, 50);
+        let result = truncate_to_width(text, 50);
         assert_eq!(result, text);
     }
 
     #[test]
     fn test_truncate_very_long_word() {
         let text = "Supercalifragilisticexpialidocious extra text";
-        let result = truncate_at_word_boundary(text, 20);
+        let result = truncate_to_width(text, 20);
         use unicode_width::UnicodeWidthStr;
         // Should truncate mid-word if no space found
         assert!(result.width() <= 20, "Width should be <= 20");
@@ -344,19 +337,19 @@ mod tests {
     #[test]
     fn test_truncate_edge_cases() {
         // Empty string
-        let result = truncate_at_word_boundary("", 10);
+        let result = truncate_to_width("", 10);
         assert_eq!(result, "");
 
         // Single character
-        let result = truncate_at_word_boundary("X", 10);
+        let result = truncate_to_width("X", 10);
         assert_eq!(result, "X");
 
         // Exact width
-        let result = truncate_at_word_boundary("12345", 5);
+        let result = truncate_to_width("12345", 5);
         assert_eq!(result, "12345");
 
         // Just over width
-        let result = truncate_at_word_boundary("123456", 5);
+        let result = truncate_to_width("123456", 5);
         assert!(result.ends_with('…'));
     }
 

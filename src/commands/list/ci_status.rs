@@ -1008,12 +1008,13 @@ pub enum CiStatus {
 /// for potential future visual differentiation. We tried ◒ (half circle) for branch CI
 /// but it renders narrower than ● in many terminal fonts, causing misalignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::IntoStaticStr)]
-#[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum CiSource {
     /// Pull request or merge request
+    #[serde(rename = "pr", alias = "pull-request")]
     PullRequest,
     /// Branch workflow/pipeline (no PR/MR)
+    #[serde(rename = "branch")]
     Branch,
 }
 

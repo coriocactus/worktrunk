@@ -129,8 +129,10 @@ fn maybe_handle_help_with_pager() -> bool {
                     // Use .ansi() to preserve them; .to_string() strips ANSI codes.
                     let mut help = err.render().ansi().to_string();
 
-                    // Render markdown sections to ANSI
-                    help = md_help::render_markdown_in_help(&help);
+                    // Render markdown sections to ANSI, wrapping prose to terminal width
+                    // (tables stay unwrapped to preserve column alignment)
+                    let width = worktrunk::styling::get_terminal_width();
+                    help = md_help::render_markdown_in_help_with_width(&help, Some(width));
 
                     // show_help_in_pager checks if stdout or stderr is a TTY.
                     // If neither is a TTY (e.g., `wt --help &>file`), it skips the pager.
@@ -158,7 +160,8 @@ fn maybe_handle_help_with_pager() -> bool {
 /// Get the help reference block for a command by invoking clap's help system.
 ///
 /// Returns the usage/options/subcommands section without the after_long_help content.
-fn get_help_reference(command_path: &[&str]) -> String {
+/// If `width` is provided, wraps text at that width (for web docs); otherwise uses default.
+fn get_help_reference(command_path: &[&str], width: Option<usize>) -> String {
     use clap::ColorChoice;
     use clap::error::ErrorKind;
 
@@ -169,6 +172,9 @@ fn get_help_reference(command_path: &[&str]) -> String {
 
     let mut cmd = cli::build_command();
     cmd = cmd.color(ColorChoice::Never);
+    if let Some(w) = width {
+        cmd = cmd.term_width(w);
+    }
 
     let help_block = if let Err(err) = cmd.try_get_matches_from_mut(args)
         && matches!(
@@ -301,8 +307,8 @@ fn handle_help_page(args: &[String]) {
         colorize_ci_status_for_html(&text)
     };
 
-    // Get the help reference block
-    let reference_block = get_help_reference(&[subcommand]);
+    // Get the help reference block (wrap at 80 chars for web docs)
+    let reference_block = get_help_reference(&[subcommand], Some(80));
 
     // Output the generated content (frontmatter is in skeleton files)
     // Uses region markers so sync can replace just this content
@@ -469,7 +475,8 @@ fn format_subcommand_section(
         .chain(std::iter::once(subcommand_name))
         .collect();
 
-    let reference_block = get_help_reference(&command_path);
+    // Get help reference (wrap at 80 chars for web docs)
+    let reference_block = get_help_reference(&command_path, Some(80));
 
     // Format the section: heading, main content, command reference, then nested subdocs
     let mut section = format!("## {}\n\n", full_command);

@@ -20,12 +20,12 @@ List all worktrees:
 
 {% terminal() %}
 <span class="prompt">$</span> <span class="cmd">wt list</span>
-  <b>Branch</b>       <b>Status</b>        <b>HEAD±</b>    <b>main↕</b>  <b>Path</b>                <b>Remote⇅</b>  <b>Commit</b>    <b>Age</b>   <b>Message</b>
-@ <b>feature-api</b>  <span class=c>+</span>   <span class=d>↕</span><span class=d>⇡</span>     <span class=g>+54</span>   <span class=r>-5</span>   <span class=g>↑4</span>  <span class=d><span class=r>↓1</span></span>  <b>./repo.feature-api</b>   <span class=g>⇡3</span>      <span class=d>ec97decc</span>  <span class=d>30m</span>   <span class=d>Add API tests</span>
-^ main             <span class=d>^</span><span class=d>⇅</span>                        ./repo               <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=d>6088adb3</span>  <span class=d>4d</span>    <span class=d>Merge fix-auth:…</span>
-+ fix-auth         <span class=d>↕</span><span class=d>|</span>                <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>  ./repo.fix-auth        <span class=d>|</span>     <span class=d>127407de</span>  <span class=d>5h</span>    <span class=d>Add secure token…</span>
+  <b>Branch</b>       <b>Status</b>        <b>HEAD±</b>    <b>main↕</b>  <b>Remote⇅</b>  <b>Commit</b>    <b>Age</b>   <b>Message</b>
+@ <b>feature-api</b>  <span class=c>+</span>   <span class=d>↕</span><span class=d>⇡</span>     <span class=g>+54</span>   <span class=r>-5</span>   <span class=g>↑4</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>⇡3</span>      <span class=d>ec97decc</span>  <span class=d>30m</span>   <span class=d>Add API tests</span>
+^ main             <span class=d>^</span><span class=d>⇅</span>                         <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=d>6088adb3</span>  <span class=d>4d</span>    <span class=d>Merge fix-auth: hardened to…</span>
++ fix-auth         <span class=d>↕</span><span class=d>|</span>                <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>     <span class=d>|</span>     <span class=d>127407de</span>  <span class=d>5h</span>    <span class=d>Add secure token storage</span>
 
-⚪ <span class=d>Showing 3 worktrees, 1 with changes, 2 ahead</span>
+⚪ <span class=d>Showing 3 worktrees, 1 with changes, 2 ahead, 1 column hidden</span>
 {% end %}
 
 <!-- END AUTO-GENERATED -->
@@ -38,8 +38,8 @@ Include CI status and line diffs:
 <span class="prompt">$</span> <span class="cmd">wt list --full</span>
   <b>Branch</b>       <b>Status</b>        <b>HEAD±</b>    <b>main↕</b>     <b>main…±</b>  <b>Remote⇅</b>  <b>CI</b>  <b>Commit</b>    <b>Age</b>   <b>Message</b>
 @ <b>feature-api</b>  <span class=c>+</span>   <span class=d>↕</span><span class=d>⇡</span>     <span class=g>+54</span>   <span class=r>-5</span>   <span class=g>↑4</span>  <span class=d><span class=r>↓1</span></span>  <span class=g>+234</span>  <span class=r>-24</span>   <span class=g>⇡3</span>      <span class=d><span style='color:var(--blue,#00a)'>●</span></span>   <span class=d>ec97decc</span>  <span class=d>30m</span>   <span class=d>Add API tests</span>
-^ main             <span class=d>^</span><span class=d>⇅</span>                                    <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=g>●</span>   <span class=d>6088adb3</span>  <span class=d>4d</span>    <span class=d>Merge fix-auth: hardened…</span>
-+ fix-auth         <span class=d>↕</span><span class=d>|</span>                <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+25</span>  <span class=r>-11</span>     <span class=d>|</span>     <span class=g>●</span>   <span class=d>127407de</span>  <span class=d>5h</span>    <span class=d>Add secure token storage</span>
+^ main             <span class=d>^</span><span class=d>⇅</span>                                    <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=g>●</span>   <span class=d>6088adb3</span>  <span class=d>4d</span>    <span class=d>Merge fix-au…</span>
++ fix-auth         <span class=d>↕</span><span class=d>|</span>                <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+25</span>  <span class=r>-11</span>     <span class=d>|</span>     <span class=g>●</span>   <span class=d>127407de</span>  <span class=d>5h</span>    <span class=d>Add secure t…</span>
 
 ⚪ <span class=d>Showing 3 worktrees, 1 with changes, 2 ahead, 1 column hidden</span>
 {% end %}
@@ -54,10 +54,10 @@ Include branches that don't have worktrees:
 <span class="prompt">$</span> <span class="cmd">wt list --branches --full</span>
   <b>Branch</b>       <b>Status</b>        <b>HEAD±</b>    <b>main↕</b>     <b>main…±</b>  <b>Remote⇅</b>  <b>CI</b>  <b>Commit</b>    <b>Age</b>   <b>Message</b>
 @ <b>feature-api</b>  <span class=c>+</span>   <span class=d>↕</span><span class=d>⇡</span>     <span class=g>+54</span>   <span class=r>-5</span>   <span class=g>↑4</span>  <span class=d><span class=r>↓1</span></span>  <span class=g>+234</span>  <span class=r>-24</span>   <span class=g>⇡3</span>      <span class=d><span style='color:var(--blue,#00a)'>●</span></span>   <span class=d>ec97decc</span>  <span class=d>30m</span>   <span class=d>Add API tests</span>
-^ main             <span class=d>^</span><span class=d>⇅</span>                                    <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=g>●</span>   <span class=d>6088adb3</span>  <span class=d>4d</span>    <span class=d>Merge fix-auth: hardened…</span>
-+ fix-auth         <span class=d>↕</span><span class=d>|</span>                <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+25</span>  <span class=r>-11</span>     <span class=d>|</span>     <span class=g>●</span>   <span class=d>127407de</span>  <span class=d>5h</span>    <span class=d>Add secure token storage</span>
-  exp             <span class=d>/</span><span class=d>↕</span>                 <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>  <span class=g>+137</span>                    <span class=d>99e114de</span>  <span class=d>2d</span>    <span class=d>Add GraphQL resolvers…</span>
-  wip             <span class=d>/</span><span class=d>↕</span>                 <span class=g>↑1</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+33</span>                    <span class=d>d62fd0e8</span>  <span class=d>3d</span>    <span class=d>Start API documentation</span>
+^ main             <span class=d>^</span><span class=d>⇅</span>                                    <span class=g>⇡1</span>  <span class=d><span class=r>⇣1</span></span>  <span class=g>●</span>   <span class=d>6088adb3</span>  <span class=d>4d</span>    <span class=d>Merge fix-au…</span>
++ fix-auth         <span class=d>↕</span><span class=d>|</span>                <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+25</span>  <span class=r>-11</span>     <span class=d>|</span>     <span class=g>●</span>   <span class=d>127407de</span>  <span class=d>5h</span>    <span class=d>Add secure t…</span>
+  exp             <span class=d>/</span><span class=d>↕</span>                 <span class=g>↑2</span>  <span class=d><span class=r>↓1</span></span>  <span class=g>+137</span>                    <span class=d>99e114de</span>  <span class=d>2d</span>    <span class=d>Add GraphQL…</span>
+  wip             <span class=d>/</span><span class=d>↕</span>                 <span class=g>↑1</span>  <span class=d><span class=r>↓1</span></span>   <span class=g>+33</span>                    <span class=d>d62fd0e8</span>  <span class=d>3d</span>    <span class=d>Start API do…</span>
 
 ⚪ <span class=d>Showing 3 worktrees, 2 branches, 1 with changes, 4 ahead, 1 column hidden</span>
 {% end %}
@@ -156,25 +156,92 @@ wt list --format=json | jq '.[] | select(.main_state == "integrated" or .main_st
 
 **Fields:**
 
-| Field | Description |
-|-------|-------------|
-| `branch` | Branch name (null for detached HEAD) |
-| `path` | Worktree path (absent for branches without worktrees) |
-| `kind` | `"worktree"` or `"branch"` |
-| `commit` | `{sha, short_sha, message, timestamp}` |
-| `working_tree` | `{staged, modified, untracked, renamed, deleted, diff, diff_vs_main}` |
-| `main_state` | `"is_main"` `"would_conflict"` `"empty"` `"same_commit"` `"integrated"` `"diverged"` `"ahead"` `"behind"` |
-| `integration_reason` | `"ancestor"` `"trees_match"` `"no_added_changes"` `"merge_adds_nothing"` (when `main_state == "integrated"`) |
-| `operation_state` | `"conflicts"` `"rebase"` `"merge"` (absent when no operation in progress) |
-| `main` | `{ahead, behind, diff}` (absent when `is_main`) |
-| `remote` | `{name, branch, ahead, behind}` (absent when no tracking branch) |
-| `worktree` | `{state, reason, detached, bare}` |
-| `is_main` | Main worktree |
-| `is_current` | Current worktree |
-| `is_previous` | Previous worktree from [wt switch](@/switch.md) |
-| `pr` | `{ci, source, stale, url}` — CI status from PR or branch (absent when no CI) |
-| `statusline` | Pre-formatted status with ANSI colors |
-| `symbols` | Raw status symbols without colors (e.g., `"!?↓"`) |
+| Field | Type | Description |
+|-------|------|-------------|
+| `branch` | string/null | Branch name (null for detached HEAD) |
+| `path` | string | Worktree path (absent for branches without worktrees) |
+| `kind` | string | `"worktree"` or `"branch"` |
+| `commit` | object | Commit info (see below) |
+| `working_tree` | object | Working tree state (see below) |
+| `main_state` | string | Relation to main (see below) |
+| `integration_reason` | string | Why branch is integrated (see below) |
+| `operation_state` | string | `"conflicts"`, `"rebase"`, or `"merge"` (absent when clean) |
+| `main` | object | Relationship to main branch (see below, absent when is_main) |
+| `remote` | object | Tracking branch info (see below, absent when no tracking) |
+| `worktree` | object | Worktree metadata (see below) |
+| `is_main` | boolean | Is the main worktree |
+| `is_current` | boolean | Is the current worktree |
+| `is_previous` | boolean | Previous worktree from wt switch |
+| `ci` | object | CI status (see below, absent when no CI) |
+| `statusline` | string | Pre-formatted status with ANSI colors |
+| `symbols` | string | Raw status symbols without colors (e.g., `"!?↓"`) |
+
+### commit object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sha` | string | Full commit SHA (40 chars) |
+| `short_sha` | string | Short commit SHA (7 chars) |
+| `message` | string | Commit message (first line) |
+| `timestamp` | number | Unix timestamp |
+
+### working_tree object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `staged` | boolean | Has staged files |
+| `modified` | boolean | Has modified files (unstaged) |
+| `untracked` | boolean | Has untracked files |
+| `renamed` | boolean | Has renamed files |
+| `deleted` | boolean | Has deleted files |
+| `diff` | object | Lines changed vs HEAD: `{added, deleted}` |
+| `diff_vs_main` | object | Lines changed vs main: `{added, deleted}` |
+
+### main object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ahead` | number | Commits ahead of main |
+| `behind` | number | Commits behind main |
+| `diff` | object | Lines changed vs main: `{added, deleted}` |
+
+### remote object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Remote name (e.g., `"origin"`) |
+| `branch` | string | Remote branch name |
+| `ahead` | number | Commits ahead of remote |
+| `behind` | number | Commits behind remote |
+
+### worktree object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | string | `"path_mismatch"`, `"prunable"`, `"locked"` (absent when normal) |
+| `reason` | string | Reason for locked/prunable state |
+| `detached` | boolean | HEAD is detached |
+
+### ci object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | CI status (see below) |
+| `source` | string | `"pr"` (PR/MR) or `"branch"` (branch workflow) |
+| `stale` | boolean | Local HEAD differs from remote (unpushed changes) |
+| `url` | string | URL to the PR/MR page |
+
+### main_state values
+
+`"is_main"` `"would_conflict"` `"empty"` `"same_commit"` `"integrated"` `"diverged"` `"ahead"` `"behind"`
+
+### integration_reason values
+
+When `main_state == "integrated"`: `"ancestor"` `"trees_match"` `"no_added_changes"` `"merge_adds_nothing"`
+
+### ci.status values
+
+`"passed"` `"running"` `"failed"` `"conflicts"` `"no-ci"` `"error"`
 
 ## See also
 

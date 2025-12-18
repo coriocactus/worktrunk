@@ -5,6 +5,7 @@ use super::{TestRepo, setup_snapshot_settings, wt_command};
 use insta::Settings;
 use std::path::Path;
 use std::process::Command;
+use worktrunk::styling::DEFAULT_HELP_WIDTH;
 
 pub fn json_settings(repo: &TestRepo) -> Settings {
     let mut settings = setup_snapshot_settings(repo);
@@ -25,13 +26,9 @@ pub fn command(repo: &TestRepo, cwd: &Path) -> Command {
     cmd
 }
 
-/// Width for README examples - fits comfortably in doc site code blocks
-/// Increased from 100 to accommodate realistic line diffs (+234 -24) without truncation
-pub const README_COLUMNS: &str = "115";
-
 pub fn command_readme(repo: &TestRepo, cwd: &Path) -> Command {
     let mut cmd = command(repo, cwd);
-    cmd.env("COLUMNS", README_COLUMNS);
+    cmd.env("COLUMNS", DEFAULT_HELP_WIDTH.to_string());
     cmd
 }
 
