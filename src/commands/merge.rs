@@ -55,7 +55,7 @@ impl<'a> MergeCommandCollector<'a> {
         let mut all_commands = Vec::new();
         let project_config = match self.repo.load_project_config()? {
             Some(cfg) => cfg,
-            None => return Ok((all_commands, self.repo.project_identifier()?)),
+            None => return Ok((all_commands, self.repo.project_identifier()?.to_string())),
         };
 
         // Collect original commands (not expanded) for approval
@@ -79,7 +79,7 @@ impl<'a> MergeCommandCollector<'a> {
 
         all_commands.extend(collect_commands_for_hooks(&project_config, &hooks));
 
-        let project_id = self.repo.project_identifier()?;
+        let project_id = self.repo.project_identifier()?.to_string();
         Ok((all_commands, project_id))
     }
 }
@@ -231,7 +231,7 @@ pub fn handle_merge(opts: MergeOptions<'_>) -> anyhow::Result<()> {
         repo.ensure_clean_working_tree(Some("remove worktree after merge"), Some(&current_branch))?;
 
         // STEP 2: Remove worktree via shared remove output handler so final message matches wt remove
-        let worktree_root = repo.worktree_root()?;
+        let worktree_root = repo.worktree_root()?.to_path_buf();
         // After a successful merge, compute integration reason from main_path
         let main_repo = worktrunk::git::Repository::at(&destination_path);
         let effective_target = main_repo.effective_integration_target(&target_branch);

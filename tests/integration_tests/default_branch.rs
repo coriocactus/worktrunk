@@ -60,10 +60,8 @@ fn test_get_default_branch_no_remote(repo: TestRepo) {
 
     // The inferred branch should match the current branch
     let inferred_branch = result.unwrap();
-    let current_branch = Repository::at(repo.root_path())
-        .current_branch()
-        .unwrap()
-        .unwrap();
+    let repo_instance = Repository::at(repo.root_path());
+    let current_branch = repo_instance.current_branch().unwrap().unwrap();
     assert_eq!(inferred_branch, current_branch);
 }
 
@@ -81,7 +79,8 @@ fn test_primary_remote_detects_custom_remote(mut repo: TestRepo) {
     repo.setup_custom_remote("upstream", "develop");
 
     // Test that primary_remote detects the custom remote name
-    let remote = Repository::at(repo.root_path()).primary_remote().unwrap();
+    let git_repo = Repository::at(repo.root_path());
+    let remote = git_repo.primary_remote().unwrap();
     assert_eq!(remote, "upstream");
 }
 
