@@ -7,6 +7,7 @@ mod diff;
 mod error;
 mod parse;
 mod repository;
+mod url;
 
 #[cfg(test)]
 mod test;
@@ -41,6 +42,7 @@ pub use error::{
     is_command_not_approved,
 };
 pub use repository::{Repository, ResolvedWorktree, set_base_path};
+pub use url::GitRemoteUrl;
 /// Why branch content is considered integrated into the target branch.
 ///
 /// Used by both `wt list` (for status symbols) and `wt remove` (for messages).

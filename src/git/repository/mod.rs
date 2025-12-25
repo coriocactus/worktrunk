@@ -11,8 +11,8 @@ use dunce::canonicalize;
 
 // Import types and functions from parent module (mod.rs)
 use super::{
-    BranchCategory, CompletionBranch, DefaultBranchName, DiffStats, GitError, LineDiff, Worktree,
-    WorktreeList,
+    BranchCategory, CompletionBranch, DefaultBranchName, DiffStats, GitError, GitRemoteUrl,
+    LineDiff, Worktree, WorktreeList,
 };
 
 /// Result of resolving a worktree name.
@@ -1502,44 +1502,20 @@ impl Repository {
                 let remote = self.primary_remote()?;
 
                 if let Ok(url) = self.run_command(&["remote", "get-url", remote]) {
-                    let url = url.trim();
-
-                    // Parse common git URL formats:
-                    // - https://github.com/user/repo.git
-                    // - git@github.com:user/repo.git
-                    // - ssh://git@github.com/user/repo.git
-
-                    // Remove .git suffix if present
-                    let url = url.strip_suffix(".git").unwrap_or(url);
-
-                    // Handle SSH format (git@host:path)
-                    if let Some(ssh_part) = url.strip_prefix("git@")
-                        && let Some((host, path)) = ssh_part.split_once(':')
-                    {
-                        return Ok(format!("{}/{}", host, path));
+                    if let Some(parsed) = GitRemoteUrl::parse(url.trim()) {
+                        return Ok(parsed.project_identifier());
                     }
-
-                    // Handle HTTPS/HTTP format
-                    if let Some(https_part) = url
-                        .strip_prefix("https://")
-                        .or_else(|| url.strip_prefix("http://"))
-                    {
-                        return Ok(https_part.to_string());
-                    }
-
-                    // Handle ssh:// format
+                    // Fallback for URLs that don't fit host/owner/repo model (e.g., with ports)
+                    let url = url.trim().strip_suffix(".git").unwrap_or(url.trim());
+                    // Handle ssh:// format with port: ssh://git@host:port/path -> host/port/path
                     if let Some(ssh_part) = url.strip_prefix("ssh://") {
-                        // Remove git@ prefix if present
                         let ssh_part = ssh_part.strip_prefix("git@").unwrap_or(ssh_part);
-                        // Replace first : with /
                         if let Some(colon_pos) = ssh_part.find(':') {
-                            let (host, path) = ssh_part.split_at(colon_pos);
-                            return Ok(format!("{}{}", host, path.replacen(':', "/", 1)));
+                            let (host, rest) = ssh_part.split_at(colon_pos);
+                            return Ok(format!("{}{}", host, rest.replacen(':', "/", 1)));
                         }
                         return Ok(ssh_part.to_string());
                     }
-
-                    // If we can't parse it, use the URL as-is
                     return Ok(url.to_string());
                 }
 

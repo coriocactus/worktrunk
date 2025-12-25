@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use worktrunk::git::Repository;
+use worktrunk::git::{GitRemoteUrl, Repository};
 use worktrunk::shell_exec::run;
 use worktrunk::utils::get_now;
 
@@ -55,7 +55,7 @@ pub fn get_gitlab_host_for_repo(repo_root: &str) -> Option<String> {
     let url = get_remote_url_for_repo(repo_root)?;
     // Only return host if this looks like a GitLab URL
     if detect_platform_from_url(&url) == Some(CiPlatform::GitLab) {
-        parse_remote_host(&url).map(|s| s.to_string())
+        parse_remote_host(&url)
     } else {
         None
     }
@@ -80,86 +80,20 @@ pub fn get_gitlab_host_for_repo(repo_root: &str) -> Option<String> {
 /// Neither `gh` nor `glab` CLI support server-side filtering by source repository.
 /// The `gh pr list --head` flag only accepts branch name, not `owner:branch` format.
 /// So we fetch PRs matching the branch name, then filter by `headRepositoryOwner`.
-///
-/// # Supported URL formats
-///
-/// - `https://<host>/<owner>/<repo>.git` → `owner`
-/// - `git@<host>:<owner>/<repo>.git` → `owner`
-/// - `ssh://git@<host>/<owner>/<repo>.git` → `owner`
-fn parse_remote_owner(url: &str) -> Option<&str> {
-    parse_owner_repo(url).map(|(owner, _)| owner)
+fn parse_remote_owner(url: &str) -> Option<String> {
+    GitRemoteUrl::parse(url).map(|u| u.owner().to_string())
 }
 
 /// Extract owner and repository name from a git remote URL.
-///
-/// # Supported URL formats
-///
-/// - `https://<host>/<owner>/<repo>.git` → `(owner, repo)`
-/// - `git@<host>:<owner>/<repo>.git` → `(owner, repo)`
-/// - `ssh://git@<host>/<owner>/<repo>.git` → `(owner, repo)`
-fn parse_owner_repo(url: &str) -> Option<(&str, &str)> {
-    let url = url.trim();
-
-    let (owner, repo_with_suffix) = if let Some(rest) = url.strip_prefix("https://") {
-        // https://github.com/owner/repo.git -> (owner, repo.git)
-        let mut parts = rest.split('/').skip(1); // skip host
-        (parts.next()?, parts.next()?)
-    } else if let Some(rest) = url.strip_prefix("ssh://") {
-        // ssh://git@github.com/owner/repo.git -> (owner, repo.git)
-        let without_user = rest.split('@').next_back()?;
-        let mut parts = without_user.split('/').skip(1); // skip host
-        (parts.next()?, parts.next()?)
-    } else if let Some(rest) = url.strip_prefix("git@") {
-        // git@github.com:owner/repo.git -> (owner, repo.git)
-        let path = rest.split(':').nth(1)?;
-        let mut parts = path.split('/');
-        (parts.next()?, parts.next()?)
-    } else {
-        return None;
-    };
-
-    // Strip .git suffix from repo if present
-    let repo = repo_with_suffix
-        .strip_suffix(".git")
-        .unwrap_or(repo_with_suffix);
-
-    if owner.is_empty() || repo.is_empty() {
-        None
-    } else {
-        Some((owner, repo))
-    }
+fn parse_owner_repo(url: &str) -> Option<(String, String)> {
+    GitRemoteUrl::parse(url).map(|u| (u.owner().to_string(), u.repo().to_string()))
 }
 
 /// Extract hostname from a git remote URL.
 ///
 /// Used to check auth status against a specific GitLab host instead of the default.
-///
-/// # Supported URL formats
-///
-/// - `https://<host>/<owner>/<repo>.git` → `host`
-/// - `git@<host>:<owner>/<repo>.git` → `host`
-/// - `ssh://git@<host>/<owner>/<repo>.git` → `host`
-fn parse_remote_host(url: &str) -> Option<&str> {
-    let url = url.trim();
-
-    let host = if let Some(rest) = url.strip_prefix("https://") {
-        // https://gitlab.example.com/owner/repo.git -> gitlab.example.com
-        rest.split('/').next()
-    } else if let Some(rest) = url.strip_prefix("http://") {
-        // http://gitlab.example.com/owner/repo.git -> gitlab.example.com
-        rest.split('/').next()
-    } else if let Some(rest) = url.strip_prefix("ssh://") {
-        // ssh://git@gitlab.example.com/owner/repo.git -> gitlab.example.com
-        let without_user = rest.split('@').next_back()?;
-        without_user.split('/').next()
-    } else if let Some(rest) = url.strip_prefix("git@") {
-        // git@gitlab.example.com:owner/repo.git -> gitlab.example.com
-        rest.split(':').next()
-    } else {
-        None
-    }?;
-
-    if host.is_empty() { None } else { Some(host) }
+fn parse_remote_host(url: &str) -> Option<String> {
+    GitRemoteUrl::parse(url).map(|u| u.host().to_string())
 }
 
 #[cfg(test)]
@@ -242,68 +176,71 @@ mod tests {
         // GitHub HTTPS
         assert_eq!(
             parse_remote_owner("https://github.com/max-sixty/worktrunk.git"),
-            Some("max-sixty")
+            Some("max-sixty".to_string())
         );
         assert_eq!(
             parse_remote_owner("  https://github.com/owner/repo\n"),
-            Some("owner")
+            Some("owner".to_string())
         );
 
         // GitHub SSH (git@ form) - most common for developers
         assert_eq!(
             parse_remote_owner("git@github.com:max-sixty/worktrunk.git"),
-            Some("max-sixty")
+            Some("max-sixty".to_string())
         );
 
         // GitHub SSH (ssh:// form)
         assert_eq!(
             parse_remote_owner("ssh://git@github.com/owner/repo.git"),
-            Some("owner")
+            Some("owner".to_string())
         );
         assert_eq!(
             parse_remote_owner("ssh://github.com/owner/repo.git"),
-            Some("owner")
+            Some("owner".to_string())
         );
 
         // GitLab HTTPS
         assert_eq!(
             parse_remote_owner("https://gitlab.com/owner/repo.git"),
-            Some("owner")
+            Some("owner".to_string())
         );
         assert_eq!(
             parse_remote_owner("https://gitlab.example.com/owner/repo.git"),
-            Some("owner")
+            Some("owner".to_string())
         );
 
         // GitLab SSH
         assert_eq!(
             parse_remote_owner("git@gitlab.com:owner/repo.git"),
-            Some("owner")
+            Some("owner".to_string())
         );
 
         // Bitbucket
         assert_eq!(
             parse_remote_owner("https://bitbucket.org/owner/repo.git"),
-            Some("owner")
+            Some("owner".to_string())
         );
         assert_eq!(
             parse_remote_owner("git@bitbucket.org:owner/repo.git"),
-            Some("owner")
+            Some("owner".to_string())
         );
 
         // Organization repos - owner is the org, not the user
         assert_eq!(
             parse_remote_owner("https://github.com/company-org/project.git"),
-            Some("company-org")
+            Some("company-org".to_string())
+        );
+
+        // HTTP (legacy, common on self-hosted)
+        assert_eq!(
+            parse_remote_owner("http://github.com/owner/repo.git"),
+            Some("owner".to_string())
         );
 
         // Malformed URLs
         assert_eq!(parse_remote_owner("https://github.com/"), None);
         assert_eq!(parse_remote_owner("git@github.com:"), None);
         assert_eq!(parse_remote_owner(""), None);
-
-        // Unsupported protocols
-        assert_eq!(parse_remote_owner("http://github.com/owner/repo.git"), None);
     }
 
     #[test]
@@ -311,41 +248,41 @@ mod tests {
         // HTTPS
         assert_eq!(
             parse_remote_host("https://gitlab.com/owner/repo.git"),
-            Some("gitlab.com")
+            Some("gitlab.com".to_string())
         );
         assert_eq!(
             parse_remote_host("https://gitlab.example.com/owner/repo.git"),
-            Some("gitlab.example.com")
+            Some("gitlab.example.com".to_string())
         );
         assert_eq!(
             parse_remote_host("  https://github.com/owner/repo\n"),
-            Some("github.com")
+            Some("github.com".to_string())
         );
 
         // HTTP (legacy, common on self-hosted)
         assert_eq!(
             parse_remote_host("http://gitlab.internal.company.com/owner/repo.git"),
-            Some("gitlab.internal.company.com")
+            Some("gitlab.internal.company.com".to_string())
         );
 
         // SSH (git@ form)
         assert_eq!(
             parse_remote_host("git@gitlab.com:owner/repo.git"),
-            Some("gitlab.com")
+            Some("gitlab.com".to_string())
         );
         assert_eq!(
             parse_remote_host("git@gitlab.example.com:owner/repo.git"),
-            Some("gitlab.example.com")
+            Some("gitlab.example.com".to_string())
         );
 
         // SSH (ssh:// form)
         assert_eq!(
             parse_remote_host("ssh://git@gitlab.example.com/owner/repo.git"),
-            Some("gitlab.example.com")
+            Some("gitlab.example.com".to_string())
         );
         assert_eq!(
             parse_remote_host("ssh://gitlab.example.com/owner/repo.git"),
-            Some("gitlab.example.com")
+            Some("gitlab.example.com".to_string())
         );
 
         // Malformed URLs
@@ -654,37 +591,37 @@ mod tests {
         // GitHub HTTPS
         assert_eq!(
             parse_owner_repo("https://github.com/owner/repo.git"),
-            Some(("owner", "repo"))
+            Some(("owner".to_string(), "repo".to_string()))
         );
         assert_eq!(
             parse_owner_repo("https://github.com/owner/repo"),
-            Some(("owner", "repo"))
+            Some(("owner".to_string(), "repo".to_string()))
         );
         assert_eq!(
             parse_owner_repo("  https://github.com/owner/repo.git\n"),
-            Some(("owner", "repo"))
+            Some(("owner".to_string(), "repo".to_string()))
         );
 
         // GitHub SSH (git@ form)
         assert_eq!(
             parse_owner_repo("git@github.com:owner/repo.git"),
-            Some(("owner", "repo"))
+            Some(("owner".to_string(), "repo".to_string()))
         );
         assert_eq!(
             parse_owner_repo("git@github.com:owner/repo"),
-            Some(("owner", "repo"))
+            Some(("owner".to_string(), "repo".to_string()))
         );
 
         // GitHub SSH (ssh:// form)
         assert_eq!(
             parse_owner_repo("ssh://git@github.com/owner/repo.git"),
-            Some(("owner", "repo"))
+            Some(("owner".to_string(), "repo".to_string()))
         );
 
         // GitLab
         assert_eq!(
             parse_owner_repo("https://gitlab.com/owner/repo.git"),
-            Some(("owner", "repo"))
+            Some(("owner".to_string(), "repo".to_string()))
         );
 
         // Malformed URLs
@@ -818,7 +755,7 @@ const MAX_PRS_TO_FETCH: u8 = 20;
 /// See [`parse_remote_owner`] for details on why this is necessary.
 fn get_origin_owner(repo_root: &str) -> Option<String> {
     let url = get_remote_url_for_repo(repo_root)?;
-    parse_remote_owner(&url).map(|s| s.to_string())
+    parse_remote_owner(&url)
 }
 
 /// Get the owner and repo name from the origin remote.
@@ -826,8 +763,7 @@ fn get_origin_owner(repo_root: &str) -> Option<String> {
 /// Used for GitHub API calls that require `repos/{owner}/{repo}/...` paths.
 fn get_owner_repo(repo_root: &str) -> Option<(String, String)> {
     let url = get_remote_url_for_repo(repo_root)?;
-    let (owner, repo) = parse_owner_repo(&url)?;
-    Some((owner.to_string(), repo.to_string()))
+    parse_owner_repo(&url)
 }
 
 /// Get the GitLab project ID for the current repository.
