@@ -1364,7 +1364,8 @@ fn main() {
                         &repo_root,
                         force,
                     );
-                    let approved = approve_hooks(&ctx, &[HookType::PreRemove])?;
+                    let approved =
+                        approve_hooks(&ctx, &[HookType::PreRemove, HookType::PostSwitch])?;
                     // If declined, skip hooks but continue with removal
                     if !approved {
                         crate::output::print(info_message(
@@ -1382,6 +1383,7 @@ fn main() {
                     let result = handle_remove_current(!delete_branch, force_delete, background)
                         .context("Failed to remove worktree")?;
                     // Approval was handled at the gate
+                    // Post-switch hooks are spawned internally by handle_remove_output
                     handle_remove_output(&result, None, background, verify)
                 } else {
                     use worktrunk::git::ResolvedWorktree;
@@ -1471,6 +1473,7 @@ fn main() {
                     }
 
                     // Remove current worktree last (if it was in the list)
+                    // Post-switch hooks are spawned internally by handle_remove_output
                     if let Some((_path, branch)) = current {
                         match handle_remove_current(!delete_branch, force_delete, background) {
                             Ok(result) => {

@@ -523,6 +523,35 @@ fn handle_branch_only_output(
     Ok(())
 }
 
+/// Spawn post-switch hooks in the destination worktree after a directory change.
+///
+/// Called when removing a worktree causes a cd to the main worktree.
+/// Only runs if `verify` is true (hooks approved) and `changed_directory` is true.
+fn spawn_post_switch_after_remove(
+    main_path: &std::path::Path,
+    verify: bool,
+    changed_directory: bool,
+) -> anyhow::Result<()> {
+    if !verify || !changed_directory {
+        return Ok(());
+    }
+    let Ok(config) = WorktrunkConfig::load() else {
+        return Ok(());
+    };
+    let dest_repo = Repository::at(main_path);
+    let dest_branch = dest_repo.current_branch()?;
+    let repo_root = dest_repo.worktree_base()?;
+    let ctx = CommandContext::new(
+        &dest_repo,
+        &config,
+        dest_branch,
+        main_path,
+        &repo_root,
+        false, // force=false for CommandContext
+    );
+    ctx.spawn_post_switch_commands()
+}
+
 /// Handle output for RemovedWorktree removal
 #[allow(clippy::too_many_arguments)]
 fn handle_removed_worktree_output(
@@ -592,6 +621,7 @@ fn handle_removed_worktree_output(
                 "Removed worktree (detached HEAD, no branch to delete)",
             ))?;
         }
+        spawn_post_switch_after_remove(main_path, verify, changed_directory)?;
         super::flush()?;
         return Ok(());
     };
@@ -686,6 +716,7 @@ fn handle_removed_worktree_output(
             None,
         )?;
 
+        spawn_post_switch_after_remove(main_path, verify, changed_directory)?;
         super::flush()?;
         Ok(())
     } else {
@@ -778,6 +809,7 @@ fn handle_removed_worktree_output(
 
         print_switch_message_if_changed(changed_directory, main_path)?;
 
+        spawn_post_switch_after_remove(main_path, verify, changed_directory)?;
         super::flush()?;
         Ok(())
     }

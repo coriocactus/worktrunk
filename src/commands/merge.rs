@@ -74,6 +74,7 @@ impl<'a> MergeCommandCollector<'a> {
             hooks.push(HookType::PostMerge);
             if self.will_remove {
                 hooks.push(HookType::PreRemove);
+                hooks.push(HookType::PostSwitch);
             }
         }
 
