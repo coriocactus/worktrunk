@@ -14,9 +14,11 @@
 
 > **December 2025**: I've been using Worktrunk as my daily driver, and am releasing it as Open Source this week; I think folks will find it really helpful. It's built with love (there's no slop!). If social proof is helpful: I also created [PRQL](https://github.com/PRQL/prql) (10k stars) and am a maintainer of [Xarray](https://github.com/pydata/xarray) (4k stars), [Insta](https://github.com/mitsuhiko/insta), & [Numbagg](https://github.com/numbagg/numbagg).
 
-Worktrunk is a CLI for git worktree management, designed for parallel AI agent workflows. Git worktrees give each agent an isolated branch and directory; Worktrunk wraps them in a clean interface, plus extension points. Scaling agents becomes as simple as scaling git branches.
+Worktrunk is a CLI for git worktree management, designed for running AI agents in parallel.
 
-Here's a quick demo:
+Worktrunk's three core commands make worktrees as easy as branches. Plus, Worktrunk has a bunch of quality-of-life features to simplify working with many parallel changes, including hooks to automate local workflows.
+
+Scaling agents becomes trivial. Here's a quick demo:
 
 ![Worktrunk Demo](https://cdn.jsdelivr.net/gh/max-sixty/worktrunk-assets@main/demos/wt-core.gif)
 
@@ -81,7 +83,7 @@ git branch -d feat</pre></td>
 
 > Expand into the more advanced commands as needed
 
-- **[Lifecycle hooks](https://worktrunk.dev/hook/)** — run commands on create, pre-merge, post-merge
+- **[Hooks](https://worktrunk.dev/hook/)** — run commands on create, pre-merge, post-merge, etc
 - **[LLM commit messages](https://worktrunk.dev/llm-commits/)** — generate commit messages from diffs via [llm](https://llm.datasette.io/)
 - **[Merge workflow](https://worktrunk.dev/merge/)** — squash, rebase, merge, clean up in one command
 - ...and **[lots more](#next-steps)**

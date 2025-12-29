@@ -6,20 +6,18 @@ weight = 1
 Worktrunk is a CLI for git worktree management, designed for running AI agents
 in parallel.
 
-Worktrunk's three core commands make worktrees as easy to use as branches.
-Additionally, Worktrunk has lots quality-of-life features to simplify working
+Worktrunk's three core commands make worktrees as easy as branches.
+Plus, Worktrunk has a bunch of quality-of-life features to simplify working
 with many parallel changes, including hooks to automate local workflows.
 
-Scaling agents becomes trivial.
-
-Here's a quick demo:
+Scaling agents becomes trivial. Here's a quick demo:
 
 <figure class="demo">
 <picture>
   <source srcset="/assets/wt-core-dark.gif" media="(prefers-color-scheme: dark)">
   <img src="/assets/wt-core.gif" alt="Worktrunk demo showing wt list, wt switch, and hooks" width="1600" height="900">
 </picture>
-<figcaption>Listing worktrees, switching, and hooks in action</figcaption>
+<figcaption>Listing worktrees, switching, cleaning up</figcaption>
 </figure>
 
 ## Context: git worktrees
@@ -79,7 +77,7 @@ git branch -d feat{% end %}</td>
 
 > Expand into the more advanced commands as needed
 
-- **[Lifecycle hooks](@/hook.md)** — run commands on create, pre-merge, post-merge
+- **[Hooks](@/hook.md)** — run commands on create, pre-merge, post-merge, etc
 - **[LLM commit messages](@/llm-commits.md)** — generate commit messages from diffs via [llm](https://llm.datasette.io/)
 - **[Merge workflow](@/merge.md)** — squash, rebase, merge, clean up in one command
 - ...and **[lots more](#next-steps)**
