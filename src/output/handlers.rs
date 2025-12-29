@@ -447,7 +447,6 @@ fn build_remove_command(worktree_path: &std::path::Path, branch_to_delete: Optio
 /// Approval is handled at the gate (command entry point), not here.
 pub fn handle_remove_output(
     result: &RemoveResult,
-    branch: Option<&str>,
     background: bool,
     verify: bool,
 ) -> anyhow::Result<()> {
@@ -468,7 +467,6 @@ pub fn handle_remove_output(
             *deletion_mode,
             target_branch.as_deref(),
             *integration_reason,
-            branch,
             background,
             verify,
         ),
@@ -562,7 +560,6 @@ fn handle_removed_worktree_output(
     deletion_mode: BranchDeletionMode,
     target_branch: Option<&str>,
     pre_computed_integration: Option<IntegrationReason>,
-    branch: Option<&str>,
     background: bool,
     verify: bool,
 ) -> anyhow::Result<()> {
@@ -766,10 +763,6 @@ fn handle_removed_worktree_output(
             outcome,
             BranchDeletionOutcome::ForceDeleted | BranchDeletionOutcome::Integrated(_)
         );
-        // Use branch if provided, otherwise fall back to branch_name (which is always
-        // Some here since we returned early for detached HEAD case on line 565)
-        let branch_display = branch.unwrap_or(branch_name);
-
         // Message structure parallel to background mode:
         // - Branch deleted (integrated/force): "worktree & branch (reason)"
         // - Branch kept (any reason): "worktree" + hint (if relevant)
@@ -778,11 +771,11 @@ fn handle_removed_worktree_output(
             let flag_text = &flag_note.text;
             let flag_after = flag_note.after_green();
             cformat!(
-                "<green>✓ Removed <bold>{branch_display}</> worktree & branch{flag_text}</>{flag_after}"
+                "<green>✓ Removed <bold>{branch_name}</> worktree & branch{flag_text}</>{flag_after}"
             )
         } else {
             // Branch kept: hint will explain why (integrated+flag, unmerged, or unmerged+flag)
-            cformat!("<green>✓ Removed <bold>{branch_display}</> worktree</>")
+            cformat!("<green>✓ Removed <bold>{branch_name}</> worktree</>")
         };
         super::print(FormattedMessage::new(msg))?;
 

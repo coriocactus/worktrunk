@@ -1384,7 +1384,7 @@ fn main() {
                         .context("Failed to remove worktree")?;
                     // Approval was handled at the gate
                     // Post-switch hooks are spawned internally by handle_remove_output
-                    handle_remove_output(&result, None, background, verify)
+                    handle_remove_output(&result, background, verify)
                 } else {
                     use worktrunk::git::ResolvedWorktree;
                     // When removing multiple worktrees, we need to handle the current worktree last
@@ -1433,12 +1433,7 @@ fn main() {
                                 background,
                             ) {
                                 Ok(result) => {
-                                    handle_remove_output(
-                                        &result,
-                                        Some(branch_name),
-                                        background,
-                                        verify,
-                                    )?;
+                                    handle_remove_output(&result, background, verify)?;
                                 }
                                 Err(e) => {
                                     output::print(e.to_string())?;
@@ -1449,7 +1444,7 @@ fn main() {
                             // Non-current worktree is detached - remove by path (no branch to delete)
                             match handle_remove_by_path(path, None, background) {
                                 Ok(result) => {
-                                    handle_remove_output(&result, None, background, verify)?;
+                                    handle_remove_output(&result, background, verify)?;
                                 }
                                 Err(e) => {
                                     output::print(e.to_string())?;
@@ -1463,7 +1458,7 @@ fn main() {
                     for branch in &branch_only {
                         match handle_remove(branch, !delete_branch, force_delete, background) {
                             Ok(result) => {
-                                handle_remove_output(&result, Some(branch), background, verify)?;
+                                handle_remove_output(&result, background, verify)?;
                             }
                             Err(e) => {
                                 output::print(e.to_string())?;
@@ -1474,15 +1469,10 @@ fn main() {
 
                     // Remove current worktree last (if it was in the list)
                     // Post-switch hooks are spawned internally by handle_remove_output
-                    if let Some((_path, branch)) = current {
+                    if let Some((_path, _branch)) = current {
                         match handle_remove_current(!delete_branch, force_delete, background) {
                             Ok(result) => {
-                                handle_remove_output(
-                                    &result,
-                                    branch.as_deref(),
-                                    background,
-                                    verify,
-                                )?;
+                                handle_remove_output(&result, background, verify)?;
                             }
                             Err(e) => {
                                 output::print(e.to_string())?;
