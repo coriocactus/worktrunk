@@ -61,7 +61,7 @@ Git worktrees solve this, but the UX is terrible!
 
 To create & navigate to a new worktree in git:
 
-git worktree add -b feat ../repo.feat && cd ../repo.feat
+𝚐𝚒𝚝 𝚠𝚘𝚛𝚔𝚝𝚛𝚎𝚎 𝚊𝚍𝚍 -𝚋 𝚏𝚎𝚊𝚝 ../𝚛𝚎𝚙𝚘.𝚏𝚎𝚊𝚝 && 𝚌𝚍 ../𝚛𝚎𝚙𝚘.𝚏𝚎𝚊𝚝
 
 ...even for a simple command, we need to type the name three times.
 
@@ -76,15 +76,15 @@ https://github.com/max-sixty/worktrunk
 **5/** (99 chars)
 In contrast to the git command, the Worktrunk command to create a new worktree is short (& aliasable):
 
-wt switch --create api
+𝚠𝚝 𝚜𝚠𝚒𝚝𝚌𝚑 --𝚌𝚛𝚎𝚊𝚝𝚎 𝚊𝚙𝚒
 
 [wt-switch.gif — creating and switching between worktrees]
 
 **6/** (105 chars)
 Worktrunk's other core commands:
 
-wt list: see all worktrees with status
-wt remove: delete a worktree
+𝚠𝚝 𝚕𝚒𝚜𝚝: see all worktrees with status
+𝚠𝚝 𝚛𝚎𝚖𝚘𝚟𝚎: delete a worktree
 
 [wt-list-remove.gif — list then remove]
 
@@ -104,24 +104,24 @@ Hooks: Post-start hooks run after creating a worktree: install deps, copy caches
      - Thread may be too long; these are weak candidates for cutting -->
 
 **8/** (235 chars)
-wt list renders in ~50ms, then fills in details (CI status, diff stats) as they become available. Can also list branches with wt list --branches.
+𝚠𝚝 𝚕𝚒𝚜𝚝 renders in ~50ms, then fills in details (CI status, diff stats) as they become available. Can also list branches with 𝚠𝚝 𝚕𝚒𝚜𝚝 --𝚋𝚛𝚊𝚗𝚌𝚑𝚎𝚜.
 
-wt list --full: CI status as clickable dots. Green/blue/red. Clicking opens the PR.
+𝚠𝚝 𝚕𝚒𝚜𝚝 --𝚏𝚞𝚕𝚕: CI status as clickable dots. Green/blue/red. Clicking opens the PR.
 
 [wt-list.gif — showing progressive rendering]
 
 **9/** (45 chars)
-wt select: fuzzy picker across all branches.
+𝚠𝚝 𝚜𝚎𝚕𝚎𝚌𝚝: fuzzy picker across all branches.
 
 [wt-select.gif]
 
 **10/** (99 chars)
-LLM Commits: When running wt step commit or wt merge, worktrunk can have an LLM write the commit message, with a customizable template.
+LLM Commits: When running 𝚠𝚝 𝚜𝚝𝚎𝚙 𝚌𝚘𝚖𝚖𝚒𝚝 or 𝚠𝚝 𝚖𝚎𝚛𝚐𝚎, worktrunk can have an LLM write the commit message, with a customizable template.
 
 [wt-commit.gif — git diff then wt step commit]
 
 **11/** (78 chars)
-wt merge: squash, rebase, merge, remove worktree, delete branch, in one command.
+𝚠𝚝 𝚖𝚎𝚛𝚐𝚎: squash, rebase, merge, remove worktree, delete branch, in one command.
 
 [wt-merge.gif]
 
@@ -131,7 +131,7 @@ wt merge: squash, rebase, merge, remove worktree, delete branch, in one command.
 [screenshot of Claude Code with worktrunk statusline]
 
 **13/** (168 chars)
-Putting it all together: parallel Claude Code agents in Zellij tabs, each in its own worktree. The full lifecycle: wt switch, wt list, wt select, wt merge.
+Putting it all together: parallel Claude Code agents in Zellij tabs, each in its own worktree. The full lifecycle: 𝚠𝚝 𝚜𝚠𝚒𝚝𝚌𝚑, 𝚠𝚝 𝚕𝚒𝚜𝚝, 𝚠𝚝 𝚜𝚎𝚕𝚎𝚌𝚝, 𝚠𝚝 𝚖𝚎𝚛𝚐𝚎.
 
 [wt-zellij-omnibus.gif]
 
@@ -141,8 +141,8 @@ Putting it all together: parallel Claude Code agents in Zellij tabs, each in its
 **14/** (167 chars)
 To install:
 
-brew install max-sixty/worktrunk/wt
-wt config shell install
+𝚋𝚛𝚎𝚠 𝚒𝚗𝚜𝚝𝚊𝚕𝚕 𝚖𝚊𝚡-𝚜𝚒𝚡𝚝𝚢/𝚠𝚘𝚛𝚔𝚝𝚛𝚞𝚗𝚔/𝚠𝚝
+𝚠𝚝 𝚌𝚘𝚗𝚏𝚒𝚐 𝚜𝚑𝚎𝚕𝚕 𝚒𝚗𝚜𝚝𝚊𝚕𝚕
 
 Feedback welcome. Open an issue or reply here.
 
