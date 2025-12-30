@@ -435,7 +435,7 @@ impl std::fmt::Display for GitError {
                     "{}\n{}",
                     error_message("Cannot prompt for approval in non-interactive environment"),
                     hint_message(cformat!(
-                        "To skip prompts in CI/CD, add <bright-black>--force</>; to pre-approve commands, run <bright-black>{approvals_cmd}</>"
+                        "To skip prompts in CI/CD, add <bright-black>--yes</>; to pre-approve commands, run <bright-black>{approvals_cmd}</>"
                     ))
                 )
             }
@@ -1050,7 +1050,7 @@ mod tests {
         let err = GitError::NotInteractive;
         let display = err.to_string();
         assert!(display.contains("non-interactive"));
-        assert!(display.contains("--force"));
+        assert!(display.contains("--yes"));
     }
 
     #[test]
