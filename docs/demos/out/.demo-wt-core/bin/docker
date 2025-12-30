@@ -1,5 +1,0 @@
-#!/bin/bash
-if [[ "$1" == "compose" && "$2" == "up" ]]; then
-    echo "[+] Running 1/1"
-    echo " ✔ Container postgres  Started"
-fi

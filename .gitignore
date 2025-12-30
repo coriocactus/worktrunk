@@ -1,5 +1,6 @@
 /target
 docs/static/assets/
+docs/demos/out/
 
 # Lychee link checker cache
 .lycheecache

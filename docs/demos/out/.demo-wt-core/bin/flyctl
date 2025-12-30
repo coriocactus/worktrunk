@@ -1,4 +1,0 @@
-#!/bin/bash
-if [[ "$1" == "scale" ]]; then
-    echo "Scaling app to 0 machines"
-fi

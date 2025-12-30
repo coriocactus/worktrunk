@@ -1,2 +1,0 @@
-[projects."/Users/maximilian/workspace/worktrunk.demo-background/docs/demos/out/.demo-wt-core/remote"]
-approved-commands = ['npm run dev -- --port {{ branch | hash_port }}', 'flyctl scale count 0']
