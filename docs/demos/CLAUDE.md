@@ -34,6 +34,22 @@ Regenerate a single demo:
 | docs | wt-core, wt-merge, wt-select, wt-zellij-omnibus |
 | twitter | wt-switch, wt-statusline, wt-list, wt-list-remove, wt-hooks, wt-devserver, wt-commit, wt-merge, wt-select-short, wt-core, wt-zellij, wt-zellij-omnibus |
 
+## Publishing demos
+
+After building, publish to the assets repo:
+
+```bash
+./dev/publish-assets
+```
+
+This copies `docs/demos/out/*.gif` to the `worktrunk-assets` repo (sibling directory), commits, and pushes. The script clones the repo via `gh` if missing.
+
+For local preview, fetch published assets:
+
+```bash
+./dev/fetch-assets   # Downloads to docs/static/assets/ (gitignored)
+```
+
 ## vhs-keystrokes setup (REQUIRED for wt-select demos)
 
 The `wt-select` demos require a custom VHS fork with keystroke overlay. **Claude must build this binary before regenerating demos.**
