@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.0
+
+### Improved
+
+- **Separate `--yes` and `--force` flags**: `--force/-f` renamed to `--yes/-y` for skipping prompts (all commands). New `--force/-f` on `wt remove` forces removal of worktrees with untracked files (build artifacts, node_modules, etc.). (Breaking: `--force` no longer skips prompts; use `--yes`)
+- **Clearer branch deletion output**: `wt remove` output now shows "worktree & branch" when the branch is deleted, or plain "worktree" with a hint when kept. Makes scanning output for branch fate easier.
+- **`post-switch` hook on remove**: When `wt remove` switches to the main worktree, post-switch hooks now run in the destination.
+- **Allow merge commits by default**: `wt step push` no longer rejects history with merge commits. Removed `--allow-merge-commits` flag. (Breaking: flag removed)
+
+### Fixed
+
+- **Orphan branches in `wt list`**: Branches with no common ancestor with the default branch no longer cause errors.
+- **Remote branch filtering**: `wt list --remotes` now filters out branches that are tracked as upstreams, not just branches with worktrees.
+- **Error message spacing**: Reduced double-newline spacing in error messages.
+
 ## 0.7.0
 
 ### Improved
