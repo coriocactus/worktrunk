@@ -593,10 +593,10 @@ fn enhance_and_exit_error(err: clap::Error) -> ! {
         && (err_str.contains("wt switch") || err_str.contains("wt.exe switch"));
     if is_switch_missing_arg {
         eprint!("{}", err.render().ansi());
+        eprintln!();
         ceprintln!("<green,bold>Quick switches:</>");
         ceprintln!("  <cyan,bold>wt switch ^</>    default branch's worktree");
         ceprintln!("  <cyan,bold>wt switch -</>    previous worktree");
-        ceprintln!("  <cyan,bold>wt switch @</>    current branch's worktree");
         ceprintln!("  <cyan,bold>wt select</>      interactive picker");
         process::exit(2);
     }

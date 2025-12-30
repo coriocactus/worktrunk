@@ -35,8 +35,8 @@ exit_code: 2
 [1m[32mUsage:[0m [1m[36mwt switch[0m [36m<BRANCH>[0m [1m[36m[--[0m [36m<EXECUTE_ARGS>...[0m[1m[36m]
 
 For more information, try '[1m[36m--help[0m'.
+
 [32m[1mQuick switches:[39m[22m
   [36m[1mwt switch ^[39m[22m    default branch's worktree
   [36m[1mwt switch -[39m[22m    previous worktree
-  [36m[1mwt switch @[39m[22m    current branch's worktree
   [36m[1mwt select[39m[22m      interactive picker
