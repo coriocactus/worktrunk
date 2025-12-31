@@ -5,7 +5,7 @@ Usage:
     ./build docs                    # Build doc site demos (light + dark, 1600x900)
     ./build twitter                 # Build Twitter demos (light only, 1200x700)
     ./build docs --only wt-merge    # Build specific demo for docs
-    ./build twitter --only wt-zellij --shell  # Debug shell for Twitter demo
+    ./build twitter --only wt-zellij-omnibus --shell  # Debug shell for Twitter demo
 """
 
 import argparse
@@ -172,41 +172,6 @@ fi
     npm_mock.chmod(0o755)
 
 
-def prepare_zellij(env: DemoEnv):
-    """Setup for wt-zellij demo - multiple Claude Code instances in Zellij tabs."""
-    prepare_demo_repo(env, REPO_ROOT, hooks_config='')
-
-    # Zellij + Fish configs
-    setup_zellij_config(env)
-    setup_fish_config(env, REPO_ROOT, wsl_create=False)  # No --create, worktrees pre-created
-
-    # Claude Code config with pre-approved tools
-    worktree_branches = ["api", "billing", "auth", "metrics"]
-    worktree_paths = [str(env.repo)] + [
-        str(env.work_base / f"acme.{branch}") for branch in worktree_branches
-    ]
-    allowed_tools = ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "Task", "TodoWrite"]
-    setup_claude_code_config(env, worktree_paths, allowed_tools)
-
-    # Pre-create ALL worktrees before recording
-    demo_env = {**os.environ, "HOME": str(env.home)}
-    for branch in worktree_branches:
-        subprocess.run(
-            ["wt", "switch", "--create", branch],
-            cwd=str(env.repo),
-            env=demo_env,
-            capture_output=True
-        )
-
-    # Add uncommitted changes to api worktree for git diff demo
-    api_lib = env.work_base / "acme.api" / "src" / "lib.rs"
-    if api_lib.exists():
-        content = api_lib.read_text()
-        content = content.replace('pub fn add(', '// TODO: Add input validation\npub fn add(')
-        content += '\npub fn validate_input(n: i32) -> bool {\n    n >= 0 && n < 1000\n}\n'
-        api_lib.write_text(content)
-
-
 def prepare_zellij_omnibus(env: DemoEnv):
     """Setup for wt-zellij-omnibus demo - comprehensive showcase."""
     hooks_config = '''[post-start]
@@ -308,7 +273,6 @@ TWITTER_DEMOS = [
     ("wt-merge.tape", "wt-merge", prepare_merge_only, "vhs", None),
     ("wt-select-short.tape", "wt-select-short", prepare_basic, "vhs-keystrokes", None),
     ("wt-core.tape", "wt-core", prepare_with_hooks, "vhs", None),
-    ("wt-zellij.tape", "wt-zellij", prepare_zellij, "vhs", SIZE_ZELLIJ),
     ("wt-zellij-omnibus.tape", "wt-zellij-omnibus", prepare_zellij_omnibus, "vhs", SIZE_ZELLIJ),
 ]
 
@@ -361,7 +325,7 @@ Examples:
   ./build twitter                 Build all Twitter demos (light only)
   ./build docs --only wt-merge    Build specific demo for docs
   ./build docs --text             Build text output for non-interactive demos
-  ./build twitter --only wt-zellij --shell   Debug shell for demo
+  ./build twitter --only wt-zellij-omnibus --shell   Debug shell for demo
 """
     )
     parser.add_argument("target", choices=["docs", "twitter"],
