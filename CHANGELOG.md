@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.8.4
+
+### Improved
+
+- **Shell integration detection**: More robust detection of `git wt` (space) vs `git-wt` patterns. `wt config show` now displays line numbers for detected shell integration.
+- **Windows `wt select` error**: Shows a helpful error message with alternatives instead of "unrecognized subcommand".
+
+### Fixed
+
+- **Markdown table rendering**: Escaped pipe characters (`\|`) in help output now render correctly.
+- **Dim styling on wrapped lines**: Dim text attribute now preserved on continuation lines when text wraps.
+- **Path occupied hint**: Fixed tilde expansion issue where `~/...` paths didn't work in shell commands.
+
+### Documentation
+
+- **Hook design guide**: Added comprehensive guide for designing hooks.
+- **Command docs**: Added `wt config show` to command documentation.
+- **Windows paths**: Documented MSYS2 auto path conversion for Windows shell integration.
+
+### Internal
+
+- **Output system**: Consolidated output functions, removed redundant aliases.
+- **Zsh compinit**: Improved handling of "insecure directories" warning in tests.
+
 ## 0.8.3
 
 ### Improved
